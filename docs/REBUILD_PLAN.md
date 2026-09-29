@@ -13,6 +13,23 @@ Decisions (2026-09-29):
 
 The core rule for the controller: **the code decides where the skater goes; physics only answers "what is under me?"**
 
+## Status (2026-09-29)
+
+| Phase | State |
+|---|---|
+| 1. Foundation | **Done.** `SkateTuning` + F3 panel, greybox level (`scenes/greybox.tscn`), 16 feel tests (`scenes/dev_feel.tscn`), all passing |
+| 2. Controller | **Done, awaiting Austin's feel sign-off.** Momentum, curb-safe floor probe + four-wheel board normal, vert lock + auto 180 + transfer, landing assist / sketchy / fakie / revert, apex hang + vert float, Curve3D rails from Blender curves + rail linking + rail magnet, chase camera. The tile-seam fix turned out not to be needed (seams were already smooth) |
+| 3. Realistic look | **Proof done** (`scenes/looktest.tscn`, also in the web build at `?scene=looktest`). Still to do: bake per chunk for big levels, material variety and wear, sky/exposure per event, performance numbers on real hardware |
+| 4. Characters | Not started. Needs a go-ahead to install MPFB2 into Blender (extension + CC0 asset packs) |
+| 5. First level + event | Not started |
+
+Decisions made while building (they override the text below where it differs):
+
+- **Transfer is a button, not a stick direction.** Players hold forward while pumping up a ramp anyway, so "stick into the wall + pop" would have broken the vert lock for everyone. Holding **manual (M)** as you leave the lip transfers; that is also Tony Hawk's spine-transfer / revert button. Riding across a face at more than 50 degrees skips the lock (hips).
+- **Vert airs float:** gravity x0.55 while vert-locked, and lip pops are scaled x0.55 to match (a 3 m quarter gives ~1.1 s of air; a lip ollie on the big quarter peaks ~2.4 m above the coping).
+- **Lighting is baked in Blender (option B).** Godot 4.7 has no scriptable or command-line LightmapGI bake (only the editor button), so option A would break the scripted pipeline. Cycles bakes sky (sun disc clipped out of the HDRI) + the sun's bounce; the live sun supplies direct light and shadows; `baked_pbr.gdshader` disables ambient on baked surfaces so the sky is not counted twice. Moving things (skater, metal) use the HDRI sky as ambient. Blender's and Godot's panorama mappings differ by a quarter turn (`RealEnv.SKY_YAW`).
+- **Sky drawn brighter than it lights** (`background_energy_multiplier` 1.7, exposure 0.9): matches photos of sunny parks without changing the lighting.
+
 ---
 
 ## What stays, what gets replaced
