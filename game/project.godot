@@ -66,3 +66,7 @@ focus_pos={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }
+haze_depth={
+"type": "float",
+"value": 20.0
+}

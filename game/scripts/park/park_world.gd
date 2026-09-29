@@ -60,6 +60,7 @@ func _ready() -> void:
 
 	add_child(PostFx.new())
 	add_child(AmbientLife.new())
+	add_child(WorldLife.new(level))
 	hud = Hud.new()
 	add_child(hud)
 	hud.set_best(int(Game.best.get(LEVEL_ID, {}).get("score", 0)))

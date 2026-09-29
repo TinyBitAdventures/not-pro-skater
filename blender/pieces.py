@@ -26,6 +26,16 @@ PALETTE = {
     "Road": "#59637a", "Line": "#f6f1d0", "Dirt": "#a7794f", "Brick": "#d9694f", "Roof": "#b5533c",
     "RoofB": "#4a6fa5", "Cream": "#f3e3bb", "Sky": "#8fd3ff", "Bin": "#3fc66d", "Flower": "#ff7eb6",
     "Collision": "#ff00ff",
+    # --- dressing (blender/dressing.py) ---
+    "Paint_Red": "#ff4d5e", "Paint_Blue": "#3d8bff", "Paint_Yellow": "#ffd23f", "Paint_White": "#ffffff",
+    "Paint_Teal": "#19c4b4", "Paint_Orange": "#ff8a3d", "Paint_Pink": "#ff7eb6", "Paint_Purple": "#8a5cf0",
+    "Paint_Ink": "#2a3050",
+    "Stone": "#a9b3c2", "StoneDk": "#8792a5", "Lily": "#3fae5a", "Reed": "#8bbf4e", "Cattail": "#7a4a2a", "Sand": "#f1d9a0",
+    "HillNear": "#9db8dc", "HillMid": "#adc4e3", "HillFar": "#c0d3ea", "HillSnow": "#f4f8ff",
+    "BldgA": "#b4c4e0", "BldgB": "#c6b8dc", "BldgC": "#a9d0d8", "BldgD": "#d8c8bc", "Cloud": "#ffffff",
+    "CarBody": "#ff5a5a", "CarBlue": "#3d9bff", "CarYellow": "#ffd23f", "CarTeal": "#1fc2b0", "CarWhite": "#f4f7fb",
+    "CarOrange": "#ff8a3d", "CarGreen": "#3fc66d", "CarPurple": "#8a5cf0", "CarPink": "#ff7eb6", "Rubber": "#d9825f",
+    "LeafAutumn": "#ff9a3d", "LeafRed": "#e8503a", "Birch": "#f1eee4",
 }
 
 
@@ -277,6 +287,34 @@ def tree(root, variety=0, seed=0, s=1.0):
             ico(uname("Leaves"), (math.cos(a) * d, math.sin(a) * d, (2.75 + rnd.uniform(-0.2, 0.5)) * s),
                 (1.0 + rnd.uniform(-0.15, 0.2)) * s, M(cols[i % 3]), squash=(1, 1, 0.85), parent=root)
         ico(uname("Leaves"), (0.2 * s, 0.1 * s, 4.15 * s), 1.05 * s, M("LeafB"), squash=(1, 1, 0.85), parent=root)
+    elif variety == 2:  # birch: white trunk with dark bars, airy light leaves
+        cyl_z(uname("Trunk"), (0, 0, 0), 3.0 * s, 0.17 * s, M("Birch"), r1=0.12 * s, seg=6, smooth=False, parent=root)
+        for k in range(5):
+            a = k * 1.3 + rnd.uniform(0, 0.5)
+            z = (0.5 + k * 0.5) * s
+            box(uname("BirchMark"), (0.1 * s, 0.05 * s, 0.13 * s), (math.cos(a) * 0.16 * s, math.sin(a) * 0.16 * s, z),
+                M("Ink"), parent=root).rotation_euler = (0, 0, a)
+        for (dx, dy, z, r, c) in ((0, 0, 3.5, 1.15, "LeafB"), (0.65, 0.3, 2.95, 0.8, "Leaf"), (-0.55, -0.3, 3.95, 0.85, "LeafB"),
+                                  (-0.5, 0.5, 3.0, 0.7, "Leaf")):
+            ico(uname("Leaves"), (dx * s, dy * s, z * s), r * s, M(c), squash=(1, 1, 0.9), parent=root)
+    elif variety == 3:  # autumn: orange / red / yellow crown
+        cyl_z(uname("Trunk"), (0, 0, 0), 1.9 * s, 0.26 * s, M("Trunk"), r1=0.18 * s, seg=7, smooth=False, parent=root)
+        ico(uname("Leaves"), (0, 0, 3.2 * s), 1.7 * s, M("LeafAutumn"), squash=(1, 1, 0.85), parent=root)
+        cols = ["LeafRed", "Yellow", "LeafAutumn", "LeafRed"]
+        for i in range(4):
+            a = rnd.uniform(0, 2 * math.pi) + i * math.pi / 2
+            ico(uname("Leaves"), (math.cos(a) * 1.05 * s, math.sin(a) * 1.05 * s, (2.75 + rnd.uniform(-0.2, 0.5)) * s),
+                (1.0 + rnd.uniform(-0.15, 0.2)) * s, M(cols[i]), squash=(1, 1, 0.85), parent=root)
+        ico(uname("Leaves"), (0.2 * s, 0.1 * s, 4.15 * s), 1.05 * s, M("Yellow"), squash=(1, 1, 0.85), parent=root)
+    elif variety == 4:  # poplar: tall and slim
+        cyl_z(uname("Trunk"), (0, 0, 0), 1.6 * s, 0.2 * s, M("Trunk"), seg=6, smooth=False, parent=root)
+        for i, (z, r, c) in enumerate(((2.3, 0.95, "LeafC"), (3.3, 0.9, "Leaf"), (4.3, 0.75, "LeafC"), (5.2, 0.5, "Leaf"))):
+            ico(uname("Leaves"), (0, 0, z * s), r * s, M(c), squash=(1, 1, 1.5), parent=root)
+    elif variety == 5:  # chunky: stacked blocks topped with a cone (matches the reference's block trees)
+        cyl_z(uname("Trunk"), (0, 0, 0), 1.5 * s, 0.24 * s, M("Trunk"), seg=6, smooth=False, parent=root)
+        for k, (sz, z, c, rot) in enumerate(((2.6, 1.9, "Leaf", 0.0), (2.0, 2.85, "LeafB", 0.7), (1.4, 3.65, "LeafC", 0.0))):
+            box(uname("Blocks"), (sz * s, sz * s, 0.95 * s), (0, 0, z * s), M(c), parent=root).rotation_euler = (0, 0, rot)
+        cyl_between(uname("Cone"), (0, 0, 4.1 * s), (0, 0, 5.4 * s), 0.75 * s, M("Pine"), r1=0.02, seg=6, smooth=False, parent=root)
     else:          # pine
         cyl_z(uname("Trunk"), (0, 0, 0), 1.3 * s, 0.22 * s, M("Trunk"), seg=6, smooth=False, parent=root)
         for i, (z, r, h) in enumerate(((0.9, 1.7, 1.9), (2.1, 1.35, 1.8), (3.3, 0.95, 1.7))):
@@ -382,15 +420,72 @@ def kiosk(root, w=7.0, d=5.0, h=3.4, wall="Cream", trim="Teal", name="SKATE SHOP
     label(root, name, (0, y + 0.2, h - 0.45), size=0.7)
 
 
-def house(root, w=9.0, d=8.0, h=5.0, wall="Cream", roof="Roof", seed=0):
+def house(root, w=9.0, d=8.0, h=5.0, wall="Cream", roof="Roof", seed=0, chimney=None, garage=None, porch=None,
+          frames=None, shutters=None, picket=None):
+    """Suburban house, front = local +Y. The extras (None = decided by `seed`, so every house is different but
+    deterministic): chimney, attached garage + driveway, porch with steps, white window frames, shutters, picket fence."""
     rnd = random.Random(seed)
     box(uname("House"), (w, d, h), (0, 0, h / 2), M(wall), parent=root)
     loft_box(uname("HouseRoof"), (w + 1.0, d + 1.0), (w * 0.3, d * 0.5), h, h + 2.0, M(roof), parent=root)
-    for i in range(3):
-        sx = -w / 2 + w * (i + 0.5) / 3
+    win_x = [-w / 2 + w * (i + 0.5) / 3 for i in range(3)]
+    for sx in win_x:
         box(uname("HouseWin"), (1.2, 0.06, 1.2), (sx, d / 2 + 0.02, h * 0.62), M("Window"), parent=root)
-    box(uname("HouseDoor"), (1.0, 0.06, 2.0), (rnd.choice([-1, 1]) * 1.2, d / 2 + 0.02, 1.0), M("Blue"), parent=root)
+    dx = rnd.choice([-1, 1]) * 1.2
+    box(uname("HouseDoor"), (1.0, 0.06, 2.0), (dx, d / 2 + 0.02, 1.0), M("Blue"), parent=root)
     col_box(uname("House"), (w, d, h + 1), (0, 0, (h + 1) / 2), parent=root)
+
+    ex = random.Random(seed * 7919 + 101)      # separate stream: the layout above never changes
+
+    def pick(v, p):
+        r = ex.random()
+        return (r < p) if v is None else bool(v)
+
+    chimney, garage, porch = pick(chimney, 0.5), pick(garage, 0.22), pick(porch, 0.4)
+    frames, shutters, picket = pick(frames, 0.7), pick(shutters, 0.35), pick(picket, 0.3)
+    shut_c = ex.choice(["Green", "Blue", "Red", "Teal"])
+    y = d / 2
+    if frames:
+        for sx in win_x:
+            box(uname("WinFrame"), (1.5, 0.05, 1.5), (sx, y + 0.0, h * 0.62), M("White"), parent=root)
+            box(uname("WinSill"), (1.55, 0.2, 0.08), (sx, y + 0.06, h * 0.62 - 0.66), M("White"), parent=root)
+    if shutters:
+        for sx in win_x:
+            for sg in (-1, 1):
+                box(uname("Shutter"), (0.3, 0.05, 1.3), (sx + sg * 0.92, y + 0.03, h * 0.62), M(shut_c), parent=root)
+    if chimney:
+        cx = (w * 0.28) * ex.choice([-1, 1])
+        box(uname("Chimney"), (0.75, 0.75, 2.3), (cx, -d * 0.12, h + 1.65), M("Brick"), parent=root)
+        box(uname("ChimneyCap"), (0.95, 0.95, 0.14), (cx, -d * 0.12, h + 2.85), M("ConcreteDk"), parent=root)
+    if porch:
+        box(uname("PorchRoof"), (2.5, 1.5, 0.14), (dx, y + 0.8, 2.55), M(roof), parent=root)
+        for sg in (-1, 1):
+            cyl_z(uname("PorchPost"), (dx + sg * 1.1, y + 1.45, 0), 2.5, 0.07, M("White"), seg=4, smooth=False, parent=root)
+        box(uname("PorchStep"), (2.5, 1.4, 0.16), (dx, y + 0.7, 0.08), M("Curb"), parent=root)
+    if garage:
+        sg = -1 if dx > 0 else 1
+        gw = 2.8
+        gx = sg * (w / 2 + gw / 2 - 0.15)
+        gd = d * 0.75
+        gy = -d / 2 + gd / 2
+        box(uname("Garage"), (gw, gd, 3.0), (gx, gy, 1.5), M(wall), parent=root)
+        box(uname("GarageRoof"), (gw + 0.4, gd + 0.4, 0.2), (gx, gy, 3.1), M(roof), parent=root)
+        gf = gy + gd / 2
+        box(uname("GarageDoor"), (gw - 0.5, 0.08, 2.3), (gx, gf + 0.02, 1.15), M("White"), parent=root)
+        for zz in (0.7, 1.4, 2.0):
+            box(uname("GarageSlat"), (gw - 0.5, 0.09, 0.07), (gx, gf + 0.03, zz), M("MetalDk"), parent=root)
+        quad(uname("Driveway"), (gx - gw / 2 + 0.2, gf, 0.012), (gx + gw / 2 - 0.2, gf, 0.012),
+             (gx + gw / 2 - 0.2, gf + 7.0, 0.012), (gx - gw / 2 + 0.2, gf + 7.0, 0.012), M("PathB"), parent=root)
+    if picket:
+        fy = y + 2.8
+        x0, x1 = -w / 2 - 0.6, w / 2 + 0.6
+        for (a0, a1) in ((x0, dx - 0.9), (dx + 0.9, x1)):
+            if a1 - a0 < 0.6:
+                continue
+            box(uname("PicketBoards"), (a1 - a0, 0.05, 0.55), ((a0 + a1) / 2, fy, 0.4), M("White"), parent=root)
+            box(uname("PicketRail"), (a1 - a0, 0.09, 0.07), ((a0 + a1) / 2, fy, 0.72), M("Curb"), parent=root)
+            for k in range(max(2, int((a1 - a0) / 2.5) + 1)):
+                box(uname("PicketPost"), (0.12, 0.12, 0.85), (a0 + (a1 - a0) * k / max(1, int((a1 - a0) / 2.5)), fy, 0.42),
+                    M("Curb"), parent=root)
 
 
 def stair_set(root, n=6, rise=0.19, run=0.44, W=2.6):

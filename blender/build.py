@@ -1,7 +1,7 @@
 """
 Skate Park asset builder. Regenerates the level and character glTFs.
 
-    blender --background --factory-startup --python blender/build.py -- [park] [skater]
+    blender --background --factory-startup --python blender/build.py -- [park] [skater] [spectator] [car] [duck] [backdrop]
 
 With no targets it builds everything. Output goes to game/assets/{levels,models}.
 """
@@ -31,10 +31,47 @@ def build_skater():
     lib.export(os.path.join(GAME, "models", "skater.glb"))
 
 
+def build_spectator():
+    import spectator
+    lib.reset_scene()
+    spectator.build_person()
+    lib.export(os.path.join(GAME, "models", "spectator.glb"))
+
+
+def build_car():
+    import car
+    for variant in ("hatch", "van", "pickup"):
+        lib.reset_scene()
+        car.build_car(variant)
+        lib.export(os.path.join(GAME, "models", f"car_{variant}.glb"))
+
+
+def build_backdrop():
+    import backdrop
+    lib.reset_scene()
+    backdrop.build()
+    lib.export(os.path.join(GAME, "levels", "backdrop.glb"))
+
+
+def build_duck():
+    import duck
+    lib.reset_scene()
+    duck.build_duck()
+    lib.export(os.path.join(GAME, "models", "duck.glb"))
+
+
 if __name__ == "__main__":
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    targets = args or ["skater", "park"]
+    targets = args or ["skater", "spectator", "car", "duck", "backdrop", "park"]
     if "skater" in targets:
         build_skater()
+    if "spectator" in targets:
+        build_spectator()
+    if "car" in targets:
+        build_car()
+    if "duck" in targets:
+        build_duck()
+    if "backdrop" in targets:
+        build_backdrop()
     if "park" in targets:
         build_park()

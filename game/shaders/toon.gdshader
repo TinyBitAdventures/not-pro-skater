@@ -22,6 +22,8 @@ uniform float ao_height = 0.9;
 uniform float cloud_shadow = 0.13;
 uniform float grass_detail = 0.0;
 uniform float haze_amount = 1.0;
+uniform float bounce = 0.0;          // crowd: hop by UV.y metres with phase UV.x
+uniform float bounce_speed = 5.0;
 
 varying vec3 wpos;
 varying vec3 wnrm;
@@ -75,6 +77,9 @@ vec3 grass_marks(vec3 c, vec3 wp) {
 }
 
 void vertex() {
+	if (bounce > 0.0) {
+		VERTEX.y += abs(sin(TIME * bounce_speed + UV.x)) * UV.y;
+	}
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }

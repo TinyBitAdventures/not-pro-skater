@@ -10,11 +10,16 @@ uniform float width = 0.05;
 uniform float fade_enabled = 1.0;
 uniform float haze_amount = 1.0;
 uniform float width_scale = 1.0;
+uniform float bounce = 0.0;
+uniform float bounce_speed = 5.0;
 uniform vec4 haze_color : source_color = vec4(0.56, 0.83, 1.0, 1.0);
 
 varying vec3 wpos;
 
 void vertex() {
+	if (bounce > 0.0) {
+		VERTEX.y += abs(sin(TIME * bounce_speed + UV.x)) * UV.y;
+	}
 	vec3 n = COLOR.rgb * 2.0 - 1.0;
 	if (dot(n, n) < 0.01) {
 		n = NORMAL;

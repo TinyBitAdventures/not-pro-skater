@@ -18,7 +18,9 @@ First playable prototype: one level, a full skating model and the isometric toon
 ### Look and effects
 - Atmosphere: distance haze into the sky colour, drifting cloud shadows, contact shading on walls, grass tufts and flowers, a light colour grade with a vignette.
 - Rider effects: air trail, landing dust and shockwave ring, grind sparks, floating trick names; heavier rider outline; board graphics, star shirt, wrist guards, chin strap, mouth and eyebrows.
-- Life: birds circle the park (their shadows cross the plaza), leaves drift by.
+- Life: birds circle the park (their shadows cross the plaza), leaves drift by, ducks paddle on the pond, cars drive round the block, swings swing, and a crowd of 79 spectators (bleachers, benches, ramp decks, the plaza fence) hops and cheers. The crowd is baked into the level's merged meshes and hops in the vertex shader, so it costs a couple of dozen draws.
+- Dressing: painted plaza (starburst, block-letter SKATE, checker strips, chevrons, dashed ramp outlines), mural wall, bunting and balloons at the gates, two bleacher stands, a pond with lily pads and a jetty, a playground (swings, slide, sandbox, see-saw, climber), parked cars, street lamps, hydrants, mailboxes, bus stops, a food cart, more tree varieties (birch, autumn, poplar), flower patches and picnic blankets.
+- Depth cue: the far side of the screen fades slightly toward the sky. (A true isometric camera never sees a horizon, so distant hills are not shown.)
 - Fixed z-fighting flicker where the spoke paths meet the plaza.
 
 ### Audio

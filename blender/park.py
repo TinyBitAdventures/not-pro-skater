@@ -11,6 +11,7 @@ Coordinates: metres, origin at the plaza centre, +X east, +Y north (Blender). Go
 import math
 import random
 
+import dressing
 from lib import (box, col_box, cyl_z, empty, loft_box, mesh_obj, quad, revolve, uname)
 from pieces import (M, banner, bench, bin_, bush, fence, flat_rail, flower_bed, funbox, hedge, hip, house,
                     kicker, kiosk, ledge, lamp, manual_pad, mini_ramp, picnic, pyramid, quarter_pipe,
@@ -295,3 +296,4 @@ def build():
     planting()
     boundary_and_town()
     landmarks()
+    dressing.build(place)

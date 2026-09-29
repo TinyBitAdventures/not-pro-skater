@@ -3,13 +3,19 @@
 global uniform vec3 player_pos;
 global uniform vec3 view_dir;
 global uniform vec3 focus_pos;   // camera focus: distance haze is measured from here
+global uniform float haze_depth; // ground distance from the focus to the top edge of the screen
 
 // Atmospheric haze: far scenery (houses, hills, the ground plane's edge) melts into the sky colour.
 const float HAZE_START = 42.0;
 const float HAZE_END = 120.0;
 
 float haze_factor(vec3 wp) {
-	return smoothstep(HAZE_START, HAZE_END, length(wp.xz - focus_pos.xz));
+	// depth cue: the far side of the screen (top) fades gently toward the sky, like an atmospheric backdrop
+	vec2 fwd = normalize(view_dir.xz);
+	float depth = dot(wp.xz - focus_pos.xz, fwd);
+	float far_side = smoothstep(0.32 * haze_depth, 1.15 * haze_depth, depth) * 0.55;
+	float radial = smoothstep(HAZE_START, HAZE_END, length(wp.xz - focus_pos.xz));
+	return max(far_side, radial);
 }
 
 const float HOLE_R0 = 1.0;

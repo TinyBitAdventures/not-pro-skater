@@ -35,12 +35,19 @@ static var _outline_width: float = 0.05
 static var player_pos: Vector3 = Vector3(0.0, -100.0, 0.0)
 static var view_dir: Vector3 = Vector3(0.0, -0.577, -0.816)
 static var focus_pos: Vector3 = Vector3.ZERO
+static var haze_depth: float = 20.0
 
 
 static func set_player_pos(p: Vector3) -> void:
 	if p != player_pos:
 		player_pos = p
 		RenderingServer.global_shader_parameter_set("player_pos", p)
+
+
+static func set_haze_depth(d: float) -> void:
+	if absf(d - haze_depth) > 0.05:
+		haze_depth = d
+		RenderingServer.global_shader_parameter_set("haze_depth", d)
 
 
 static func set_focus_pos(p: Vector3) -> void:
@@ -55,15 +62,20 @@ static func set_view_dir(d: Vector3) -> void:
 		RenderingServer.global_shader_parameter_set("view_dir", d)
 
 
+const PAINT_STYLE: Dictionary = {"outline": false, "flat": true}
+
+
 static func style(mat_name: String) -> Dictionary:
+	if mat_name.begins_with("Paint_"):
+		return PAINT_STYLE
 	return STYLES.get(mat_name, {})
 
 
-static func material(mat_name: String, color: Color, fade: bool = true, with_outline: bool = true) -> Material:
-	var key: String = "%s|%s|%d|%d" % [mat_name, color.to_html(false), 1 if fade else 0, 1 if with_outline else 0]
+static func material(mat_name: String, color: Color, fade: bool = true, with_outline: bool = true, extra: Dictionary = {}) -> Material:
+	var key: String = "%s|%s|%d|%d|%s" % [mat_name, color.to_html(false), 1 if fade else 0, 1 if with_outline else 0, str(extra)]
 	if _cache.has(key):
 		return _cache[key]
-	var st: Dictionary = STYLES.get(mat_name, {})
+	var st: Dictionary = style(mat_name)
 	var m: ShaderMaterial = ShaderMaterial.new()
 	if st.get("fence", false):
 		m.shader = FENCE_SHADER
@@ -86,6 +98,8 @@ static func material(mat_name: String, color: Color, fade: bool = true, with_out
 	for k in st:
 		if k != "outline" and k != "flat":
 			m.set_shader_parameter(k, st[k])
+	for k in extra:
+		m.set_shader_parameter(k, extra[k])
 	if with_outline and st.get("outline", true):
 		var o: ShaderMaterial = ShaderMaterial.new()
 		o.shader = OUTLINE_SHADER
@@ -113,6 +127,21 @@ static func outline_material() -> ShaderMaterial:
 		_outline_shared.set_shader_parameter("width", _outline_width)
 		_outlines.append(_outline_shared)
 	return _outline_shared
+
+
+static var _outline_crowd: ShaderMaterial = null
+
+
+## Outline pass for the baked crowd: same as the level's, but it hops with the bodies.
+static func outline_material_crowd() -> ShaderMaterial:
+	if _outline_crowd == null:
+		_outline_crowd = ShaderMaterial.new()
+		_outline_crowd.shader = OUTLINE_SHADER
+		_outline_crowd.set_shader_parameter("fade_enabled", 1.0)
+		_outline_crowd.set_shader_parameter("width", _outline_width)
+		_outline_crowd.set_shader_parameter("bounce", 1.0)
+		_outlines.append(_outline_crowd)
+	return _outline_crowd
 
 
 ## Any opaque material will do for a SHADOWS_ONLY mesh: the shadow pass ignores colour.

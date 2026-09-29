@@ -93,5 +93,6 @@ func _apply() -> void:
 	var fwd: Vector3 = -b.z
 	Toon.set_view_dir(fwd)
 	Toon.set_focus_pos(focus)
+	Toon.set_haze_depth(ortho_size * 0.5 / sin(deg_to_rad(pitch_deg)))
 	var vp_h: float = float(get_window().size.y) if is_inside_tree() else 900.0
 	Toon.set_outline_width(outline_px * ortho_size / maxf(vp_h, 200.0))
