@@ -129,18 +129,53 @@ func sync_from(sk: Skater, dt: float) -> void:
 	var pos: Vector3 = sk.global_position + Vector3.UP * (Skater.CAPSULE_R + CAPSULE_TO_CONTACT) - n * Skater.CAPSULE_R
 	var basis_v: Basis = Basis(fwd.cross(vis_n), vis_n, -fwd)
 	_pose(sk, dt)
+	var xf: Transform3D = Transform3D(basis_v, pos)
 	if sk.state == Skater.State.BAIL:
-		var p: float = clampf(sk.bail_time / 0.9, 0.0, 1.0)
-		var e: float = 1.0 - pow(1.0 - p, 3.0)
-		var rise: float = sin(p * PI) * 0.35
-		var settle: float = 0.0
-		if sk.bail_time > Skater.BAIL_TIME - 0.45:
-			settle = clampf((sk.bail_time - (Skater.BAIL_TIME - 0.45)) / 0.45, 0.0, 1.0)
-		var ang: float = lerpf(e * TAU * 0.75, 0.0, settle)
-		basis_v = basis_v * Basis(Vector3.RIGHT, -ang * 0.999)
-		pos += vis_n * rise * (1.0 - settle)
-	global_transform = Transform3D(basis_v, pos)
+		xf = _tumble_transform(sk, basis_v, pos)
+	global_transform = xf
 	_apply_rig(sk)
+	if sk.state == Skater.State.BAIL:
+		_keep_above(pos)
+
+
+## Measure the posed rig and push it out along the surface normal until nothing is below the ground.
+func _keep_above(contact: Vector3) -> void:
+	var lowest: float = 0.0
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var m: MeshInstance3D = mi as MeshInstance3D
+		var bb: AABB = m.get_aabb()
+		var gx: Transform3D = m.global_transform
+		for k in 8:
+			var corner: Vector3 = bb.position + bb.size * Vector3(k & 1, (k >> 1) & 1, (k >> 2) & 1)
+			lowest = minf(lowest, ((gx * corner) - contact).dot(vis_n))
+	if lowest < 0.0:
+		global_position += vis_n * (-lowest)
+
+
+## Tumble around the body's centre and keep the lowest point resting on the surface, so the rider flops
+## on top of the ground instead of swinging through it. Ends by continuing the roll back onto the feet.
+func _tumble_transform(sk: Skater, basis_v: Basis, pos: Vector3) -> Transform3D:
+	const CENTER: Vector3 = Vector3(0, 0.55, 0)          # roughly the hips, in model space
+	const ABOVE: float = 1.15                            # head height above CENTER
+	const BELOW: float = 0.55                            # feet below CENTER
+	const THICK: float = 0.3                             # half thickness when lying down
+	var t: float = sk.bail_time
+	var get_up: float = 0.5
+	var roll_end: float = Skater.BAIL_TIME - get_up
+	var phi: float
+	if t < roll_end:
+		var p: float = clampf(t / 0.85, 0.0, 1.0)
+		phi = (1.0 - pow(1.0 - p, 3.0)) * TAU * 0.75      # 270 degrees: ends lying on the front
+	else:
+		var q: float = clampf((t - roll_end) / get_up, 0.0, 1.0)
+		phi = TAU * 0.75 + q * q * (3.0 - 2.0 * q) * TAU * 0.25
+	var c: float = cos(phi)
+	var extent: float = (BELOW if c > 0.0 else ABOVE) * absf(c) + THICK * absf(sin(phi))
+	var hop: float = sin(clampf(t / 0.7, 0.0, 1.0) * PI) * 0.4
+	var rot: Basis = Basis(Vector3.RIGHT, -phi)
+	var center_world: Vector3 = pos + vis_n * (extent + 0.03 + hop)
+	var m: Basis = basis_v * rot
+	return Transform3D(m, center_world - m * CENTER)
 
 
 func _pose(sk: Skater, dt: float) -> void:

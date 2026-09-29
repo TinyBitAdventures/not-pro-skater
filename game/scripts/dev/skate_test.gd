@@ -71,6 +71,10 @@ func _run() -> void:
 		await _test_grind()
 	if which in ["bail", "all"]:
 		await _test_bail()
+	if which == "lap":
+		await _test_lap()
+	if which == "bailclear":
+		await _test_bail_clear()
 	get_tree().quit()
 
 
@@ -122,3 +126,61 @@ func _test_bail() -> void:
 		if popped and sk.state == Skater.State.AIR:
 			sk.inp.move = Vector2(-1, 0))
 	print("[skate] bail done bails=%d state=%d" % [sk.stats["bails"], sk.state])
+
+
+func _test_lap() -> void:
+	await _setup(Transform3D.IDENTITY)
+	sk.place_at(level.spawn)
+	await get_tree().physics_frame
+	var lane: float = float(OS.get_environment("LANE")) if OS.get_environment("LANE") != "" else 36.0
+	var st: Dictionary = {"last_a": atan2(-sk.global_position.z, sk.global_position.x), "total": 0.0, "minr": 999.0, "maxr": 0.0, "t_done": -1.0}
+	await _run_for(40.0, 10.0, "lap", func(e: float) -> void:
+		var p: Vector3 = sk.global_position
+		var a: float = atan2(-p.z, p.x)
+		st["total"] += wrapf(a - st["last_a"], -PI, PI)
+		st["last_a"] = a
+		var r: float = Vector2(p.x, p.z).length()
+		st["minr"] = minf(st["minr"], r)
+		st["maxr"] = maxf(st["maxr"], r)
+		var ta: float = a + 0.16
+		var tgt: Vector3 = Vector3(lane * cos(ta), 0.0, -lane * sin(ta))
+		sk.inp.world_dir = (tgt - p).normalized()
+		if st["total"] >= TAU and st["t_done"] < 0.0:
+			st["t_done"] = e)
+	print("[skate] lap done lap_time=%.1f r=[%.1f, %.1f] bails=%d max_speed=%.1f" % [st["t_done"], st["minr"], st["maxr"], sk.stats["bails"], sk.stats["max_speed"]])
+
+
+## Bail with the visual on: the lowest point of the rider must never dip below the ground.
+func _test_bail_clear() -> void:
+	await _setup(_at(-8.0, 0.1, -3.0, Vector3(1, 0, 0)))
+	sk.queue_free()
+	await get_tree().process_frame
+	sk = Skater.new()
+	sk.scripted = true
+	sk.score = score
+	sk.grind_lines = level.grind_lines
+	add_child(sk)
+	sk.place_at(_at(-8.0, 0.1, -3.0, Vector3(1, 0, 0)))
+	var st: Dictionary = {"popped": false, "lowest": 999.0, "frames": 0}
+	await _run_for(4.5, 10.0, "bailclear", func(e: float) -> void:
+		sk.inp.world_dir = Vector3(1, 0, 0)
+		if not st["popped"] and e > 1.0:
+			sk.inp.ollie_pressed = true
+			st["popped"] = true
+		if st["popped"] and sk.state == Skater.State.AIR:
+			sk.inp.move = Vector2(-1, 0)
+		else:
+			sk.inp.move = Vector2.ZERO
+		if sk.state == Skater.State.BAIL and sk.visual != null:
+			for mi in sk.visual.model.find_children("*", "MeshInstance3D", true, false):
+				var m: MeshInstance3D = mi as MeshInstance3D
+				if m.get_parent().name == "Board":
+					continue
+				var bb: AABB = m.get_aabb()
+				for cx in [0.0, 1.0]:
+					for cy in [0.0, 1.0]:
+						for cz in [0.0, 1.0]:
+							var corner: Vector3 = m.global_transform * (bb.position + bb.size * Vector3(cx, cy, cz))
+							st["lowest"] = minf(st["lowest"], corner.y - (sk.global_position.y + 0.02))
+			st["frames"] += 1)
+	print("[skate] bailclear bail_frames=%d lowest_rel_y=%.3f bails=%d" % [st["frames"], st["lowest"], sk.stats["bails"]])
