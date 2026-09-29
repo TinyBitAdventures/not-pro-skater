@@ -272,7 +272,7 @@ func _a_cam_snap() -> void:
 		if i % 6 == 0:
 			print("[audit]   frame %2d (%.2fs) world_dir bearing=%.1f deg" % [i, i / 60.0, a])
 		last = a
-	print("[audit]   bearing went %.1f -> %.1f deg (turn %.1f deg); skater TURN_FAST=%.1f rad/s = %.0f deg/s" % [a0, last, wrapf(last - a0, -180.0, 180.0), Skater.TURN_FAST, rad_to_deg(Skater.TURN_FAST)])
+	print("[audit]   bearing went %.1f -> %.1f deg (turn %.1f deg); skater TURN_FAST=%.1f rad/s = %.0f deg/s" % [a0, last, wrapf(last - a0, -180.0, 180.0), SkateTuning.shared().turn_fast, rad_to_deg(SkateTuning.shared().turn_fast)])
 	# three quick presses: lerp_angle takes the short way round
 	cam.yaw = deg_to_rad(45.0)
 	cam.yaw_target = deg_to_rad(45.0)
@@ -452,7 +452,7 @@ func _a_roundtrip() -> void:
 				t_out = t
 		var dt_trip: float = t_out - t_in
 		print("[audit]   %-18s v_in=%.2f v_out=%.2f ratio=%.2f  trip=%.2fs  drag-only expectation ratio=%.2f  max_y=%.2f bails=%d" % [
-			mode, v_in, v_out, v_out / maxf(v_in, 0.01), dt_trip, exp(-Skater.COAST_DRAG * dt_trip), maxy - 0.06, int(sk.stats["bails"])])
+			mode, v_in, v_out, v_out / maxf(v_in, 0.01), dt_trip, exp(-SkateTuning.shared().coast_drag * dt_trip), maxy - 0.06, int(sk.stats["bails"])])
 
 
 func _a_minipump() -> void:

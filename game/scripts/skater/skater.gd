@@ -15,46 +15,13 @@ signal landed(air_time: float)
 
 enum State { GROUND, AIR, GRIND, BAIL }
 
-const GRAVITY: float = 24.0
-const MAX_PUSH_SPEED: float = 9.0
-const MAX_PUMP_SPEED: float = 14.5
-const MAX_SPEED: float = 22.0
-const PUSH_ACCEL: float = 6.5
-const PUMP_ACCEL: float = 8.5
-const ROLL_DRAG: float = 0.10
-const COAST_DRAG: float = 0.30
-const BRAKE_DECEL: float = 15.0
-const GRASS_DRAG: float = 2.8
-const GRASS_PUSH_SPEED: float = 4.2
-const TURN_SLOW: float = 6.5
-const TURN_FAST: float = 3.3
-const GRIP_SLOW: float = 11.0
-const GRIP_FAST: float = 6.0
-const OLLIE_SPEED: float = 8.0           # "tap" mode: jump on press
-const CHARGE_MAX: float = 0.45           # seconds of crouch for a full-power pop
-const POP_MIN: float = 6.8               # release straight away
-const POP_MAX: float = 10.0              # full crouch
-const LIP_WINDOW: float = 0.16           # a release this soon after leaving a ramp lip still pops
-const AIR_GRAVITY_UP: float = 26.0
-const AIR_GRAVITY_DOWN: float = 34.0
-const AIR_CONTROL: float = 3.0
-const COYOTE: float = 0.11
-const BUFFER: float = 0.14
-const BAIL_ANGLE: float = 1.0123          # 58 degrees off the direction of travel (either way)
-const SPIN_MAX: float = 11.0
-const SPIN_ACCEL: float = 60.0
-const FLIP_TIME: float = 0.44
-const GRIND_SNAP_H: float = 0.9
-const GRIND_MIN_DY: float = -0.45
-const GRIND_MAX_DY: float = 1.2
-const GRIND_FRICTION: float = 0.32
 const GRIND_ORIGIN_DY: float = -0.17
 const BAIL_TIME: float = 1.5
-const WALL_CRASH_SPEED: float = 7.5
 const CAPSULE_R: float = 0.32
 const CAPSULE_H: float = 1.35
 
 var state: int = State.GROUND
+var tune: SkateTuning = SkateTuning.shared()
 var inp: SkaterInput = SkaterInput.new()
 var scripted: bool = false
 var score: ScoreKeeper = null
@@ -125,7 +92,7 @@ func _ready() -> void:
 	floor_stop_on_slope = false
 	floor_constant_speed = false
 	floor_block_on_wall = false
-	floor_snap_length = 0.35
+	floor_snap_length = tune.floor_snap
 	wall_min_slide_angle = 0.0
 	max_slides = 6
 	safe_margin = 0.002
@@ -278,7 +245,7 @@ func _physics_process(delta: float) -> void:
 	_grind_cd = maxf(0.0, _grind_cd - delta)
 	_coyote = maxf(0.0, _coyote - delta)
 	if inp.ollie_pressed:
-		_ollie_buf = BUFFER
+		_ollie_buf = tune.buffer
 	# One release must give exactly one pop. Detect it from the held state ourselves; the engine's
 	# "just released" arrives a physics tick after the held flag drops and used to trigger a second pop.
 	var release_edge: bool = _prev_held and not inp.ollie_held
@@ -288,11 +255,11 @@ func _physics_process(delta: float) -> void:
 		release_edge = true            # pressed and released between two ticks: still a tap
 	_prev_held = inp.ollie_held
 	if release_edge:
-		_release_buf = BUFFER
+		_release_buf = tune.buffer
 	if inp.grind_pressed:
-		_grind_buf = BUFFER
+		_grind_buf = tune.buffer
 	if inp.flip_pressed:
-		_flip_buf = BUFFER
+		_flip_buf = tune.buffer
 	match state:
 		State.GROUND:
 			_ground(delta)
@@ -302,8 +269,8 @@ func _physics_process(delta: float) -> void:
 			_grind(delta)
 		State.BAIL:
 			_bail(delta)
-	if velocity.length() > MAX_SPEED and state != State.GRIND:
-		velocity = velocity.limit_length(MAX_SPEED)
+	if velocity.length() > tune.max_speed and state != State.GRIND:
+		velocity = velocity.limit_length(tune.max_speed)
 	stats["max_speed"] = maxf(stats["max_speed"], velocity.length())
 	if state != State.AIR:
 		cam_y = lerpf(cam_y, global_position.y, 1.0 - exp(-8.0 * delta))
@@ -344,7 +311,7 @@ func _ground(dt: float) -> void:
 	var turn_applied: float = 0.0
 
 	if tank:
-		var rate_t: float = lerpf(TURN_SLOW, TURN_FAST, clampf(spd / 12.0, 0.0, 1.0))
+		var rate_t: float = lerpf(tune.turn_slow, tune.turn_fast, clampf(spd / tune.turn_ref_speed, 0.0, 1.0))
 		turn_applied = -inp.move.x * rate_t * dt
 		hdg = hdg.rotated(n, turn_applied)
 		pushing = inp.move.y < -0.3
@@ -359,7 +326,7 @@ func _ground(dt: float) -> void:
 				ang = _turn_bias * absf(ang)
 			elif absf(ang) > 0.05:
 				_turn_bias = signf(ang)
-			var rate: float = lerpf(TURN_SLOW, TURN_FAST, clampf(spd / 12.0, 0.0, 1.0))
+			var rate: float = lerpf(tune.turn_slow, tune.turn_fast, clampf(spd / tune.turn_ref_speed, 0.0, 1.0))
 			turn_applied = clampf(ang, -rate * dt, rate * dt)
 			hdg = hdg.rotated(n, turn_applied)
 			pushing = true
@@ -380,34 +347,34 @@ func _ground(dt: float) -> void:
 
 	var fwd: float = velocity.dot(hdg)
 	var lat: Vector3 = velocity - hdg * fwd
-	var grip: float = lerpf(GRIP_SLOW, GRIP_FAST, clampf(spd / 14.0, 0.0, 1.0))
+	var grip: float = lerpf(tune.grip_slow, tune.grip_fast, clampf(spd / tune.grip_ref_speed, 0.0, 1.0))
 	lat *= exp(-grip * dt)
 
 	var slope: float = 1.0 - n.y
 	var on_ramp: bool = slope > 0.1
 	var on_grass: bool = surface == "grass"
-	var cap: float = MAX_PUMP_SPEED if on_ramp else MAX_PUSH_SPEED
+	var cap: float = tune.max_pump_speed if on_ramp else tune.max_push_speed
 	if on_grass:
-		cap = GRASS_PUSH_SPEED
+		cap = tune.grass_push_speed
 	if pushing and not braking and not manual_on and fwd < cap:
-		fwd = minf(cap, fwd + (PUMP_ACCEL if on_ramp else PUSH_ACCEL) * dt)
+		fwd = minf(cap, fwd + (tune.pump_accel if on_ramp else tune.push_accel) * dt)
 	if braking:
-		fwd = move_toward(fwd, 0.0, BRAKE_DECEL * dt)
-	var drag: float = ROLL_DRAG if pushing else COAST_DRAG
+		fwd = move_toward(fwd, 0.0, tune.brake_decel * dt)
+	var drag: float = tune.roll_drag if pushing else tune.coast_drag
 	if on_grass:
-		drag += GRASS_DRAG
+		drag += tune.grass_drag
 	if manual_on:
-		drag += 0.25
+		drag += tune.manual_drag
 	fwd *= exp(-drag * dt)
 	velocity = hdg * fwd + lat
-	velocity += (Vector3.DOWN - n * Vector3.DOWN.dot(n)) * GRAVITY * dt
+	velocity += (Vector3.DOWN - n * Vector3.DOWN.dot(n)) * tune.gravity * dt
 
 	if pushing and not braking:
 		push_phase += dt * (1.6 + spd * 0.25)
 	if charge_mode:
 		if inp.ollie_held:
-			charge = minf(charge + dt, CHARGE_MAX)
-		crouch = move_toward(crouch, maxf(charge / CHARGE_MAX, 0.25 if on_ramp else 0.0), 10.0 * dt)
+			charge = minf(charge + dt, tune.charge_max)
+		crouch = move_toward(crouch, maxf(charge / tune.charge_max, 0.25 if on_ramp else 0.0), 10.0 * dt)
 	else:
 		crouch = move_toward(crouch, 0.25 if on_ramp else 0.0, 6.0 * dt)
 
@@ -419,11 +386,11 @@ func _ground(dt: float) -> void:
 			_ollie(n, pop_speed())
 			return
 	elif _ollie_buf > 0.0:
-		_ollie(n, OLLIE_SPEED)
+		_ollie(n, tune.ollie_speed)
 		return
 
 	var vel_before: Vector3 = velocity
-	floor_snap_length = 0.35
+	floor_snap_length = tune.floor_snap
 	move_and_slide()
 	# move_and_slide() zeroes velocity.y on any floor (so steep ramp faces lose their downhill speed) and
 	# leaves the speed that runs into a wall in place. Rebuild the velocity from what we asked for: walls
@@ -435,7 +402,7 @@ func _ground(dt: float) -> void:
 			v_want = v_want.slide(wn)
 	if is_on_floor():
 		floor_n = get_floor_normal()
-		_coyote = COYOTE
+		_coyote = tune.coyote
 		surface = _surface_from_slide(surface)
 		var tangent: Vector3 = v_want - floor_n * v_want.dot(floor_n)
 		if tangent.length_squared() > 0.0001:
@@ -455,7 +422,7 @@ func _check_wall_crash(vel_before: Vector3) -> void:
 		var nn: Vector3 = c.get_normal()
 		if absf(nn.y) < 0.3:
 			var impact: float = -vel_before.dot(nn)
-			if impact > WALL_CRASH_SPEED:
+			if impact > tune.wall_crash_speed:
 				_start_bail("crash")
 				return
 
@@ -471,11 +438,11 @@ func _surface_from_slide(current: String) -> String:
 
 
 func pop_speed() -> float:
-	return lerpf(POP_MIN, POP_MAX, clampf(charge / CHARGE_MAX, 0.0, 1.0))
+	return lerpf(tune.pop_min, tune.pop_max, clampf(charge / tune.charge_max, 0.0, 1.0))
 
 
 func charge_frac() -> float:
-	return clampf(charge / CHARGE_MAX, 0.0, 1.0) if charge_mode and state == State.GROUND else 0.0
+	return clampf(charge / tune.charge_max, 0.0, 1.0) if charge_mode and state == State.GROUND else 0.0
 
 
 func _ollie(n: Vector3, speed: float) -> void:
@@ -506,7 +473,7 @@ func _enter_air() -> void:
 
 func _enter_ground() -> void:
 	state = State.GROUND
-	floor_snap_length = 0.35
+	floor_snap_length = tune.floor_snap
 	floor_n = Vector3.UP
 	_reset_air()
 
@@ -526,32 +493,32 @@ func _reset_air() -> void:
 
 func _air(dt: float) -> void:
 	air_time += dt
-	velocity.y -= (AIR_GRAVITY_UP if velocity.y > 0.0 else AIR_GRAVITY_DOWN) * dt
+	velocity.y -= (tune.air_gravity_up if velocity.y > 0.0 else tune.air_gravity_down) * dt
 	var d: Vector3 = inp.world_dir
 	d.y = 0.0
-	velocity += d * AIR_CONTROL * dt
+	velocity += d * tune.air_control * dt
 
 	# spin comes from the stick's sideways part relative to the take-off heading, so holding the stick
 	# in the direction of travel does not spin the board (tank mode: the raw stick x, as before)
 	var lateral: float = inp.move.x if Game.steer_mode == "tank" else inp.world_dir.dot(_air_ref.cross(Vector3.UP))
-	var target: float = -lateral * SPIN_MAX
-	spin_vel = move_toward(spin_vel, target, SPIN_ACCEL * dt)
+	var target: float = -lateral * tune.spin_max
+	spin_vel = move_toward(spin_vel, target, tune.spin_accel * dt)
 	yaw += spin_vel * dt
 	spin_total += spin_vel * dt
 	hdg = heading_h()
 
 	if charge_mode:
 		# release just after rolling off a lip still pops: the classic "jump at the top of the ramp"
-		if _release_buf > 0.0 and (_coyote > 0.0 or air_time < LIP_WINDOW) and _air_popped == false:
+		if _release_buf > 0.0 and (_coyote > 0.0 or air_time < tune.lip_window) and _air_popped == false:
 			_release_buf = 0.0
-			velocity.y += pop_speed() * 0.8
+			velocity.y += pop_speed() * tune.lip_pop_mult
 			_air_popped = true
 			charge = 0.0
 			_coyote = 0.0
 			sfx.emit("ollie")
 	elif _ollie_buf > 0.0 and _coyote > 0.0:
 		_ollie_buf = 0.0
-		velocity.y = maxf(velocity.y, OLLIE_SPEED * 0.85)
+		velocity.y = maxf(velocity.y, tune.ollie_speed * 0.85)
 		_coyote = 0.0
 		sfx.emit("ollie")
 
@@ -562,7 +529,7 @@ func _air(dt: float) -> void:
 		flip_t = 0.0
 		sfx.emit("flip")
 	if flip_kind != "":
-		flip_t += dt / FLIP_TIME
+		flip_t += dt / tune.flip_time
 		if flip_t >= 1.0:
 			var e2: Array = Tricks.FLIPS[flip_kind]
 			if score != null:
@@ -605,11 +572,11 @@ func _land() -> void:
 		var a: float = absf(heading.signed_angle_to(travel.normalized(), Vector3.UP))
 		err = minf(a, PI - a)
 	var was_air: float = air_time
-	if was_air > 0.25 and err > BAIL_ANGLE:
+	if was_air > 0.25 and err > tune.bail_angle_rad():
 		_start_bail("sideways")
 		return
 	floor_n = n
-	_coyote = COYOTE
+	_coyote = tune.coyote
 	surface = _surface_from_slide(surface)
 	if score != null:
 		score.release_hold("grab")
@@ -618,14 +585,14 @@ func _land() -> void:
 			score.add_trick(String(ef[0]), int(ef[1]))
 		if was_air > 0.15:
 			var units: int = int(round(absf(spin_total) / PI))
-			if units >= 1 and err < BAIL_ANGLE:
+			if units >= 1 and err < tune.bail_angle_rad():
 				score.add_trick(Tricks.spin_name(units), Tricks.spin_points(units))
 			if was_air > 1.1:
 				score.add_trick("Big Air", 300)
 			score.landed()
 	hdg = (heading - n * heading.dot(n)).normalized()
 	state = State.GROUND
-	floor_snap_length = 0.35
+	floor_snap_length = tune.floor_snap
 	if was_air > 0.15:
 		stats["air"] += 1
 		stats["max_air"] = maxf(stats["max_air"], was_air)
@@ -653,7 +620,7 @@ func _try_grind() -> bool:
 		var cp: Vector3 = c["point"]
 		var hgap: float = Vector2(p.x - cp.x, p.z - cp.z).length()
 		var dy: float = p.y - cp.y
-		if hgap > GRIND_SNAP_H or dy < GRIND_MIN_DY or dy > GRIND_MAX_DY:
+		if hgap > tune.grind_snap_h or dy < tune.grind_min_dy or dy > tune.grind_max_dy:
 			continue
 		var d: Vector3 = line.dir_at(c["dist"])
 		var along: float = velocity.dot(d)
@@ -677,7 +644,7 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 	var d: Vector3 = line.dir_at(grind_dist)
 	var along: float = velocity.dot(d)
 	grind_dir = 1.0 if along >= 0.0 else -1.0
-	grind_speed = maxf(absf(along), 3.5)
+	grind_speed = maxf(absf(along), tune.grind_entry_speed)
 	var ang: float = acos(clampf(absf(along) / maxf(velocity.length(), 0.01), 0.0, 1.0))
 	var word: String = Tricks.direction_word(inp.world_dir, d * grind_dir)
 	grind_board_turn = 0.0
@@ -716,9 +683,9 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 
 func _grind(dt: float) -> void:
 	var d: Vector3 = grind_line.dir_at(grind_dist) * grind_dir
-	grind_speed += -d.y * GRAVITY * 0.6 * dt
-	grind_speed *= exp(-GRIND_FRICTION * dt)
-	grind_speed = clampf(grind_speed, 2.5, 16.0)
+	grind_speed += -d.y * tune.gravity * tune.grind_slope_gravity * dt
+	grind_speed *= exp(-tune.grind_friction * dt)
+	grind_speed = clampf(grind_speed, tune.grind_min_speed, tune.grind_max_speed)
 	grind_dist += grind_dir * grind_speed * dt
 	stats["grind_time"] += dt
 	if score != null:
@@ -737,7 +704,7 @@ func _grind(dt: float) -> void:
 func _end_grind(pop: bool) -> void:
 	var d: Vector3 = grind_line.dir_at(clampf(grind_dist, 0.0, grind_line.length)) * grind_dir
 	velocity = d * grind_speed
-	velocity.y = maxf(velocity.y, 0.0) + (OLLIE_SPEED * 0.9 if pop else 2.5)
+	velocity.y = maxf(velocity.y, 0.0) + (tune.ollie_speed * 0.9 if pop else 2.5)
 	global_position += Vector3.UP * 0.25
 	if score != null:
 		score.release_hold("grind")
@@ -774,7 +741,7 @@ func _start_bail(reason: String) -> void:
 
 func _bail(dt: float) -> void:
 	bail_time += dt
-	velocity.y -= GRAVITY * dt
+	velocity.y -= tune.gravity * dt
 	var damp: float = exp(-(2.6 if is_on_floor() else 0.4) * dt)
 	velocity.x *= damp
 	velocity.z *= damp
@@ -785,6 +752,6 @@ func _bail(dt: float) -> void:
 		velocity = Vector3.ZERO
 		hdg = heading_h()
 		state = State.GROUND
-		floor_snap_length = 0.35
+		floor_snap_length = tune.floor_snap
 		crouch = 1.0
 		_reset_air()
