@@ -12,19 +12,19 @@ import math
 import random
 
 from lib import (box, col_box, cyl_z, empty, loft_box, mesh_obj, quad, revolve, uname)
-from pieces import (M, banner, bench, bin_, bush, fence, flat_rail, flower_bed, funbox, hedge, house,
+from pieces import (M, banner, bench, bin_, bush, fence, flat_rail, flower_bed, funbox, hedge, hip, house,
                     kicker, kiosk, ledge, lamp, manual_pad, mini_ramp, picnic, pyramid, quarter_pipe,
                     stair_set, tree)
 
 Z0 = 0.06                 # top of every paved surface
 RING_IN, RING_OUT = 33.0, 39.0
 RING_MID = (RING_IN + RING_OUT) / 2
-PLAZA_X, PLAZA_Y = 20.0, 15.0
+PLAZA_X, PLAZA_Y = 20.0, 18.0
 SPOKE_W = 4.6
 BOUND = 55.0
 
 BUILDERS = dict(
-    mini_ramp=mini_ramp, quarter_pipe=quarter_pipe, kicker=kicker, funbox=funbox, pyramid=pyramid,
+    mini_ramp=mini_ramp, quarter_pipe=quarter_pipe, kicker=kicker, hip=hip, funbox=funbox, pyramid=pyramid,
     manual_pad=manual_pad, ledge=ledge, flat_rail=flat_rail, stair_set=stair_set, bench=bench, tree=tree,
     bush=bush, lamp=lamp, bin=bin_, picnic=picnic, fence=fence, hedge=hedge, banner=banner,
     flower_bed=flower_bed, kiosk=kiosk, house=house,
@@ -129,12 +129,12 @@ def plaza_obstacles():
     place("flat_rail", 3.5, -12.2, 90, L=6.5, color="Orange")
     place("flat_rail", 4.0, -2.0, 0, L=5.5, color="Blue")
     place("manual_pad", 1.0, 7.0, 90, L=5.0)
-    place("manual_pad", 16.0, 0.8, 0, L=4.5)
-    place("kicker", -16.5, 1.5, 0, W=2.8, R=5.0, H=0.7)
-    place("ledge", 17.0, 13.3, 90, L=4.5, color="ConcreteDk")
+    place("manual_pad", 17.6, 0.8, 0, L=4.5)
+    place("hip", -10.0, -16.0, -90, W=2.8, R=5.0, H=0.7)   # replaces kicker_01 (free E-W lane along the south fence)
+    place("ledge", 8.0, 16.0, 90, L=4.5, color="ConcreteDk")
     # banners on the fence line
-    place("banner", -9.5, 16.4, -135, text="SKATE JAM", color="Purple")
-    place("banner", 9.5, 16.4, -135, text="RIDE ON", color="Blue")
+    place("banner", -9.5, PLAZA_Y + 1.4, -135, text="SKATE JAM", color="Purple")
+    place("banner", 9.5, PLAZA_Y + 1.4, -135, text="RIDE ON", color="Blue")
     place("banner", 21.6, 9.0, -135, text="GRIND TIME", color="Orange", w=3.0)
     # a few benches / bins inside the fence
     place("bench", 18.6, -12.5, -135, grindable=True)
@@ -150,7 +150,7 @@ def plaza_obstacles():
 def ring_features():
     for a in (100, 280):
         x, y = polar(a, RING_MID - 1.4)
-        place("kicker", x, y, a, W=2.6, R=5.0, H=0.55)
+        place("hip", x, y, a, W=2.6, R=5.0, H=0.55)
     for a in (45, 135, 225, 315):
         x, y = polar(a, RING_MID + 1.2)
         place("manual_pad", x, y, a, L=5.0, W=1.4)
@@ -213,7 +213,11 @@ def planting():
             continue
         if abs(x) > BOUND - 1.5 or abs(y) > BOUND - 1.5:
             continue
-        place("bush", x, y, 0, z=0.0, s=rnd.uniform(0.8, 1.4), seed=k)
+        bs = rnd.uniform(0.8, 1.4)
+        # keep the four spoke corridors (and their 1 m verge) free of bushes
+        if (abs(x) < SPOKE_W / 2 + 1.0 and abs(y) < RING_IN + 1.0) or (abs(y) < SPOKE_W / 2 + 1.0 and abs(x) < RING_IN + 1.0):
+            continue
+        place("bush", x, y, 0, z=0.0, s=bs, seed=k)
 
 
 def boundary_and_town():

@@ -140,6 +140,13 @@ def kicker(root, W=2.8, R=5.0, H=0.75):
     quarter_pipe(root, W=W, R=R, H=H, D=0.0, coping=False, rails=False, decals=False)
 
 
+def hip(root, W=2.6, R=5.0, H=0.55):
+    """Two kickers back to back (crest at local y=0): rideable in both directions on the ring."""
+    yt = R * math.sin(math.acos(1 - H / R))
+    kicker(empty(uname("Hip"), (0, -yt, 0), 0.0, root), W=W, R=R, H=H)
+    kicker(empty(uname("Hip"), (0, yt, 0), math.pi, root), W=W, R=R, H=H)
+
+
 def mini_ramp(root, W=7.0, R=2.7, H=1.75, F=5.0, D=1.8, seed=3):
     """Two facing quarter pipes with a flat between them; the flat is the plaza slab."""
     yt = R * math.sin(math.acos(1 - H / R))
@@ -220,8 +227,12 @@ def stair_rail(root, n=6, rise=0.19, run=0.44, W=2.6, color="Red"):
             pts.append((k * run, z))
             em.append(0)                  # tread
     em.append(2)                          # closing bottom edge
-    prism(uname("Concrete_Stairs") + "-col", pts, -W / 2, W / 2, [M("Concrete"), M("ConcreteDk"), M("Navy")], em,
+    # visual steps only: a capsule cannot roll 19 cm risers (audit: speed 9 -> 0.4 m/s, stuck on tread 3)
+    prism(uname("Concrete_Stairs"), pts, -W / 2, W / 2, [M("Concrete"), M("ConcreteDk"), M("Navy")], em,
           [False] * len(pts), cap_mat=1, parent=root)
+    # collision proxy: platform + a smooth slope through the nosings
+    prism(uname("Concrete_StairsSlope") + "-colonly", [(-1.6, 0.0), (-1.6, Ht), (0.0, Ht), (n * run, 0.0)],
+          -W / 2, W / 2, [M("Collision")], [0, 0, 0, 0], cap_mat=0, parent=root)
     slope = rise / run
     off = 0.95
     lrun = (n - 1) * run
@@ -320,7 +331,8 @@ def fence(root, L=6.0, h=1.7, color="MetalDk", solid=True):
     v = [(0, -L / 2, 0.08), (0, L / 2, 0.08), (0, L / 2, h), (0, -L / 2, h)]
     mesh_obj(uname("FenceMesh"), v, [(0, 1, 2, 3)], [m], parent=root)
     if solid:
-        col_box(uname("Fence"), (0.2, L, h + 0.4), (0, 0, (h + 0.4) / 2), parent=root)
+        # invisible 6 m sky wall: pump-speed launches off the ramps peak at 4.4 m and vault a 2.1 m collider
+        col_box(uname("Fence"), (0.2, L, 6.0), (0, 0, 3.0), parent=root)
 
 
 def hedge(root, L=6.0, h=1.3, w=1.1):
