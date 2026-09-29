@@ -10,6 +10,10 @@ First playable prototype: one level, a full skating model and the isometric toon
 - Anything standing between the camera and the skater dithers out around them, so tall ramps never hide the rider.
 - Everything is built in Blender from scripts (level kit, park, skater) and shipped as glTF.
 
+### Controls and camera
+- Default steering is skater-relative (A / D turn, W push, S brake); the camera follows the skater's heading so the rider always goes "up" the screen. Screen steering and a fixed camera stay available (T / C, or the title menu).
+- Jumps: no squat before the pop, heavier fall, stronger pop, and the camera follows ground height so the whole arc is visible.
+
 ### Skating
 - Ground, air, grind and bail states on a CharacterBody3D. Rolls along any surface (gravity acts along the slope), pumps on transitions, coasts, brakes; grass is slow.
 - Ollie, spins (tank left / right in the air), five flip tricks, five grabs (hold), manuals, grinds on rails, ledges, benches and ramp coping. Boardslides, noseslides, tailslides and lip slides by stick direction.

@@ -15,19 +15,26 @@ cd game
 godot --path .
 ```
 
+Two steering styles (toggle with T, or in the title menu; both are saved):
+
+- **Skater steering** (default): W pushes, S brakes, A / D turn relative to the skater, like a classic skate game. With **camera: follow** (default) the camera swings to keep the skater riding up the screen, so left is always the skater's left. C toggles a **fixed** isometric camera.
+- **Screen steering**: the stick points where you want to go on screen.
+
 | Key / pad | Action |
 |-----------|--------|
-| WASD / left stick | Roll and steer (relative to the screen) |
+| W / S, stick up / down | Push / brake (skater steering) |
+| A / D, stick left / right | Turn (skater steering) |
 | Space / A | Ollie |
 | J / X | Flip (steer for variations) |
 | K / B | Hold to grab (steer for variations) |
 | L / Y | Grind: press near a rail, ledge or coping |
 | M / RT | Manual (flat ground) |
 | Shift / LT | Brake |
-| Left / right in the air | Spin |
-| Q / E | Turn the camera |
+| A / D in the air | Spin (then J or K for tricks) |
+| Q / E | Turn the camera in 90 degree steps |
+| C | Camera follow / fixed |
+| T | Steering skater / screen |
 | R | Reset to the start |
-| T | Toggle tank steering |
 | N | Music on / off |
 | Esc | Pause |
 
