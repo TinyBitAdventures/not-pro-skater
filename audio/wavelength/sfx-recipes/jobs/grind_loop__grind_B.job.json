@@ -1,0 +1,64 @@
+{
+ "_about": "grind_B: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 2.0 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "noise BP+sat",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 2400,
+     "slope": 24,
+     "resonance": 0.55,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.05,
+     "decay": 0.3,
+     "sustain": 1,
+     "release": 0.05
+    },
+    "lfo": [
+     {
+      "rate": 11,
+      "depth": 0.3,
+      "shape": "sine",
+      "to": "amp"
+     },
+     {
+      "rate": 2,
+      "depth": 0.2,
+      "shape": "sine",
+      "to": "cutoff"
+     }
+    ]
+   },
+   "fx": [
+    {
+     "type": "saturate",
+     "drive": 8,
+     "match": true
+    }
+   ],
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 4.4,
+     "key": 60,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

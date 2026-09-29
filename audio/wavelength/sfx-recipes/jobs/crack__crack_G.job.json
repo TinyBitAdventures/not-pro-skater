@@ -1,0 +1,80 @@
+{
+ "_about": "crack_G: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.1 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "tick",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "highpass",
+     "cutoff": 2800,
+     "slope": 24,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.0005,
+     "decay": 0.008,
+     "sustain": 0,
+     "release": 0.01,
+     "velocity": 0.3
+    }
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.03,
+     "key": 60,
+     "vel": 1.0
+    }
+   ]
+  },
+  {
+   "name": "thunk",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "sine"
+     }
+    ],
+    "pitchEnv": {
+     "amount": 14,
+     "decay": 0.035
+    },
+    "amp": {
+     "attack": 0.001,
+     "decay": 0.06,
+     "sustain": 0,
+     "release": 0.02,
+     "velocity": 0.3
+    },
+    "filter": {
+     "type": "lowpass",
+     "cutoff": 8000,
+     "keytrack": 0
+    }
+   },
+   "gain": -3,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.08,
+     "key": 43,
+     "vel": 1.0
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

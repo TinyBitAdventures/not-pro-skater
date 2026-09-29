@@ -1,0 +1,50 @@
+{
+ "_about": "flip_E: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.3 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "noise-sweep",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 500,
+     "resonance": 0.45,
+     "slope": 24,
+     "keytrack": 0,
+     "env": 3
+    },
+    "filterEnv": {
+     "attack": 0.12,
+     "decay": 0.15,
+     "sustain": 0,
+     "release": 0.05
+    },
+    "amp": {
+     "attack": 0.06,
+     "decay": 0.2,
+     "sustain": 0,
+     "release": 0.04
+    }
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.3,
+     "key": 60,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

@@ -1,0 +1,127 @@
+{
+ "_about": "ollie_C: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.3 s + fade",
+ "tempo": 60,
+ "tail": 1.355,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "pop",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "sine"
+     }
+    ],
+    "pitchEnv": {
+     "amount": 19,
+     "decay": 0.035
+    },
+    "amp": {
+     "attack": 0.001,
+     "decay": 0.08,
+     "sustain": 0,
+     "release": 0.02,
+     "velocity": 0.3
+    },
+    "filter": {
+     "type": "lowpass",
+     "cutoff": 8000,
+     "keytrack": 0
+    }
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.12,
+     "key": 57,
+     "vel": 1.0
+    }
+   ]
+  },
+  {
+   "name": "click",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "highpass",
+     "cutoff": 2500,
+     "slope": 24,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.0005,
+     "decay": 0.012,
+     "sustain": 0,
+     "release": 0.01,
+     "velocity": 0.3
+    }
+   },
+   "gain": -6,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.03,
+     "key": 60,
+     "vel": 1.0
+    }
+   ]
+  },
+  {
+   "name": "rattle",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 3200,
+     "resonance": 0.5,
+     "slope": 12,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.001,
+     "decay": 0.012,
+     "sustain": 0,
+     "release": 0.02,
+     "velocity": 0.3
+    }
+   },
+   "gain": -8,
+   "notes": [
+    {
+     "beat": 0.06,
+     "dur": 0.03,
+     "key": 60,
+     "vel": 0.6
+    },
+    {
+     "beat": 0.11,
+     "dur": 0.03,
+     "key": 60,
+     "vel": 0.5
+    },
+    {
+     "beat": 0.165,
+     "dur": 0.03,
+     "key": 60,
+     "vel": 0.4
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

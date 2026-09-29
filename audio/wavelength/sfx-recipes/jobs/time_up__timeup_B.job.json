@@ -1,0 +1,57 @@
+{
+ "_about": "timeup_B: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.9 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "saw-stack buzzer",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "saw"
+     },
+     {
+      "wave": "saw",
+      "semi": 7,
+      "cents": 3
+     },
+     {
+      "wave": "saw",
+      "octave": 1,
+      "cents": 8
+     }
+    ],
+    "unison": {
+     "voices": 2,
+     "detune": 12,
+     "spread": 0.2
+    },
+    "filter": {
+     "type": "lowpass",
+     "cutoff": 2200,
+     "slope": 12,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.02,
+     "decay": 0.1,
+     "sustain": 1,
+     "release": 0.12
+    }
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.75,
+     "key": 55,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

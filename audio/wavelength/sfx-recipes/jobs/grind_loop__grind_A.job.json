@@ -1,0 +1,73 @@
+{
+ "_about": "grind_A: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 2.0 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "saws+noise BP + 9Hz",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     },
+     {
+      "wave": "saw",
+      "level": 0.5
+     },
+     {
+      "wave": "saw",
+      "semi": 7,
+      "cents": 4,
+      "level": 0.35
+     },
+     {
+      "wave": "saw",
+      "octave": 1,
+      "cents": -6,
+      "level": 0.25
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 2600,
+     "slope": 12,
+     "resonance": 0.45,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.05,
+     "decay": 0.3,
+     "sustain": 1,
+     "release": 0.05
+    },
+    "lfo": [
+     {
+      "rate": 9,
+      "depth": 0.25,
+      "shape": "sine",
+      "to": "amp"
+     },
+     {
+      "rate": 3,
+      "depth": 0.15,
+      "shape": "sine",
+      "to": "amp"
+     }
+    ]
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 4.4,
+     "key": 60,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

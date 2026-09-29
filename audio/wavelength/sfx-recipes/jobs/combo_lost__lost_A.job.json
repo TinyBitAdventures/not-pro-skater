@@ -1,0 +1,39 @@
+{
+ "_about": "lost_A: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.4 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "LD Soft",
+   "plugin": "builtin:synth",
+   "preset": "LD Soft",
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.16,
+     "key": 67,
+     "vel": 0.85
+    },
+    {
+     "beat": 0.19,
+     "dur": 0.22,
+     "key": 62,
+     "vel": 0.85,
+     "bend": [
+      [
+       0,
+       0
+      ],
+      [
+       0.22,
+       -2
+      ]
+     ]
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

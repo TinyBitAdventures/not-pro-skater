@@ -1,0 +1,109 @@
+{
+ "_about": "bankbig_E: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.9 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "chip arp+chord",
+   "plugin": "builtin:synth",
+   "preset": "LD Chip",
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.1,
+     "key": 72,
+     "vel": 0.85
+    },
+    {
+     "beat": 0.07,
+     "dur": 0.1,
+     "key": 76,
+     "vel": 0.85
+    },
+    {
+     "beat": 0.14,
+     "dur": 0.1,
+     "key": 79,
+     "vel": 0.85
+    },
+    {
+     "beat": 0.21,
+     "dur": 0.1,
+     "key": 84,
+     "vel": 0.85
+    },
+    {
+     "beat": 0.28,
+     "dur": 0.1,
+     "key": 88,
+     "vel": 0.85
+    },
+    {
+     "beat": 0.35,
+     "dur": 0.1,
+     "key": 91,
+     "vel": 0.85
+    },
+    {
+     "beat": 0.44,
+     "dur": 0.45,
+     "key": 84,
+     "vel": 0.8
+    },
+    {
+     "beat": 0.44,
+     "dur": 0.45,
+     "key": 88,
+     "vel": 0.8
+    },
+    {
+     "beat": 0.44,
+     "dur": 0.45,
+     "key": 91,
+     "vel": 0.8
+    },
+    {
+     "beat": 0.44,
+     "dur": 0.45,
+     "key": 96,
+     "vel": 0.8
+    }
+   ]
+  },
+  {
+   "name": "brass stab",
+   "plugin": "builtin:synth",
+   "preset": "BR Stab",
+   "gain": -6,
+   "notes": [
+    {
+     "beat": 0.44,
+     "dur": 0.4,
+     "key": 60,
+     "vel": 0.9
+    },
+    {
+     "beat": 0.44,
+     "dur": 0.4,
+     "key": 64,
+     "vel": 0.9
+    },
+    {
+     "beat": 0.44,
+     "dur": 0.4,
+     "key": 67,
+     "vel": 0.9
+    },
+    {
+     "beat": 0.44,
+     "dur": 0.4,
+     "key": 72,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

@@ -1,0 +1,157 @@
+{
+ "_about": "land_B: builtin:synth only. thud (sine, pitch env) + knock (BP 380) + slap (BP 1.5k) + rattle (BP 3.2k ticks); sound starts 1.0 s in",
+ "tempo": 60,
+ "tail": 1.365,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "thud",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "sine"
+     }
+    ],
+    "filter": {
+     "type": "lowpass",
+     "cutoff": 6000,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.001,
+     "decay": 0.11,
+     "sustain": 0,
+     "release": 0.03,
+     "velocity": 0.3
+    },
+    "pitchEnv": {
+     "amount": 20,
+     "decay": 0.04
+    }
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0,
+     "dur": 0.12,
+     "key": 40,
+     "vel": 1.0
+    }
+   ]
+  },
+  {
+   "name": "knock",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 380,
+     "slope": 12,
+     "resonance": 0.5,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.001,
+     "decay": 0.08,
+     "sustain": 0,
+     "release": 0.03,
+     "velocity": 0.3
+    }
+   },
+   "gain": -1.0,
+   "notes": [
+    {
+     "beat": 0,
+     "dur": 0.1,
+     "key": 60,
+     "vel": 1.0
+    }
+   ]
+  },
+  {
+   "name": "slap",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 1500,
+     "slope": 12,
+     "resonance": 0.25,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.0007,
+     "decay": 0.035,
+     "sustain": 0,
+     "release": 0.02,
+     "velocity": 0.3
+    }
+   },
+   "gain": -9.0,
+   "notes": [
+    {
+     "beat": 0,
+     "dur": 0.05,
+     "key": 60,
+     "vel": 1.0
+    }
+   ]
+  },
+  {
+   "name": "rattle",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 3200,
+     "slope": 12,
+     "resonance": 0.3,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.0005,
+     "decay": 0.012,
+     "sustain": 0,
+     "release": 0.01,
+     "velocity": 0.3
+    }
+   },
+   "gain": -8.0,
+   "notes": [
+    {
+     "beat": 0.1,
+     "dur": 0.03,
+     "key": 60,
+     "vel": 0.8
+    },
+    {
+     "beat": 0.155,
+     "dur": 0.03,
+     "key": 60,
+     "vel": 0.55
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

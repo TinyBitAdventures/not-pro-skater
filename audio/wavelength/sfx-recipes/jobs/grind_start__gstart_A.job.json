@@ -1,0 +1,23 @@
+{
+ "_about": "gstart_A: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.2 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "Household Metallic",
+   "plugin": "Surge XT",
+   "preset": "Household Metallic",
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.15,
+     "key": 60,
+     "vel": 1.0
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

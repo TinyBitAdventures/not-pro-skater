@@ -1,0 +1,46 @@
+{
+ "_about": "manual_E: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.15 s + fade",
+ "tempo": 60,
+ "tail": 1.43,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "sine-blip-E5",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "sine"
+     }
+    ],
+    "pitchEnv": {
+     "amount": 4,
+     "decay": 0.03
+    },
+    "amp": {
+     "attack": 0.002,
+     "decay": 0.09,
+     "sustain": 0,
+     "release": 0.02,
+     "velocity": 0.3
+    },
+    "filter": {
+     "type": "lowpass",
+     "cutoff": 9000,
+     "keytrack": 0
+    }
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.12,
+     "key": 76,
+     "vel": 0.6
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

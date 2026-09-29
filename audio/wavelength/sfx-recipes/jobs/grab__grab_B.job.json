@@ -1,0 +1,34 @@
+{
+ "_about": "grab_B: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.2 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "Clap - Noise Layer",
+   "plugin": "Surge XT",
+   "preset": "Clap - Noise Layer",
+   "fx": [
+    {
+     "type": "eq",
+     "bands": [
+      {
+       "type": "lowpass",
+       "freq": 3000
+      }
+     ]
+    }
+   ],
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.15,
+     "key": 60,
+     "vel": 0.5
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

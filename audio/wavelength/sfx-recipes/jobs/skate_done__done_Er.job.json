@@ -1,0 +1,91 @@
+{
+ "_about": "done_Er: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 1.0 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "brass",
+   "plugin": "builtin:synth",
+   "preset": "BR Brass",
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.11,
+     "key": 72,
+     "vel": 0.9
+    },
+    {
+     "beat": 0.13,
+     "dur": 0.11,
+     "key": 72,
+     "vel": 0.9
+    },
+    {
+     "beat": 0.26,
+     "dur": 0.11,
+     "key": 72,
+     "vel": 0.9
+    },
+    {
+     "beat": 0.39,
+     "dur": 0.6,
+     "key": 72,
+     "vel": 0.95
+    },
+    {
+     "beat": 0.39,
+     "dur": 0.6,
+     "key": 76,
+     "vel": 0.95
+    },
+    {
+     "beat": 0.39,
+     "dur": 0.6,
+     "key": 79,
+     "vel": 0.95
+    },
+    {
+     "beat": 0.39,
+     "dur": 0.6,
+     "key": 84,
+     "vel": 0.95
+    }
+   ]
+  },
+  {
+   "name": "bell chord",
+   "plugin": "builtin:synth",
+   "preset": "PL Bell",
+   "gain": 0.8,
+   "notes": [
+    {
+     "beat": 0.39,
+     "dur": 0.6,
+     "key": 84,
+     "vel": 0.7
+    },
+    {
+     "beat": 0.39,
+     "dur": 0.6,
+     "key": 88,
+     "vel": 0.7
+    },
+    {
+     "beat": 0.39,
+     "dur": 0.6,
+     "key": 91,
+     "vel": 0.7
+    },
+    {
+     "beat": 0.39,
+     "dur": 0.6,
+     "key": 96,
+     "vel": 0.7
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

@@ -1,0 +1,37 @@
+{
+ "_about": "land_Cr: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.35 s + fade",
+ "tempo": 60,
+ "tail": 1.35,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "Kick Body Model",
+   "plugin": "Surge XT",
+   "preset": "Kick Body Model",
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.2,
+     "key": 60,
+     "vel": 1.0
+    }
+   ]
+  },
+  {
+   "name": "Simple Click",
+   "plugin": "Surge XT",
+   "preset": "Simple Click",
+   "gain": -0.7,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.1,
+     "key": 60,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

@@ -156,11 +156,11 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("move_down") or event.is_action_pressed("ui_down"):
 		selected = (selected + 1) % menu_panels.size()
 		_refresh_labels()
-		Sound.play("ui_ok", -12.0, 0.9)
+		Sound.play("ui_ok", -4.0, 0.9)
 	elif event.is_action_pressed("move_up") or event.is_action_pressed("ui_up"):
 		selected = (selected - 1 + menu_panels.size()) % menu_panels.size()
 		_refresh_labels()
-		Sound.play("ui_ok", -12.0, 0.9)
+		Sound.play("ui_ok", -4.0, 0.9)
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ollie"):
 		_activate()
 	elif event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).physical_keycode == KEY_T:
@@ -174,7 +174,7 @@ func _toggle_steer() -> void:
 
 
 func _activate() -> void:
-	Sound.play("ui_ok", -6.0)
+	Sound.play("ui_ok")
 	match selected:
 		0:
 			Game.free_skate = false

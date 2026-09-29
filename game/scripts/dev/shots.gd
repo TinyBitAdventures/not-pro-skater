@@ -81,6 +81,8 @@ func _run() -> void:
 		await _ramps()
 	elif which == "follow":
 		await _follow_lap()
+	elif which == "hero":
+		await _hero()
 	get_tree().quit()
 
 
@@ -152,3 +154,46 @@ func _follow_lap() -> void:
 
 func level_spawn() -> Transform3D:
 	return park.level.spawn
+
+
+## Play-zoom hero shots for judging the overall look (before/after comparisons).
+func _hero() -> void:
+	var tag: String = OS.get_environment("TAG")
+	park.cam.follow_heading = false
+	park.cam.yaw = deg_to_rad(45.0)
+	park.cam.yaw_target = park.cam.yaw
+	var east: Vector3 = Vector3(1, 0, 0)
+	var north: Vector3 = Vector3(0, 0, -1)
+	# 1. plaza wide
+	park.cam.ortho_size = 34.0
+	await _scene(_face(-2, 4, east), 0.6, [[0.5, "hero_plaza" + tag]], func(_t: float) -> void: pass)
+	# 2. ring cruise at play zoom
+	park.cam.ortho_size = 20.0
+	await _scene(park.level.spawn, 3.0, [[2.6, "hero_ring" + tag]],
+		func(_t: float) -> void:
+			var p: Vector3 = sk.global_position
+			var a: float = atan2(-p.z, p.x)
+			var ta: float = a + 0.16
+			sk.inp.world_dir = (Vector3(36.0 * cos(ta), 0.0, -36.0 * sin(ta)) - p).normalized())
+	# 3. big air off the small quarter pipe
+	park.cam.ortho_size = 14.0
+	sk.force_charge = true
+	await _scene(_face(-3.5, 1.0, Vector3(0, 0, 1)), 4.5, [[2.55, "hero_air" + tag]],
+		func(_t: float) -> void:
+			sk.inp.world_dir = Vector3(0, 0, 1) if sk.global_position.z < 12.5 else Vector3.ZERO
+			sk.inp.ollie_released = false
+			var near_lip: bool = sk.global_position.z > 10.3 and sk.global_position.y > 0.95
+			sk.inp.ollie_held = sk.global_position.z > 8.0 and not near_lip
+			sk.inp.ollie_released = near_lip and sk.state == Skater.State.GROUND
+			sk.inp.grab_held = sk.state == Skater.State.AIR and sk.air_time > 0.25)
+	sk.force_charge = false
+	# 4. grind
+	park.cam.ortho_size = 12.0
+	await _scene(_face(4.0, 10.0, north), 3.0, [[1.7, "hero_grind" + tag]],
+		func(_t: float) -> void:
+			sk.inp.world_dir = north
+			sk.inp.ollie_pressed = sk.global_position.z < 7.6 and sk.global_position.z > 7.4 and sk.state == 0
+			sk.inp.grind_pressed = sk.state == 1 and sk.air_time > 0.1)
+	# 5. edge of the park: shop, road, houses
+	park.cam.ortho_size = 26.0
+	await _scene(_face(-26, -38, east), 0.6, [[0.5, "hero_edge" + tag]], func(_t: float) -> void: pass)

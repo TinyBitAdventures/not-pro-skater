@@ -1,0 +1,93 @@
+{
+ "_about": "roll_Br: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 2.0 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "BP260 body",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 260,
+     "slope": 12,
+     "resonance": 0.25,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.05,
+     "decay": 0.3,
+     "sustain": 1,
+     "release": 0.05
+    },
+    "lfo": [
+     {
+      "rate": 4,
+      "depth": 0.2,
+      "shape": "sine",
+      "to": "amp"
+     }
+    ]
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 4.4,
+     "key": 60,
+     "vel": 0.9
+    }
+   ]
+  },
+  {
+   "name": "BP3k hiss",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 3000,
+     "slope": 12,
+     "resonance": 0.2,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.05,
+     "decay": 0.3,
+     "sustain": 1,
+     "release": 0.05
+    },
+    "lfo": [
+     {
+      "rate": 7,
+      "depth": 0.15,
+      "shape": "sine",
+      "to": "amp"
+     }
+    ]
+   },
+   "gain": -26.3,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 4.4,
+     "key": 60,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

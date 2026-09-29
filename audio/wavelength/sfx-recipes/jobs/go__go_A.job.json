@@ -1,0 +1,23 @@
+{
+ "_about": "go_A: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.3 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "LD Chip",
+   "plugin": "builtin:synth",
+   "preset": "LD Chip",
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": -0.0,
+     "dur": 0.25,
+     "key": 79,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

@@ -1,0 +1,93 @@
+{
+ "_about": "wood_Ar: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 2.0 s + fade",
+ "tempo": 60,
+ "tail": 0.6,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "BP300 res body",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 300,
+     "slope": 12,
+     "resonance": 0.6,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.05,
+     "decay": 0.3,
+     "sustain": 1,
+     "release": 0.05
+    },
+    "lfo": [
+     {
+      "rate": 6,
+      "depth": 0.25,
+      "shape": "sine",
+      "to": "amp"
+     }
+    ]
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 4.4,
+     "key": 60,
+     "vel": 0.9
+    }
+   ]
+  },
+  {
+   "name": "BP1.5k knock",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "noise"
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 1500,
+     "slope": 12,
+     "resonance": 0.4,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.05,
+     "decay": 0.3,
+     "sustain": 1,
+     "release": 0.05
+    },
+    "lfo": [
+     {
+      "rate": 3,
+      "depth": 0.35,
+      "shape": "sine",
+      "to": "amp"
+     }
+    ]
+   },
+   "gain": -23.8,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 4.4,
+     "key": 60,
+     "vel": 0.9
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

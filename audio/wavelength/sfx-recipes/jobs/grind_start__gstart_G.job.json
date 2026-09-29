@@ -1,0 +1,58 @@
+{
+ "_about": "gstart_G: one-shot recipe; sound starts 1.0 s into the file (default lead-in); cut 0.2 s + fade",
+ "tempo": 60,
+ "tail": 1.43,
+ "stems": "none",
+ "tracks": [
+  {
+   "name": "clank-bp2.2k",
+   "plugin": "builtin:synth",
+   "preset": "Init",
+   "synth": {
+    "osc": [
+     {
+      "wave": "square"
+     },
+     {
+      "wave": "square",
+      "semi": 6,
+      "cents": 30
+     },
+     {
+      "wave": "square",
+      "semi": 13,
+      "cents": -20
+     },
+     {
+      "wave": "noise",
+      "level": 0.8
+     }
+    ],
+    "filter": {
+     "type": "bandpass",
+     "cutoff": 2200,
+     "resonance": 0.35,
+     "slope": 12,
+     "keytrack": 0
+    },
+    "amp": {
+     "attack": 0.0005,
+     "decay": 0.12,
+     "sustain": 0,
+     "release": 0.03,
+     "velocity": 0.3
+    }
+   },
+   "gain": 0.0,
+   "notes": [
+    {
+     "beat": 0.0,
+     "dur": 0.12,
+     "key": 81,
+     "vel": 1.0
+    }
+   ]
+  }
+ ],
+ "sampleRate": 44100
+}

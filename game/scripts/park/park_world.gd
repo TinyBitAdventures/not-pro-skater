@@ -146,7 +146,7 @@ func _process(delta: float) -> void:
 		Phase.READY:
 			if skater.velocity.length() > 1.0 and not skater.scripted:
 				phase = Phase.RUN
-				Sound.play("go", -4.0)
+				Sound.play("go")
 				hud.announce("GO!", Hud.GREEN, 0.9)
 		Phase.RUN:
 			if not free_skate:
@@ -155,7 +155,7 @@ func _process(delta: float) -> void:
 				if time_left <= 0.0:
 					phase = Phase.WRAP
 					_wrap_timer = 6.0
-					Sound.play("time_up", -3.0)
+					Sound.play("time_up")
 					hud.announce("TIME!", Hud.RED, 1.4)
 		Phase.WRAP:
 			_wrap_timer -= delta
@@ -240,13 +240,13 @@ func _check_pickups() -> void:
 			var i: int = "SKATE".find(ch)
 			if i >= 0:
 				letters[i] = true
-				Sound.play("pickup", -4.0, 1.0 + i * 0.06)
+				Sound.play("pickup", 0.0, pow(2.0, [0, 2, 4, 7, 9][i] / 12.0))
 				hud.set_letters(letters)
 				hud.toast(ch, Hud.YELLOW, Vector2(get_viewport().get_visible_rect().size.x - 170.0 + i * 30.0, 130.0))
 				if not letters.has(false):
 					score.score += 2500
 					hud.set_score(score.score)
-					Sound.play("skate_done", -3.0)
+					Sound.play("skate_done")
 					hud.announce("S.K.A.T.E!  +2,500", Hud.YELLOW, 2.2)
 			pickups.erase(n)
 			n.queue_free()
@@ -285,25 +285,25 @@ func _update_audio(delta: float) -> void:
 		var before: float = _roll_dist
 		_roll_dist += spd * delta
 		if int(_roll_dist / 3.1) != int(before / 3.1) and spd > 3.0:
-			Sound.play("crack", lerpf(-22.0, -8.0, clampf(spd / 12.0, 0.0, 1.0)), randf_range(0.9, 1.15))
+			Sound.play("crack", lerpf(-10.0, -2.0, clampf(spd / 12.0, 0.0, 1.0)), randf_range(0.9, 1.15))
 
 
 func _on_sfx(kind: String) -> void:
 	match kind:
 		"ollie":
-			Sound.play("ollie", -4.0, randf_range(0.95, 1.08))
+			Sound.play("ollie", 0.0, randf_range(0.95, 1.08))
 		"flip":
-			Sound.play("flip", -8.0, randf_range(0.95, 1.1))
+			Sound.play("flip", 0.0, randf_range(0.95, 1.1))
 		"trick":
-			Sound.play("trick", -6.0)
+			Sound.play("trick")
 		"grab":
-			Sound.play("grab", -8.0)
+			Sound.play("grab")
 		"manual":
-			Sound.play("manual", -8.0)
+			Sound.play("manual")
 		"grind_start":
-			Sound.play("land", -6.0, 1.7)
+			Sound.play("grind_start")
 		"bail":
-			Sound.play("bail", -1.0)
+			Sound.play("bail")
 
 
 func _on_score_changed() -> void:
@@ -312,7 +312,7 @@ func _on_score_changed() -> void:
 
 func _on_banked(points: int, combo_len: int) -> void:
 	hud.set_score(score.score)
-	Sound.play("bank_big" if points >= 2500 else "bank", -6.0)
+	Sound.play("bank_big" if points >= 2500 else "bank")
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	hud.toast("+%s" % Hud._commas(points), Hud.GREEN if combo_len < 4 else Hud.YELLOW, Vector2(280, 40))
 	if points >= 5000:
@@ -320,7 +320,7 @@ func _on_banked(points: int, combo_len: int) -> void:
 
 
 func _on_lost() -> void:
-	Sound.play("combo_lost", -6.0)
+	Sound.play("combo_lost")
 	hud.toast("COMBO LOST", Hud.RED, Vector2(280, 40))
 
 
@@ -330,4 +330,4 @@ func _on_bailed(_reason: String) -> void:
 
 func _on_landed(air: float) -> void:
 	_shake = maxf(_shake, 0.12)
-	Sound.play("land_hard" if air > 0.8 else "land", -4.0, randf_range(0.95, 1.05))
+	Sound.play("land_hard" if air > 0.8 else "land", 0.0, randf_range(0.95, 1.05))
