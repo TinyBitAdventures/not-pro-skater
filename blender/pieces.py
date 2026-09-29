@@ -402,7 +402,7 @@ def flower_bed(root, L=3.0, W=1.2, seed=0):
 def kiosk(root, w=7.0, d=5.0, h=3.4, wall="Cream", trim="Teal", name="SKATE SHOP"):
     """The little skate shop by the park entrance. Local +Y is the front."""
     box(uname("Wall_Kiosk") + "-col", (w, d, h), (0, 0, h / 2), M(wall), parent=root)
-    loft_box(uname("KioskRoof"), (w + 0.9, d + 0.9), (w * 0.55, d * 0.4), h, h + 0.9, M("Roof"), parent=root)
+    loft_box(uname("KioskRoof"), (w + 0.5, d + 0.5), (w * 0.85, d * 0.7), h, h + 0.5, M("Roof"), parent=root)
     box(uname("KioskBase"), (w + 0.1, d + 0.1, 0.35), (0, 0, 0.17), M("ConcreteDk"), parent=root)
     y = d / 2
     box(uname("Awning"), (w - 0.6, 1.0, 0.14), (0, y + 0.5, 2.7), M(trim), parent=root)
