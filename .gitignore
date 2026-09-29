@@ -5,3 +5,5 @@ build/
 .DS_Store
 game/*.tmp
 __pycache__/
+# textures Godot extracts from glb files on import (rebuilt by godot --import)
+game/assets/levels/*_1K-JPG_*
