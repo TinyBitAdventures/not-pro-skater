@@ -31,11 +31,12 @@ func _ready() -> void:
 		var s: AudioStreamWAV = load("res://assets/audio/sfx/%s.wav" % n)
 		s.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		s.loop_begin = 0
-		s.loop_end = s.data.size() / 2
+		s.loop_end = int(s.get_length() * s.mix_rate)   # frames; data.size() / 2 is wrong for QOA/ADPCM imports
 		var p: AudioStreamPlayer = AudioStreamPlayer.new()
 		p.stream = s
 		p.bus = "SFX"
 		p.volume_db = -60.0
+		p.playback_type = AudioServer.PLAYBACK_TYPE_STREAM   # web default is Sample, which restarts looping buffers
 		add_child(p)
 		p.play()
 		_loops[n] = p
@@ -44,6 +45,7 @@ func _ready() -> void:
 	var m: AudioStreamOggVorbis = load("res://assets/audio/music/park.ogg")
 	m.loop = true
 	_music.stream = m
+	_music.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(_music)
 	apply_settings()
 

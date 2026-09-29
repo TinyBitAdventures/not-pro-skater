@@ -151,7 +151,7 @@ func _process(delta: float) -> void:
 		visual.sync_from(self, delta)
 	if is_inside_tree():
 		if is_player:
-			RenderingServer.global_shader_parameter_set("player_pos", global_position)
+			Toon.set_player_pos(global_position)
 		_update_blob()
 
 

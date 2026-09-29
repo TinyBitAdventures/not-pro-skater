@@ -3,14 +3,17 @@
 global uniform vec3 player_pos;
 global uniform vec3 view_dir;
 
+const float HOLE_R0 = 1.0;
+const float HOLE_R1 = 1.7;
+
 bool occluded(vec3 wpos, vec2 frag) {
 	vec3 chest = player_pos + vec3(0.0, 0.9, 0.0);
 	vec3 u = wpos - chest;
 	float along = dot(u, view_dir);
 	float dist = length(u - view_dir * along);
-	float in_front = smoothstep(-0.4, -1.6, along);
+	float in_front = 1.0 - smoothstep(-1.6, -0.4, along);
 	float tall = smoothstep(player_pos.y + 0.25, player_pos.y + 0.6, wpos.y);
-	float hole = (1.0 - smoothstep(1.5, 2.5, dist)) * in_front * tall;
+	float hole = (1.0 - smoothstep(HOLE_R0, HOLE_R1, dist)) * in_front * tall;
 	float noise = fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
 	return hole > noise;
 }

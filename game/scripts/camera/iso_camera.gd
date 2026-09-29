@@ -21,12 +21,13 @@ const FOLLOW_DEAD: float = 0.38      # radians of heading error before the camer
 const FOLLOW_GAIN: float = 2.0
 const FOLLOW_MAX: float = 1.7
 
+## The sun; its shadow range follows the camera's depth slab (see _apply).
+var shadow_light: DirectionalLight3D = null
+
 
 func _ready() -> void:
 	projection = Camera3D.PROJECTION_ORTHOGONAL
 	keep_aspect = Camera3D.KEEP_HEIGHT
-	near = 1.0
-	far = 260.0
 	current = true
 	_apply()
 
@@ -79,9 +80,17 @@ func _process(delta: float) -> void:
 
 func _apply() -> void:
 	size = ortho_size
+	# Orthographic and pitched 35 degrees: only a slab around the focus can be on screen. Keeping near/far and
+	# the sun's shadow range tight makes the 4096 shadow map cover ~1/3 of the metres (about 2x sharper).
+	var half_depth: float = ortho_size * 0.8 + 12.0
+	if not is_equal_approx(far, distance + half_depth):
+		near = maxf(0.5, distance - half_depth)
+		far = distance + half_depth
+		if shadow_light != null:
+			shadow_light.directional_shadow_max_distance = far
 	var b: Basis = Basis.from_euler(Vector3(-deg_to_rad(pitch_deg), yaw, 0.0))
 	global_transform = Transform3D(b, focus + b.z * distance)
 	var fwd: Vector3 = -b.z
-	RenderingServer.global_shader_parameter_set("view_dir", fwd)
+	Toon.set_view_dir(fwd)
 	var vp_h: float = float(get_window().size.y) if is_inside_tree() else 900.0
 	Toon.set_outline_width(outline_px * ortho_size / maxf(vp_h, 200.0))

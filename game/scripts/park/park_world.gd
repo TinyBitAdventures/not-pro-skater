@@ -37,13 +37,14 @@ func _ready() -> void:
 	relay.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(relay)
 	relay.got.connect(_on_input)
-	WorldEnv.build(self)
+	var sun: DirectionalLight3D = WorldEnv.build(self)
 	level = Level.new()
 	add_child(level)
 	level.load_glb(LEVEL_PATH)
 
 	score = ScoreKeeper.new()
 	cam = IsoCamera.new()
+	cam.shadow_light = sun
 	add_child(cam)
 	skater = Skater.new()
 	skater.score = score

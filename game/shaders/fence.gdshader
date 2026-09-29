@@ -13,13 +13,19 @@ void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
+// Anti-aliased wire coverage: `x` is |fract(u) - 0.5| (0.5 on the wire centre), `px` the pixel footprint in
+// the same units. Wires thinner than a pixel fade out instead of shimmering.
+float wire_cov(float x, float px) {
+	float hw = max(wire, 0.5 * px);
+	float cov = clamp((x - (0.5 - hw)) / px + 0.5, 0.0, 1.0);
+	return cov * clamp(wire / hw, 0.0, 1.0);
+}
+
 void fragment() {
 	float along = wpos.x + wpos.z;
 	float u = (along + wpos.y) / cell;
 	float v = (along - wpos.y) / cell;
-	float du = abs(fract(u) - 0.5);
-	float dv = abs(fract(v) - 0.5);
-	float w = max(smoothstep(0.5 - wire, 0.5, du), smoothstep(0.5 - wire, 0.5, dv));
+	float w = max(wire_cov(abs(fract(u) - 0.5), fwidth(u)), wire_cov(abs(fract(v) - 0.5), fwidth(v)));
 	ALBEDO = albedo.rgb;
 	ALPHA = w * 0.9;
 }

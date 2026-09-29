@@ -28,12 +28,30 @@ static var _outlines: Array[ShaderMaterial] = []
 static var _outline_width: float = 0.05
 
 
+## The two shader globals occlude.gdshaderinc reads. RenderingServer.global_shader_parameter_get() is
+## editor-only (it errors at runtime), so everything else reads these mirrors; the set only fires on change.
+static var player_pos: Vector3 = Vector3(0.0, -100.0, 0.0)
+static var view_dir: Vector3 = Vector3(0.0, -0.577, -0.816)
+
+
+static func set_player_pos(p: Vector3) -> void:
+	if p != player_pos:
+		player_pos = p
+		RenderingServer.global_shader_parameter_set("player_pos", p)
+
+
+static func set_view_dir(d: Vector3) -> void:
+	if d != view_dir:
+		view_dir = d
+		RenderingServer.global_shader_parameter_set("view_dir", d)
+
+
 static func style(mat_name: String) -> Dictionary:
 	return STYLES.get(mat_name, {})
 
 
-static func material(mat_name: String, color: Color, fade: bool = true) -> Material:
-	var key: String = "%s|%s|%d" % [mat_name, color.to_html(false), 1 if fade else 0]
+static func material(mat_name: String, color: Color, fade: bool = true, with_outline: bool = true) -> Material:
+	var key: String = "%s|%s|%d|%d" % [mat_name, color.to_html(false), 1 if fade else 0, 1 if with_outline else 0]
 	if _cache.has(key):
 		return _cache[key]
 	var st: Dictionary = STYLES.get(mat_name, {})
@@ -49,7 +67,7 @@ static func material(mat_name: String, color: Color, fade: bool = true) -> Mater
 	for k in st:
 		if k != "outline" and k != "flat":
 			m.set_shader_parameter(k, st[k])
-	if st.get("outline", true):
+	if with_outline and st.get("outline", true):
 		var o: ShaderMaterial = ShaderMaterial.new()
 		o.shader = OUTLINE_SHADER
 		o.set_shader_parameter("fade_enabled", 1.0 if fade else 0.0)
@@ -58,6 +76,29 @@ static func material(mat_name: String, color: Color, fade: bool = true) -> Mater
 		_outlines.append(o)
 	_cache[key] = m
 	return m
+
+
+## One shared outline material for baked levels: LevelBaker draws every outlined surface of a cell in a
+## single cull_front pass instead of chaining a next_pass onto each toon material.
+static var _outline_shared: ShaderMaterial = null
+static var _shadow_shared: StandardMaterial3D = null
+
+
+static func outline_material() -> ShaderMaterial:
+	if _outline_shared == null:
+		_outline_shared = ShaderMaterial.new()
+		_outline_shared.shader = OUTLINE_SHADER
+		_outline_shared.set_shader_parameter("fade_enabled", 1.0)
+		_outline_shared.set_shader_parameter("width", _outline_width)
+		_outlines.append(_outline_shared)
+	return _outline_shared
+
+
+## Any opaque material will do for a SHADOWS_ONLY mesh: the shadow pass ignores colour.
+static func shadow_material() -> Material:
+	if _shadow_shared == null:
+		_shadow_shared = StandardMaterial3D.new()
+	return _shadow_shared
 
 
 ## Outline thickness in world metres (the camera recomputes this from its zoom so lines stay N pixels).

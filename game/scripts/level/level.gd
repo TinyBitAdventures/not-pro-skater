@@ -13,6 +13,7 @@ var grind_lines: Array[GrindLine] = []
 var pickups: Array[Dictionary] = []
 var collision_root: Node3D
 var stats: Dictionary = {}
+var _labels: Array[Label3D] = []
 
 
 func load_glb(path: String) -> void:
@@ -101,8 +102,26 @@ func _make_label(marker: Node3D) -> void:
 		l.double_sided = false
 		l.shaded = false
 		add_child(l)
+		_labels.append(l)
 		l.global_transform = marker.global_transform
 		if side == 0:
 			l.rotate_object_local(Vector3.UP, PI)
 		else:
 			l.global_position -= front_dir * 0.09
+
+
+## Label3D text is not a Toon material, so the see-through hole in occlude.gdshaderinc cannot reach it: a sign
+## board would dither away while its lettering stayed solid over the skater. Fade the text with the same maths.
+func _process(_delta: float) -> void:
+	if _labels.is_empty():
+		return
+	var pp: Vector3 = Toon.player_pos
+	var vd: Vector3 = Toon.view_dir
+	var chest: Vector3 = pp + Vector3(0.0, 0.9, 0.0)
+	for l in _labels:
+		var u: Vector3 = l.global_position - chest
+		var along: float = u.dot(vd)
+		var dist: float = (u - vd * along).length()
+		var in_front: float = 1.0 - smoothstep(-1.6, -0.4, along)
+		var hole: float = (1.0 - smoothstep(1.4, 3.0, dist)) * in_front   # labels are ~4 m wide: wider than the toon hole
+		l.modulate.a = 1.0 - hole

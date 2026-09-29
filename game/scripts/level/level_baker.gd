@@ -6,10 +6,19 @@ extends RefCounted
 const CELL: float = 48.0
 
 
+## Per-cell geometry that is drawn in a shared pass: all outlined surfaces (one cull_front draw) and all
+## shadow casters (one SHADOWS_ONLY draw), instead of one outline + one shadow draw per material bucket.
+class Cell:
+	var ov: PackedVector3Array = PackedVector3Array()
+	var oc: PackedColorArray = PackedColorArray()
+	var oi: PackedInt32Array = PackedInt32Array()
+	var sv: PackedVector3Array = PackedVector3Array()
+	var si: PackedInt32Array = PackedInt32Array()
+
+
 class Bucket:
 	var verts: PackedVector3Array = PackedVector3Array()
 	var norms: PackedVector3Array = PackedVector3Array()
-	var cols: PackedColorArray = PackedColorArray()
 	var idx: PackedInt32Array = PackedInt32Array()
 	var mat_name: String = ""
 	var color: Color = Color.WHITE
@@ -18,6 +27,7 @@ class Bucket:
 ## `root` must be inside the tree so global transforms are valid. Returns a Node3D with the baked meshes.
 static func bake(root: Node3D) -> Node3D:
 	var buckets: Dictionary = {}
+	var cells: Dictionary = {}
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		var inst: MeshInstance3D = mi as MeshInstance3D
 		var mesh: Mesh = inst.mesh
@@ -54,21 +64,34 @@ static func bake(root: Node3D) -> Node3D:
 				b.mat_name = mname
 				b.color = color
 				buckets[key] = b
+			var st: Dictionary = Toon.style(mname)
+			var cg: Cell = cells.get(cell)
+			if cg == null:
+				cg = Cell.new()
+				cells[cell] = cg
+			var local_idx: PackedInt32Array = PackedInt32Array()
+			if i_in is PackedInt32Array and (i_in as PackedInt32Array).size() > 0:
+				local_idx = i_in as PackedInt32Array
+			else:
+				local_idx.resize(count)
+				for ix in count:
+					local_idx[ix] = ix
 			var base: int = b.verts.size()
 			b.verts.append_array(wv)
 			b.norms.append_array(wn)
-			if Toon.style(mname).get("outline", true):
-				b.cols.append_array(Toon.outline_normals(wv, wn))
-			else:
-				var pad: PackedColorArray = PackedColorArray()
-				pad.resize(count)
-				b.cols.append_array(pad)
-			if i_in is PackedInt32Array and (i_in as PackedInt32Array).size() > 0:
-				for ix in (i_in as PackedInt32Array):
-					b.idx.append(base + ix)
-			else:
-				for ix in count:
-					b.idx.append(base + ix)
+			for ix in local_idx:
+				b.idx.append(base + ix)
+			if st.get("outline", true):
+				var obase: int = cg.ov.size()
+				cg.ov.append_array(wv)
+				cg.oc.append_array(Toon.outline_normals(wv, wn))
+				for ix in local_idx:
+					cg.oi.append(obase + ix)
+			if not (st.get("flat", false) or mname == "FenceMesh"):
+				var sbase: int = cg.sv.size()
+				cg.sv.append_array(wv)
+				for ix in local_idx:
+					cg.si.append(sbase + ix)
 	var out: Node3D = Node3D.new()
 	out.name = "Baked"
 	for key in buckets:
@@ -77,16 +100,40 @@ static func bake(root: Node3D) -> Node3D:
 		arrays.resize(Mesh.ARRAY_MAX)
 		arrays[Mesh.ARRAY_VERTEX] = b.verts
 		arrays[Mesh.ARRAY_NORMAL] = b.norms
-		arrays[Mesh.ARRAY_COLOR] = b.cols
 		arrays[Mesh.ARRAY_INDEX] = b.idx
 		var mesh: ArrayMesh = ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-		mesh.surface_set_material(0, Toon.material(b.mat_name, b.color, true))
+		mesh.surface_set_material(0, Toon.material(b.mat_name, b.color, true, false))
 		var node: MeshInstance3D = MeshInstance3D.new()
 		node.name = b.mat_name
 		node.set_meta("mat", b.mat_name)
 		node.mesh = mesh
-		if Toon.style(b.mat_name).get("flat", false) or b.mat_name == "FenceMesh":
-			node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		out.add_child(node)
+	for ck in cells:
+		var cg: Cell = cells[ck]
+		if cg.oi.size() > 0:
+			out.add_child(_pass_node("Outline_" + String(ck), cg.ov, cg.oc, cg.oi, Toon.outline_material(),
+				GeometryInstance3D.SHADOW_CASTING_SETTING_OFF))
+		if cg.si.size() > 0:
+			out.add_child(_pass_node("Shadow_" + String(ck), cg.sv, PackedColorArray(), cg.si, Toon.shadow_material(),
+				GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY))
 	return out
+
+
+static func _pass_node(node_name: String, v: PackedVector3Array, c: PackedColorArray, idx: PackedInt32Array,
+		mat: Material, shadow_mode: int) -> MeshInstance3D:
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = v
+	if c.size() > 0:
+		arrays[Mesh.ARRAY_COLOR] = c
+	arrays[Mesh.ARRAY_INDEX] = idx
+	var mesh: ArrayMesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.surface_set_material(0, mat)
+	var node: MeshInstance3D = MeshInstance3D.new()
+	node.name = node_name.replace("|", "_")
+	node.mesh = mesh
+	node.cast_shadow = shadow_mode as GeometryInstance3D.ShadowCastingSetting
+	return node
