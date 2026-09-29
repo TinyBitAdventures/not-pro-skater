@@ -6,6 +6,7 @@ extends RefCounted
 const TOON_SHADER: Shader = preload("res://shaders/toon.gdshader")
 const OUTLINE_SHADER: Shader = preload("res://shaders/outline.gdshader")
 const FENCE_SHADER: Shader = preload("res://shaders/fence.gdshader")
+const WATER_SHADER: Shader = preload("res://shaders/water.gdshader")
 
 ## Per-material tweaks. outline=false skips the black hull; flat=true means "ground-like, casts no shadow".
 const STYLES: Dictionary = {
@@ -21,6 +22,7 @@ const STYLES: Dictionary = {
 	"Lamp": {"emission": 1.0, "outline": false},
 	"Collision": {"outline": false},
 	"FenceMesh": {"fence": true, "outline": false},
+	"Water": {"water": true, "outline": false, "flat": true},
 }
 
 static var _cache: Dictionary = {}
@@ -68,6 +70,11 @@ static func material(mat_name: String, color: Color, fade: bool = true, with_out
 		m.set_shader_parameter("albedo", color)
 		_cache[key] = m
 		return m
+	if st.get("water", false):
+		m.shader = WATER_SHADER
+		m.set_shader_parameter("albedo", color)
+		_cache[key] = m
+		return m
 	m.shader = TOON_SHADER
 	m.set_shader_parameter("albedo", color)
 	m.set_shader_parameter("fade_enabled", 1.0 if fade else 0.0)
@@ -84,6 +91,7 @@ static func material(mat_name: String, color: Color, fade: bool = true, with_out
 		o.shader = OUTLINE_SHADER
 		o.set_shader_parameter("fade_enabled", 1.0 if fade else 0.0)
 		o.set_shader_parameter("haze_amount", 1.0 if fade else 0.0)
+		o.set_shader_parameter("width_scale", 1.0 if fade else 1.5)
 		o.set_shader_parameter("width", _outline_width)
 		m.next_pass = o
 		_outlines.append(o)

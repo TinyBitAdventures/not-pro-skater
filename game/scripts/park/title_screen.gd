@@ -41,6 +41,7 @@ func _ready() -> void:
 	cam.target = star
 	cam.jump_to(star.global_position)
 	add_child(PostFx.new())
+	add_child(AmbientLife.new())
 	_build_ui()
 	Sound.play_music("boardwalk_morning")
 

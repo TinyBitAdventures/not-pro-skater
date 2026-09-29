@@ -59,6 +59,7 @@ func _ready() -> void:
 	cam.jump_to(skater.global_position)
 
 	add_child(PostFx.new())
+	add_child(AmbientLife.new())
 	hud = Hud.new()
 	add_child(hud)
 	hud.set_best(int(Game.best.get(LEVEL_ID, {}).get("score", 0)))
