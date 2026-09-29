@@ -49,6 +49,8 @@ func _ready() -> void:
 	score.lost.connect(_on_lost)
 	skater.bailed.connect(_on_bailed)
 	skater.landed.connect(_on_landed)
+	skater.sfx.connect(_on_sfx)
+	Sound.play_music()
 	_build_pickups()
 	hud.announce("COMMUNITY PARK", Hud.YELLOW, 2.4)
 	hud.set_timer(time_left, false)
@@ -100,12 +102,14 @@ func _process(delta: float) -> void:
 		cam.h_offset = 0.0
 		cam.v_offset = 0.0
 	hud.set_speed(skater.velocity.length())
+	_update_audio(delta)
 	hud.set_combo(score.mult, score.combo_text(), score.pending, score.live)
 
 	match phase:
 		Phase.READY:
 			if skater.velocity.length() > 1.0 and not skater.scripted:
 				phase = Phase.RUN
+				Sound.play("go", -4.0)
 				hud.announce("GO!", Hud.GREEN, 0.9)
 		Phase.RUN:
 			if not free_skate:
@@ -114,6 +118,7 @@ func _process(delta: float) -> void:
 				if time_left <= 0.0:
 					phase = Phase.WRAP
 					_wrap_timer = 6.0
+					Sound.play("time_up", -3.0)
 					hud.announce("TIME!", Hud.RED, 1.4)
 		Phase.WRAP:
 			_wrap_timer -= delta
@@ -143,6 +148,8 @@ func _input(event: InputEvent) -> void:
 			cam.snap_yaw(-1)
 		elif k.physical_keycode == KEY_E and not get_tree().paused:
 			cam.snap_yaw(1)
+		elif k.physical_keycode == KEY_N:
+			hud.announce("MUSIC ON" if Sound.toggle_music() else "MUSIC OFF", Hud.BLUE, 1.0)
 		elif k.physical_keycode == KEY_EQUAL:
 			cam.ortho_size = clampf(cam.ortho_size - 2.0, 12.0, 40.0)
 		elif k.physical_keycode == KEY_MINUS:
@@ -168,11 +175,13 @@ func _check_pickups() -> void:
 			var i: int = "SKATE".find(ch)
 			if i >= 0:
 				letters[i] = true
+				Sound.play("pickup", -4.0, 1.0 + i * 0.06)
 				hud.set_letters(letters)
 				hud.toast(ch, Hud.YELLOW, Vector2(get_viewport().get_visible_rect().size.x - 170.0 + i * 30.0, 130.0))
 				if not letters.has(false):
 					score.score += 2500
 					hud.set_score(score.score)
+					Sound.play("skate_done", -3.0)
 					hud.announce("S.K.A.T.E!  +2,500", Hud.YELLOW, 2.2)
 			pickups.erase(n)
 			n.queue_free()
@@ -198,12 +207,46 @@ func _finish() -> void:
 	skater.inp.brake = true
 
 
+var _roll_dist: float = 0.0
+
+
+func _update_audio(delta: float) -> void:
+	var on_ground: bool = skater.state == Skater.State.GROUND
+	var spd: float = skater.velocity.length()
+	Sound.set_rolling(spd, skater.surface, on_ground, delta)
+	Sound.set_grinding(skater.state == Skater.State.GRIND, skater.grind_speed, delta)
+	if on_ground and skater.surface != "grass" and skater.surface != "wood":
+		var before: float = _roll_dist
+		_roll_dist += spd * delta
+		if int(_roll_dist / 3.1) != int(before / 3.1) and spd > 3.0:
+			Sound.play("crack", lerpf(-22.0, -8.0, clampf(spd / 12.0, 0.0, 1.0)), randf_range(0.9, 1.15))
+
+
+func _on_sfx(kind: String) -> void:
+	match kind:
+		"ollie":
+			Sound.play("ollie", -4.0, randf_range(0.95, 1.08))
+		"flip":
+			Sound.play("flip", -8.0, randf_range(0.95, 1.1))
+		"trick":
+			Sound.play("trick", -6.0)
+		"grab":
+			Sound.play("grab", -8.0)
+		"manual":
+			Sound.play("manual", -8.0)
+		"grind_start":
+			Sound.play("land", -6.0, 1.7)
+		"bail":
+			Sound.play("bail", -1.0)
+
+
 func _on_score_changed() -> void:
 	hud.set_score(score.score)
 
 
 func _on_banked(points: int, combo_len: int) -> void:
 	hud.set_score(score.score)
+	Sound.play("bank_big" if points >= 2500 else "bank", -6.0)
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	hud.toast("+%s" % Hud._commas(points), Hud.GREEN if combo_len < 4 else Hud.YELLOW, Vector2(280, 40))
 	if points >= 5000:
@@ -211,6 +254,7 @@ func _on_banked(points: int, combo_len: int) -> void:
 
 
 func _on_lost() -> void:
+	Sound.play("combo_lost", -6.0)
 	hud.toast("COMBO LOST", Hud.RED, Vector2(280, 40))
 
 
@@ -218,5 +262,6 @@ func _on_bailed(_reason: String) -> void:
 	_shake = 0.6
 
 
-func _on_landed(_air: float) -> void:
+func _on_landed(air: float) -> void:
 	_shake = maxf(_shake, 0.12)
+	Sound.play("land_hard" if air > 0.8 else "land", -4.0, randf_range(0.95, 1.05))

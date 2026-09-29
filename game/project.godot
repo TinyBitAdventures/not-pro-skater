@@ -20,6 +20,7 @@ config/version="0.1.0"
 
 Controls="*res://scripts/autoload/controls.gd"
 Game="*res://scripts/autoload/game.gd"
+Sound="*res://scripts/autoload/sound.gd"
 
 [display]
 
