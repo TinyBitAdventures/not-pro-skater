@@ -40,6 +40,7 @@ func _ready() -> void:
 			star = s
 	cam.target = star
 	cam.jump_to(star.global_position)
+	add_child(PostFx.new())
 	_build_ui()
 	Sound.play_music()
 

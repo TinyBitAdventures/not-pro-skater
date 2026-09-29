@@ -34,6 +34,9 @@ func _run() -> void:
 	add_child(cam)
 	var views: Array = [
 		["top", Vector3(0, 0, 0), 0.0, 90.0, 125.0],
+		["gate_n", Vector3(0, 0, -18.3), 45.0, 35.264, 7.0],
+		["gate_n_b", Vector3(0.013, 0, -18.3), 45.0, 35.264, 7.0],
+		["gate_e", Vector3(20.3, 0, 0), 45.0, 35.264, 7.0],
 		["top_plaza", Vector3(0, 0, 0), 0.0, 90.0, 40.0],
 		["iso_plaza", Vector3(0, 0, 0), 45.0, 35.264, 36.0],
 		["iso_west", Vector3(-11, 1, -2), 45.0, 35.264, 24.0],

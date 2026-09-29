@@ -2,6 +2,15 @@
 // The camera is orthographic, so "in front of the skater" is just a dot product with the view direction.
 global uniform vec3 player_pos;
 global uniform vec3 view_dir;
+global uniform vec3 focus_pos;   // camera focus: distance haze is measured from here
+
+// Atmospheric haze: far scenery (houses, hills, the ground plane's edge) melts into the sky colour.
+const float HAZE_START = 42.0;
+const float HAZE_END = 120.0;
+
+float haze_factor(vec3 wp) {
+	return smoothstep(HAZE_START, HAZE_END, length(wp.xz - focus_pos.xz));
+}
 
 const float HOLE_R0 = 1.0;
 const float HOLE_R1 = 1.7;

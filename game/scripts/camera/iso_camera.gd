@@ -92,5 +92,6 @@ func _apply() -> void:
 	global_transform = Transform3D(b, focus + b.z * distance)
 	var fwd: Vector3 = -b.z
 	Toon.set_view_dir(fwd)
+	Toon.set_focus_pos(focus)
 	var vp_h: float = float(get_window().size.y) if is_inside_tree() else 900.0
 	Toon.set_outline_width(outline_px * ortho_size / maxf(vp_h, 200.0))

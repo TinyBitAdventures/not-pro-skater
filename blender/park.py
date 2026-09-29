@@ -17,6 +17,7 @@ from pieces import (M, banner, bench, bin_, bush, fence, flat_rail, flower_bed, 
                     stair_set, tree)
 
 Z0 = 0.06                 # top of every paved surface
+SPOKE_Z = Z0 - 0.004      # spokes sit 4 mm under the plaza and the ring: where they overlap the bigger slab always wins (no z-fighting)
 RING_IN, RING_OUT = 33.0, 39.0
 RING_MID = (RING_IN + RING_OUT) / 2
 PLAZA_X, PLAZA_Y = 20.0, 18.0
@@ -88,9 +89,9 @@ def plaza_and_spokes():
     ew_len = RING_IN - PLAZA_X + 1.0
     for sgn in (-1, 1):
         cy = sgn * (PLAZA_Y - 0.5 + ns_len / 2)
-        loft_box(uname("Path_Spoke") + "-col", (SPOKE_W + 0.32, ns_len + 0.32), (SPOKE_W, ns_len), 0.0, Z0, M("Path"), center=(0, cy))
+        loft_box(uname("Path_Spoke") + "-col", (SPOKE_W + 0.32, ns_len + 0.32), (SPOKE_W, ns_len), 0.0, SPOKE_Z, M("Path"), center=(0, cy))
         cx = sgn * (PLAZA_X - 0.5 + ew_len / 2)
-        loft_box(uname("Path_Spoke") + "-col", (ew_len + 0.32, SPOKE_W + 0.32), (ew_len, SPOKE_W), 0.0, Z0, M("Path"), center=(cx, 0))
+        loft_box(uname("Path_Spoke") + "-col", (ew_len + 0.32, SPOKE_W + 0.32), (ew_len, SPOKE_W), 0.0, SPOKE_Z, M("Path"), center=(cx, 0))
 
 
 def plaza_fence():

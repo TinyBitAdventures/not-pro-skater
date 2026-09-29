@@ -61,6 +61,7 @@ var score: ScoreKeeper = null
 var cam: Camera3D = null
 var grind_lines: Array[GrindLine] = []
 var visual: SkaterVisual = null
+var fx: SkaterFx = null
 var with_visual: bool = true
 var steer_mode: String = ""          # "" = follow Game.steer_mode; AI skaters use "screen"
 var cam_y: float = 0.0               # ground height the camera follows (does not rise with a jump)
@@ -140,6 +141,11 @@ func _ready() -> void:
 		add_child(visual)
 		visual.setup(look)
 		_make_blob()
+		fx = SkaterFx.new()
+		fx.skater = self
+		add_child(fx)
+		landed.connect(fx.landed)
+		bailed.connect(func(_r: String) -> void: fx.bailed())
 
 
 func _make_blob() -> void:
@@ -158,6 +164,8 @@ func _make_blob() -> void:
 func _process(delta: float) -> void:
 	if visual != null:
 		visual.sync_from(self, delta)
+	if fx != null:
+		fx.tick(delta)
 	if is_inside_tree():
 		if is_player:
 			Toon.set_player_pos(global_position)

@@ -9,8 +9,8 @@ const FENCE_SHADER: Shader = preload("res://shaders/fence.gdshader")
 
 ## Per-material tweaks. outline=false skips the black hull; flat=true means "ground-like, casts no shadow".
 const STYLES: Dictionary = {
-	"Grass": {"noise_scale": 0.55, "noise_amount": 0.05, "outline": false, "flat": true},
-	"GrassB": {"noise_scale": 0.55, "noise_amount": 0.05, "outline": false, "flat": true},
+	"Grass": {"noise_scale": 0.55, "noise_amount": 0.05, "grass_detail": 1.0, "outline": false, "flat": true},
+	"GrassB": {"noise_scale": 0.55, "noise_amount": 0.05, "grass_detail": 1.0, "outline": false, "flat": true},
 	"Plaza": {"grid_scale": 3.0, "grid_amount": 0.13, "noise_scale": 5.0, "noise_amount": 0.025, "outline": false, "flat": true},
 	"Path": {"noise_scale": 5.0, "noise_amount": 0.025, "outline": false, "flat": true},
 	"PathB": {"outline": false, "flat": true},
@@ -32,12 +32,19 @@ static var _outline_width: float = 0.05
 ## editor-only (it errors at runtime), so everything else reads these mirrors; the set only fires on change.
 static var player_pos: Vector3 = Vector3(0.0, -100.0, 0.0)
 static var view_dir: Vector3 = Vector3(0.0, -0.577, -0.816)
+static var focus_pos: Vector3 = Vector3.ZERO
 
 
 static func set_player_pos(p: Vector3) -> void:
 	if p != player_pos:
 		player_pos = p
 		RenderingServer.global_shader_parameter_set("player_pos", p)
+
+
+static func set_focus_pos(p: Vector3) -> void:
+	if p != focus_pos:
+		focus_pos = p
+		RenderingServer.global_shader_parameter_set("focus_pos", p)
 
 
 static func set_view_dir(d: Vector3) -> void:
@@ -64,6 +71,11 @@ static func material(mat_name: String, color: Color, fade: bool = true, with_out
 	m.shader = TOON_SHADER
 	m.set_shader_parameter("albedo", color)
 	m.set_shader_parameter("fade_enabled", 1.0 if fade else 0.0)
+	if not fade:
+		# characters: no haze, contact shade or cloud shadows
+		m.set_shader_parameter("haze_amount", 0.0)
+		m.set_shader_parameter("ao_strength", 0.0)
+		m.set_shader_parameter("cloud_shadow", 0.0)
 	for k in st:
 		if k != "outline" and k != "flat":
 			m.set_shader_parameter(k, st[k])
@@ -71,6 +83,7 @@ static func material(mat_name: String, color: Color, fade: bool = true, with_out
 		var o: ShaderMaterial = ShaderMaterial.new()
 		o.shader = OUTLINE_SHADER
 		o.set_shader_parameter("fade_enabled", 1.0 if fade else 0.0)
+		o.set_shader_parameter("haze_amount", 1.0 if fade else 0.0)
 		o.set_shader_parameter("width", _outline_width)
 		m.next_pass = o
 		_outlines.append(o)
