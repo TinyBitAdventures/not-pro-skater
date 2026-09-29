@@ -4,3 +4,4 @@ build/
 *.blend1
 .DS_Store
 game/*.tmp
+__pycache__/
