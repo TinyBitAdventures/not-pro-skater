@@ -11,6 +11,8 @@
 - **Vert lock:** leaving a steep face going up keeps the air in the wall's plane and turns the skater 180 on the way, so straight airs come back down the same ramp; vert air floats (gravity x0.55) and lip pops are scaled to match (a 3 m quarter gives about 1.1 s of air). Riding across a face at an angle skips the lock; holding **M** at the lip **transfers** onto the deck.
 - **Landing assist:** within 35 degrees the board lines up with the way it is going; up to 58 degrees is a *sketchy* landing (25% speed lost); beyond that bails; landing backwards rolls away **fakie** (`stance`). **Revert**: M just after landing on a ramp spins 180 and keeps the combo.
 - **Apex hang:** gravity is halved near the top of every jump.
+- **Chase camera** (greybox): a perspective camera behind the direction of travel (spins never swing it), half-following jump height, looking ahead along the velocity, field of view opening with speed and kicking on a pop, a little shake on big landings, and a ray that pulls it in front of walls. On vert it moves out in front of the wall at coping height so the lip sits low in the shot with the skater rising above it, then swings back behind after the landing.
+- Greybox look: darker grid materials, real sun shadows (no fake blob shadow).
 - **Rails** are Blender curves exported to `<level>.rails.json` and loaded as `Curve3D`s: curved rails grind smoothly, rails whose ends meet are linked. **Rail magnetism**: grind pressed in the air looks 0.35 s along the air path and bends it onto a rail up to 1.2 m to the side.
 
 First playable prototype: one level, a full skating model and the isometric toon look.

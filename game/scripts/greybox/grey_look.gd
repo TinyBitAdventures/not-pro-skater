@@ -6,11 +6,11 @@ extends RefCounted
 const GRID: Shader = preload("res://shaders/grid.gdshader")
 const TINTS: Array = [
 	# [substring of the Blender material name, colour, roughness]
-	["Metal", Color(0.74, 0.78, 0.84), 0.35],
-	["Coping", Color(0.74, 0.78, 0.84), 0.35],
-	["Wood", Color(0.7, 0.66, 0.6), 0.8],
-	["Navy", Color(0.42, 0.42, 0.46), 0.9],
-	["GreyDark", Color(0.46, 0.46, 0.48), 0.9],
+	["Metal", Color(0.62, 0.66, 0.72), 0.35],
+	["Coping", Color(0.62, 0.66, 0.72), 0.35],
+	["Wood", Color(0.5, 0.46, 0.41), 0.8],
+	["Navy", Color(0.3, 0.3, 0.33), 0.9],
+	["GreyDark", Color(0.3, 0.3, 0.32), 0.9],
 	["Collision", Color(1, 0, 1), 1.0],
 ]
 
@@ -18,7 +18,7 @@ static var _cache: Dictionary = {}
 
 
 static func material_for(mat_name: String) -> ShaderMaterial:
-	var col: Color = Color(0.62, 0.62, 0.63)
+	var col: Color = Color(0.4, 0.4, 0.41)
 	var rough: float = 0.85
 	for t in TINTS:
 		if mat_name.contains(t[0]):

@@ -4,8 +4,8 @@ shader_type spatial;
 
 uniform vec3 base_color : source_color = vec3(0.62);
 uniform float roughness : hint_range(0.0, 1.0) = 0.85;
-uniform float line_1m : hint_range(0.0, 1.0) = 0.16;
-uniform float line_5m : hint_range(0.0, 1.0) = 0.3;
+uniform float line_1m : hint_range(0.0, 1.0) = 0.22;
+uniform float line_5m : hint_range(0.0, 1.0) = 0.4;
 
 varying vec3 wpos;
 varying vec3 wnrm;

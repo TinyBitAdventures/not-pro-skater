@@ -37,15 +37,16 @@ func _ready() -> void:
 	score = ScoreKeeper.new()
 	cam = _make_camera(sun)
 	skater = Skater.new()
+	skater.use_blob = false
 	skater.score = score
 	skater.cam = cam
 	skater.grind_lines = level.grind_lines
 	add_child(skater)
-	cam.set("target", skater)
 
 	hud = Hud.new()
 	add_child(hud)
 	hud.set_timer(0.0, false)
+	hud.level_label.text = "GREYBOX"
 	hud.set_hint("1-9 / 0  WARP    TAB  NEXT SPOT    R  RESET    F3  TUNING")
 	tuning = TuningPanel.new()
 	add_child(tuning)
@@ -58,6 +59,7 @@ func _ready() -> void:
 
 	var first: String = OS.get_environment("SHOT_START")
 	warp(start_names.find(first) if first != "" and start_names.has(first) else 0)
+	(cam as ChaseCamera).attach(skater)
 	if OS.get_environment("SHOT") != "":
 		_shot_t = float(OS.get_environment("SHOT_AT")) if OS.get_environment("SHOT_AT") != "" else 2.0
 		if OS.get_environment("PUSH") != "":
@@ -66,11 +68,8 @@ func _ready() -> void:
 		tuning.get_child(0).visible = true
 
 
-## The iso camera for now; the chase camera replaces it.
-func _make_camera(sun: DirectionalLight3D) -> Camera3D:
-	var c: IsoCamera = IsoCamera.new()
-	c.shadow_light = sun
-	c.follow_heading = true
+func _make_camera(_sun: DirectionalLight3D) -> Camera3D:
+	var c: ChaseCamera = ChaseCamera.new()
 	add_child(c)
 	return c
 
@@ -82,6 +81,8 @@ func warp(i: int) -> void:
 	start_i = posmod(i, start_names.size())
 	var nm: String = start_names[start_i]
 	skater.place_at(level.starts[nm])
+	if OS.get_environment("V0") != "":
+		skater.velocity = skater.hdg * float(OS.get_environment("V0"))
 	if cam is IsoCamera:
 		(cam as IsoCamera).face_heading(skater)
 		(cam as IsoCamera).jump_to(skater.global_position)
@@ -111,14 +112,40 @@ func _process(delta: float) -> void:
 	if _shot_t >= 0.0:
 		if skater.scripted:
 			skater.inp.move = Vector2(0, -1)
-			skater.inp.world_dir = skater.hdg
+			skater.inp.world_dir = skater.hdg if skater.state == Skater.State.GROUND else Vector3.ZERO
+			if OS.get_environment("SHOT_WHEN") == "grind":
+				var st: Transform3D = level.starts[start_names[start_i]]
+				var run: float = (skater.global_position - st.origin).dot(-st.basis.z)
+				skater.inp.ollie_pressed = skater.state == Skater.State.GROUND and run > float(OS.get_environment("OLLIE_AT"))
+				skater.inp.grind_pressed = skater.state == Skater.State.AIR
 		_shot_t -= delta
-		if _shot_t < 0.0:
+		var when: String = OS.get_environment("SHOT_WHEN")
+		var ready: bool = _shot_t < 0.0
+		if when == "apex":
+			ready = skater.state == Skater.State.AIR and skater.velocity.y < 0.3 and skater.air_time > 0.2
+		elif when == "grind":
+			ready = skater.state == Skater.State.GRIND and skater.grind_dist > 1.5
+		if ready:
+			_shot_t = -1.0
 			_take_shot.call_deferred()
+
+
+var _seq_n: int = 0
 
 
 func _take_shot() -> void:
 	await RenderingServer.frame_post_draw
+	var seq: int = int(OS.get_environment("SHOT_SEQ")) if OS.get_environment("SHOT_SEQ") != "" else 0
+	if seq > 0:
+		var d: String = ProjectSettings.globalize_path("res://").path_join("../shots")
+		DirAccess.make_dir_recursive_absolute(d)
+		get_viewport().get_texture().get_image().save_png(d.path_join("%s_%02d.png" % [OS.get_environment("SHOT"), _seq_n]))
+		_seq_n += 1
+		if _seq_n >= seq:
+			get_tree().quit()
+		else:
+			_shot_t = float(OS.get_environment("SHOT_EVERY")) if OS.get_environment("SHOT_EVERY") != "" else 0.25
+		return
 	var dir: String = ProjectSettings.globalize_path("res://").path_join("../shots")
 	DirAccess.make_dir_recursive_absolute(dir)
 	var path: String = dir.path_join(OS.get_environment("SHOT") + ".png")

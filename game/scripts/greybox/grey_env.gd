@@ -15,7 +15,7 @@ static func build(parent: Node) -> DirectionalLight3D:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.9
+	env.ambient_light_energy = 0.45
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
@@ -26,7 +26,7 @@ static func build(parent: Node) -> DirectionalLight3D:
 	parent.add_child(we)
 
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
-	sun.light_energy = 1.25
+	sun.light_energy = 0.85
 	sun.light_color = Color(1.0, 0.97, 0.92)
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS

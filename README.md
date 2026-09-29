@@ -132,7 +132,7 @@ game/
                     SkaterVisual (IK rig), ScoreKeeper, Tricks, SkaterBrain (AI)
   scripts/level/    Level (glTF + rails.json loader), LevelBaker (mesh merging)
   scripts/greybox/  GreyboxWorld (test level scene), GreyLook (grid materials), GreyEnv (sky and sun)
-  scripts/camera/   IsoCamera
+  scripts/camera/   ChaseCamera (perspective, greybox and the rebuild), IsoCamera (the old park)
   scripts/park/     ParkWorld (session), TitleScreen, WorldEnv (sun/sky)
   scripts/ui/       Hud, UiKit, TuningPanel (F3)
   scripts/autoload/ Controls (input map), Game (settings, saves), Sound
