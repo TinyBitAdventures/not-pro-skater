@@ -22,7 +22,8 @@ var dynamic_root: Node3D
 var _crowd_marks: Array[Dictionary] = []
 
 
-func load_glb(path: String) -> void:
+## grey = true: greybox test level (grid materials, no crowd / baking / toon).
+func load_glb(path: String, grey: bool = false) -> void:
 	var t0: int = Time.get_ticks_msec()
 	var packed: PackedScene = load(path)
 	var scene: Node3D = packed.instantiate()
@@ -89,6 +90,11 @@ func load_glb(path: String) -> void:
 			grind_lines.append(GrindLine.new(gid, pts))
 	_load_rails(path.get_basename() + ".rails.json")
 	link_rails()
+
+	if grey:
+		GreyLook.apply(scene)
+		stats = {"bodies": bodies.size(), "grind": grind_lines.size(), "ms": Time.get_ticks_msec() - t0}
+		return
 
 	for t in texts:
 		_make_label(t)

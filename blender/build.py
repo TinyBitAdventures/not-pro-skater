@@ -1,7 +1,7 @@
 """
 Skate Park asset builder. Regenerates the level and character glTFs.
 
-    blender --background --factory-startup --python blender/build.py -- [park] [skater] [spectator] [car] [duck] [backdrop]
+    blender --background --factory-startup --python blender/build.py -- [park] [greybox] [skater] [spectator] [car] [duck] [backdrop]
 
 With no targets it builds everything. Output goes to game/assets/{levels,models}.
 """
@@ -22,6 +22,13 @@ def build_park():
     lib.reset_scene()
     park.build()
     lib.export(os.path.join(GAME, "levels", "community_park.glb"))
+
+
+def build_greybox():
+    import greybox
+    lib.reset_scene()
+    greybox.build()
+    lib.export(os.path.join(GAME, "levels", "greybox.glb"))
 
 
 def build_skater():
@@ -62,7 +69,7 @@ def build_duck():
 
 if __name__ == "__main__":
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    targets = args or ["skater", "spectator", "car", "duck", "backdrop", "park"]
+    targets = args or ["skater", "spectator", "car", "duck", "backdrop", "park", "greybox"]
     if "skater" in targets:
         build_skater()
     if "spectator" in targets:
@@ -75,3 +82,5 @@ if __name__ == "__main__":
         build_backdrop()
     if "park" in targets:
         build_park()
+    if "greybox" in targets:
+        build_greybox()
