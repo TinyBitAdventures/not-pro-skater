@@ -165,6 +165,10 @@ func _input(event: InputEvent) -> void:
 		_refresh_labels()
 		Sound.play("ui_ok", -4.0, 0.9)
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ollie"):
+		# Space is the jump key: it only starts a session, it never flips a setting (use Enter or the mouse)
+		var is_space: bool = event is InputEventKey and (event as InputEventKey).physical_keycode == KEY_SPACE
+		if is_space and selected >= 2:
+			return
 		_activate()
 	elif event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).physical_keycode == KEY_T:
 		_toggle_steer()

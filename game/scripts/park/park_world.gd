@@ -77,6 +77,8 @@ func _ready() -> void:
 	free_skate = Game.free_skate
 	_refresh_hint()
 	hud.announce("COMMUNITY PARK", Hud.YELLOW, 2.4)
+	if Game.jump_mode == "tap":
+		get_tree().create_timer(2.8).timeout.connect(func() -> void: hud.announce("TAP JUMP   (Y = hold to jump higher)", Hud.BLUE, 2.4))
 	hud.set_timer(time_left, false)
 
 

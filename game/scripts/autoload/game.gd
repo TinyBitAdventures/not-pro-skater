@@ -30,11 +30,14 @@ func load_save() -> void:
 	if cfg.load(SAVE_PATH) != OK:
 		return
 	best = cfg.get_value("progress", "best", {})
-	if int(cfg.get_value("settings", "version", 1)) >= 2:
+	var version: int = int(cfg.get_value("settings", "version", 1))
+	if version >= 2:
 		steer_mode = cfg.get_value("settings", "steer_mode", "tank")
 		camera_mode = cfg.get_value("settings", "camera_mode", "follow")
-		jump_mode = cfg.get_value("settings", "jump_mode", "hold")
 		music_choice = cfg.get_value("settings", "music_choice", "cruise")
+	if version >= 3:
+		# v3 reset a jump_mode of "tap" that was saved by accident from the title menu
+		jump_mode = cfg.get_value("settings", "jump_mode", "hold")
 	master_volume = cfg.get_value("settings", "master_volume", 0.8)
 
 
@@ -43,7 +46,7 @@ func save() -> void:
 		return
 	var cfg: ConfigFile = ConfigFile.new()
 	cfg.set_value("progress", "best", best)
-	cfg.set_value("settings", "version", 2)
+	cfg.set_value("settings", "version", 3)
 	cfg.set_value("settings", "steer_mode", steer_mode)
 	cfg.set_value("settings", "camera_mode", camera_mode)
 	cfg.set_value("settings", "jump_mode", jump_mode)

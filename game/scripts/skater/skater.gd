@@ -101,6 +101,7 @@ var stats: Dictionary = {"air": 0, "grinds": 0, "bails": 0, "max_air": 0.0, "max
 var _coyote: float = 0.0
 var _ollie_buf: float = 0.0
 var _release_buf: float = 0.0
+var _prev_held: bool = false        # own release detection: the engine reports "just released" a tick late
 var charge: float = 0.0              # seconds spent crouching for a jump
 var force_charge: bool = false       # tests: use the hold-and-release jump without a real player
 var charge_mode: bool = false
@@ -278,7 +279,15 @@ func _physics_process(delta: float) -> void:
 	_coyote = maxf(0.0, _coyote - delta)
 	if inp.ollie_pressed:
 		_ollie_buf = BUFFER
-	if inp.ollie_released:
+	# One release must give exactly one pop. Detect it from the held state ourselves; the engine's
+	# "just released" arrives a physics tick after the held flag drops and used to trigger a second pop.
+	var release_edge: bool = _prev_held and not inp.ollie_held
+	if scripted or force_charge:
+		release_edge = release_edge or inp.ollie_released
+	elif charge_mode and inp.ollie_pressed and not inp.ollie_held:
+		release_edge = true            # pressed and released between two ticks: still a tap
+	_prev_held = inp.ollie_held
+	if release_edge:
 		_release_buf = BUFFER
 	if inp.grind_pressed:
 		_grind_buf = BUFFER
@@ -479,6 +488,7 @@ func _ollie(n: Vector3, speed: float) -> void:
 	crouch = 0.0
 	sfx.emit("ollie")
 	_enter_air()
+	_air_popped = true
 	if manual_on and score != null:
 		score.release_hold("manual")
 	manual_on = false

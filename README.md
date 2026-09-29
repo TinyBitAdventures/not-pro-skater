@@ -77,6 +77,7 @@ TEST=flat  godot --headless --path . res://scenes/dev_skate.tscn   # also ramp, 
 SHOTS=poses godot --path . res://scenes/dev_shots.tscn --resolution 1600x900   # gameplay screenshots -> ../shots
 godot --path . res://scenes/dev_view.tscn --resolution 1600x900                 # level tour -> ../shots
 godot --path . res://scenes/dev_perf.tscn --resolution 1600x900                 # fps + draw calls
+godot --headless --path . res://scenes/dev_jump.tscn                             # real-input jump check (hold vs tap)
 ```
 
 Dev scenes never touch your real save (`Game.is_dev_run()`).
