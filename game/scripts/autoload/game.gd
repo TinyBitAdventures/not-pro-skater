@@ -12,8 +12,19 @@ var master_volume: float = 0.8
 var free_skate: bool = false       # no timer: just cruise and practise
 
 
+const PREVIEW_SCENES: Dictionary = {
+	"greybox": "res://scenes/greybox.tscn",
+	"looktest": "res://scenes/looktest.tscn",
+}
+
+
 func _ready() -> void:
 	load_save()
+	# web: index.html?scene=greybox (or looktest) opens a test scene straight away
+	if OS.has_feature("web"):
+		var q: Variant = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('scene') || ''")
+		if typeof(q) == TYPE_STRING and PREVIEW_SCENES.has(q):
+			get_tree().change_scene_to_file.call_deferred(PREVIEW_SCENES[q])
 
 
 func is_dev_run() -> bool:
