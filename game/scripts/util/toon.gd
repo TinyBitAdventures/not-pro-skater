@@ -10,10 +10,10 @@ const WATER_SHADER: Shader = preload("res://shaders/water.gdshader")
 
 ## Per-material tweaks. outline=false skips the black hull; flat=true means "ground-like, casts no shadow".
 const STYLES: Dictionary = {
-	"Grass": {"noise_scale": 0.55, "noise_amount": 0.05, "grass_detail": 1.0, "outline": false, "flat": true},
-	"GrassB": {"noise_scale": 0.55, "noise_amount": 0.05, "grass_detail": 1.0, "outline": false, "flat": true},
-	"Plaza": {"grid_scale": 3.0, "grid_amount": 0.13, "noise_scale": 5.0, "noise_amount": 0.025, "outline": false, "flat": true},
-	"Path": {"noise_scale": 5.0, "noise_amount": 0.025, "outline": false, "flat": true},
+	"Grass": {"noise_scale": 0.35, "noise_amount": 0.09, "grass_detail": 1.0, "outline": false, "flat": true},
+	"GrassB": {"noise_scale": 0.35, "noise_amount": 0.09, "grass_detail": 1.0, "outline": false, "flat": true},
+	"Plaza": {"grid_scale": 3.0, "grid_amount": 0.13, "noise_scale": 1.6, "noise_amount": 0.045, "outline": false, "flat": true},
+	"Path": {"noise_scale": 1.8, "noise_amount": 0.04, "outline": false, "flat": true},
 	"PathB": {"outline": false, "flat": true},
 	"Line": {"outline": false, "flat": true},
 	"Curb": {"outline": false},

@@ -105,6 +105,8 @@ static func random_look(seed_value: int) -> Dictionary:
 		"Pants": Color.html(PANTS[rng.randi() % PANTS.size()]),
 		"Hair": Color.html(HAIRS[rng.randi() % HAIRS.size()]),
 		"Deck": Color.html(SHIRTS[rng.randi() % SHIRTS.size()]),
+		"DeckB": Color.html(HELMETS[rng.randi() % HELMETS.size()]),
+		"ShirtB": Color.html(["fff1d6", "ffd23f", "f4f7fb"][rng.randi() % 3]),
 		"no_ponytail": rng.randf() < 0.5,
 	}
 

@@ -17,7 +17,7 @@ from lib import (box, cyl_between, cyl_z, dome, empty, ico, loft_box, mat, prism
 SK = {
     "Skin": "#f2b48c", "Shirt": "#ff7a3d", "ShirtB": "#fff1d6", "Pants": "#3b4a78", "Shoe": "#f4f7fb",
     "Sole": "#20263a", "Helmet": "#3d9bff", "HelmetB": "#ffd23f", "Pad": "#2a3050", "Hair": "#5a3a24",
-    "Eye": "#1b2033", "Cheek": "#ff8f8f", "Deck": "#ff5a5a", "Grip": "#2b3148", "Truck": "#bcc7d8",
+    "Eye": "#1b2033", "Cheek": "#ff8f8f", "Deck": "#ff5a5a", "DeckB": "#fff1d6", "Grip": "#2b3148", "Truck": "#bcc7d8",
     "Wheel": "#fff1d6",
 }
 
@@ -35,6 +35,11 @@ def build_skater():
             (-0.44, 0.19)]
     prism("DeckMesh", prof, -0.125, 0.125, [M("Deck"), M("Grip")], [0, 0, 0, 0, 1, 1, 1, 0], [False] * 8, cap_mat=0,
           parent=board)
+    # deck graphics: a stripe and a logo dot on the underside (visible in flips), coloured tips on the grip side
+    box("DeckStripe", (0.16, 0.62, 0.004), (0, 0, 0.1135), M("DeckB"), parent=board)
+    cyl_between("DeckLogo", (0, 0, 0.1115), (0, 0, 0.1135), 0.07, M("Grip"), seg=10, smooth=False, parent=board)
+    for sy in (-1, 1):
+        box(f"DeckTip{sy}", (0.25, 0.07, 0.006), (0, sy * 0.405, 0.1905), M("DeckB"), parent=board)
     for sy in (-1, 1):
         y = sy * 0.26
         box(f"Truck{'F' if sy > 0 else 'B'}", (0.17, 0.07, 0.035), (0, y, 0.098), M("Truck"), parent=board)
@@ -47,6 +52,8 @@ def build_skater():
     torso = empty("Torso", (0, 0, 0), 0, body)
     loft_box("TorsoMesh", (0.22, 0.28), (0.26, 0.4), 0.0, 0.42, M("Shirt"), parent=torso)
     loft_box("TorsoBand", (0.245, 0.335), (0.255, 0.36), 0.2, 0.28, M("ShirtB"), parent=torso)
+    for sx in (-1, 1):   # a star on the chest and the back
+        cyl_between(f"ShirtStar{sx}", (sx * 0.128, 0, 0.27), (sx * 0.138, 0, 0.27), 0.075, M("ShirtB"), seg=5, smooth=False, parent=torso)
     loft_box("Hips", (0.23, 0.30), (0.22, 0.28), -0.08, 0.02, M("Pants"), parent=torso)
 
     # head (faces +Y, the direction of travel)
@@ -56,6 +63,11 @@ def build_skater():
         ico(f"Eye{sx}", (sx * 0.1, 0.235, 0.26), 0.05, M("Eye"), sub=1, squash=(0.8, 0.6, 1.25), parent=head, smooth=True)
         ico(f"Cheek{sx}", (sx * 0.17, 0.2, 0.19), 0.04, M("Cheek"), sub=1, squash=(1, 0.5, 0.8), parent=head, smooth=True)
         ico(f"Ear{sx}", (sx * 0.265, 0.0, 0.22), 0.06, M("Skin"), sub=1, squash=(0.6, 0.9, 1.0), parent=head, smooth=True)
+    # face details: smile, eyebrows, chin strap
+    box("Mouth", (0.1, 0.02, 0.024), (0, 0.262, 0.115), M("Eye"), parent=head)
+    for sx in (-1, 1):
+        box(f"Brow{sx}", (0.1, 0.02, 0.022), (sx * 0.1, 0.245, 0.335), M("Hair"), parent=head)
+        box(f"Strap{sx}", (0.03, 0.03, 0.19), (sx * 0.245, 0.03, 0.13), M("Pad"), parent=head)
     dome("HelmetMesh", (0, -0.015, 0.29), 0.32, 0.03, M("Helmet"), sub=2, squash=(1.0, 1.02, 0.92), parent=head)
     box("HelmetStripe", (0.09, 0.6, 0.03), (0, -0.015, 0.575), M("HelmetB"), parent=head)
     ico("Ponytail", (0, -0.36, 0.3), 0.11, M("Hair"), sub=1, squash=(0.8, 1.0, 1.4), parent=head, smooth=True)
@@ -68,6 +80,7 @@ def build_skater():
         fore = empty(f"Fore{side}", (0, 0, -0.22), 0, arm)
         cyl_between(f"Forearm{side}", (0, 0, 0), (0, 0, -0.2), 0.05, M("Skin"), r1=0.045, seg=8, parent=fore)
         box(f"ElbowPad{side}", (0.11, 0.11, 0.09), (0, 0, -0.01), M("Pad"), parent=fore)
+        box(f"WristGuard{side}", (0.1, 0.1, 0.07), (0, 0, -0.155), M("Pad"), parent=fore)
         ico(f"Hand{side}", (0, 0, -0.23), 0.065, M("Skin"), sub=1, parent=fore, smooth=True)
 
     # legs (hips slightly apart along Y); shoes point along +X across the board

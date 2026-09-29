@@ -85,7 +85,7 @@ void fragment() {
 	}
 	vec3 c = albedo.rgb;
 	if (noise_scale > 0.0) {
-		float n = hash21(floor(wpos.xz * noise_scale));
+		float n = vnoise(wpos.xz * noise_scale) * 0.7 + vnoise(wpos.xz * noise_scale * 2.7 + 13.0) * 0.3;
 		c *= 1.0 + (n - 0.5) * 2.0 * noise_amount;
 	}
 	if (grid_scale > 0.0) {

@@ -15,6 +15,15 @@ First playable prototype: one level, a full skating model and the isometric toon
 - Jump is hold-and-release: Space crouches (POP meter), releasing pops; hold up to 0.45 s for a full-height jump. Release at a ramp lip for a big air (about 5 m off the small quarter pipe versus 2 m for a plain roll-off). Y (or the title menu) switches to an instant jump on press.
 - Jumps: no squat before the pop, heavier fall, stronger pop, and the camera follows ground height so the whole arc is visible.
 
+### Look and effects
+- Atmosphere: distance haze into the sky colour, drifting cloud shadows, contact shading on walls, grass tufts and flowers, a light colour grade with a vignette.
+- Rider effects: air trail, landing dust and shockwave ring, grind sparks, floating trick names; heavier rider outline; board graphics, star shirt, wrist guards, chin strap, mouth and eyebrows.
+- Life: birds circle the park (their shadows cross the plaza), leaves drift by.
+- Fixed z-fighting flicker where the spoke paths meet the plaza.
+
+### Audio
+- Wavelength-rendered sound effects (22) with a per-sound level table; two themes: Boardwalk Morning (title) and Grip Tape Summer (park). Credits in `docs/`.
+
 ### Skating
 - Ground, air, grind and bail states on a CharacterBody3D. Rolls along any surface (gravity acts along the slope), pumps on transitions, coasts, brakes; grass is slow.
 - Ollie, spins (tank left / right in the air), five flip tricks, five grabs (hold), manuals, grinds on rails, ledges, benches and ramp coping. Boardslides, noseslides, tailslides and lip slides by stick direction.
