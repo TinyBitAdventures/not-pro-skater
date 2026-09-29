@@ -39,7 +39,7 @@ const BUFFER: float = 0.14
 const BAIL_ANGLE: float = 1.0123          # 58 degrees off the direction of travel (either way)
 const SPIN_MAX: float = 11.0
 const SPIN_ACCEL: float = 60.0
-const FLIP_TIME: float = 0.52
+const FLIP_TIME: float = 0.44
 const GRIND_SNAP_H: float = 0.9
 const GRIND_MIN_DY: float = -0.45
 const GRIND_MAX_DY: float = 1.2
@@ -96,6 +96,8 @@ var stats: Dictionary = {"air": 0, "grinds": 0, "bails": 0, "max_air": 0.0, "max
 var _coyote: float = 0.0
 var _ollie_buf: float = 0.0
 var _grind_buf: float = 0.0
+var _flip_buf: float = 0.0
+var _air_ref: Vector3 = Vector3(0, 0, -1)   # heading at take-off: air spin is judged against it
 var _grind_cd: float = 0.0
 var _manual_started: bool = false
 var _flip_done_air: bool = false
@@ -227,6 +229,9 @@ func _read_input() -> void:
 	var v: Vector2 = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	inp.move = v
 	inp.world_dir = _stick_to_world(v)
+	if Game.steer_mode == "tank" and v.length() >= 0.01:
+		# tank: the stick is relative to the board, so flips/grabs/air drift must be too
+		inp.world_dir = (hdg * -v.y + hdg.cross(Vector3.UP) * v.x).limit_length(1.0)
 	inp.ollie_pressed = Input.is_action_just_pressed("ollie")
 	inp.ollie_held = Input.is_action_pressed("ollie")
 	inp.flip_pressed = Input.is_action_just_pressed("flip")
@@ -247,12 +252,15 @@ func _physics_process(delta: float) -> void:
 		_read_input()
 	_ollie_buf = maxf(0.0, _ollie_buf - delta)
 	_grind_buf = maxf(0.0, _grind_buf - delta)
+	_flip_buf = maxf(0.0, _flip_buf - delta)
 	_grind_cd = maxf(0.0, _grind_cd - delta)
 	_coyote = maxf(0.0, _coyote - delta)
 	if inp.ollie_pressed:
 		_ollie_buf = BUFFER
 	if inp.grind_pressed:
 		_grind_buf = BUFFER
+	if inp.flip_pressed:
+		_flip_buf = BUFFER
 	match state:
 		State.GROUND:
 			_ground(delta)
@@ -328,7 +336,7 @@ func _ground(dt: float) -> void:
 
 	# manual: hold on the flat with some speed
 	var was_manual: bool = manual_on
-	manual_on = inp.manual and spd > 2.0 and n.y > 0.92
+	manual_on = inp.manual and n.y > 0.92 and (spd > 2.0 or (was_manual and spd > 1.2))
 	if manual_on and not was_manual:
 		if score != null:
 			score.add_trick("Manual", 150)
@@ -373,18 +381,25 @@ func _ground(dt: float) -> void:
 		return
 
 	var vel_before: Vector3 = velocity
-	var speed_before: float = velocity.length()
 	floor_snap_length = 0.35
 	move_and_slide()
+	# move_and_slide() zeroes velocity.y on any floor (so steep ramp faces lose their downhill speed) and
+	# leaves the speed that runs into a wall in place. Rebuild the velocity from what we asked for: walls
+	# take the part that runs into them, then the rest is turned onto the floor plane at the same speed.
+	var v_want: Vector3 = vel_before
+	for i in get_slide_collision_count():
+		var wn: Vector3 = get_slide_collision(i).get_normal()
+		if absf(wn.y) < 0.3 and v_want.dot(wn) < 0.0:
+			v_want = v_want.slide(wn)
 	if is_on_floor():
 		floor_n = get_floor_normal()
 		_coyote = COYOTE
 		surface = _surface_from_slide(surface)
-		if velocity.length_squared() > 0.0001 and speed_before > 0.1:
-			# sliding along a curve shaves speed; give it back so ramps do not eat momentum
-			var tangent: Vector3 = velocity - floor_n * velocity.dot(floor_n)
-			if tangent.length_squared() > 0.0001:
-				velocity = tangent.normalized() * minf(speed_before, tangent.length() + 1.5)
+		var tangent: Vector3 = v_want - floor_n * v_want.dot(floor_n)
+		if tangent.length_squared() > 0.0001:
+			velocity = tangent.normalized() * v_want.length()
+		else:
+			velocity = Vector3.ZERO
 	else:
 		_enter_air()
 	_check_wall_crash(vel_before)
@@ -415,6 +430,7 @@ func _surface_from_slide(current: String) -> String:
 
 func _ollie(n: Vector3) -> void:
 	_ollie_buf = 0.0
+	_coyote = 0.0
 	velocity += n * OLLIE_SPEED
 	crouch = 0.0
 	sfx.emit("ollie")
@@ -431,6 +447,7 @@ func _enter_air() -> void:
 	floor_snap_length = 0.0
 	_reset_air()
 	yaw = atan2(-hdg.x, -hdg.z)
+	_air_ref = hdg
 
 
 func _enter_ground() -> void:
@@ -459,7 +476,10 @@ func _air(dt: float) -> void:
 	d.y = 0.0
 	velocity += d * AIR_CONTROL * dt
 
-	var target: float = -inp.move.x * SPIN_MAX
+	# spin comes from the stick's sideways part relative to the take-off heading, so holding the stick
+	# in the direction of travel does not spin the board (tank mode: the raw stick x, as before)
+	var lateral: float = inp.move.x if Game.steer_mode == "tank" else inp.world_dir.dot(_air_ref.cross(Vector3.UP))
+	var target: float = -lateral * SPIN_MAX
 	spin_vel = move_toward(spin_vel, target, SPIN_ACCEL * dt)
 	yaw += spin_vel * dt
 	spin_total += spin_vel * dt
@@ -471,7 +491,8 @@ func _air(dt: float) -> void:
 		_coyote = 0.0
 		sfx.emit("ollie")
 
-	if inp.flip_pressed and flip_kind == "" and air_time > 0.06:
+	if _flip_buf > 0.0 and flip_kind == "" and air_time > 0.03:
+		_flip_buf = 0.0
 		var word: String = Tricks.direction_word(inp.world_dir, hdg)
 		flip_kind = word
 		flip_t = 0.0
@@ -528,6 +549,9 @@ func _land() -> void:
 	surface = _surface_from_slide(surface)
 	if score != null:
 		score.release_hold("grab")
+		if flip_kind != "" and flip_t >= 0.7:      # landed a flip that was nearly round: count it
+			var ef: Array = Tricks.FLIPS[flip_kind]
+			score.add_trick(String(ef[0]), int(ef[1]))
 		if was_air > 0.15:
 			var units: int = int(round(absf(spin_total) / PI))
 			if units >= 1 and err < BAIL_ANGLE:
@@ -658,6 +682,7 @@ func _end_grind(pop: bool) -> void:
 	grind_kind = ""
 	state = State.AIR
 	floor_snap_length = 0.0
+	_air_ref = hdg
 	air_time = 0.0
 	spin_vel = 0.0
 	spin_total = 0.0

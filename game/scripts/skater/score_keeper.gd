@@ -8,6 +8,7 @@ signal banked(points: int, combo_len: int)
 signal lost
 
 const WINDOW: float = 1.25
+const HOLD_CAP_SECONDS: float = 4.0   # one combo pays at most this many seconds of each hold (manual/grab/grind)
 
 var score: int = 0
 var pending: int = 0
@@ -20,6 +21,7 @@ var live: bool = false           # a combo exists
 var hold_kind: String = ""       # what is being held right now: grind / manual / grab
 var _window: float = 0.0
 var _hold_acc: float = 0.0
+var _hold_paid: Dictionary = {}
 var _seen: Dictionary = {}
 
 
@@ -40,6 +42,7 @@ func _clear() -> void:
 	hold_kind = ""
 	_window = 0.0
 	_hold_acc = 0.0
+	_hold_paid.clear()
 	_seen.clear()
 
 
@@ -61,8 +64,16 @@ func add_trick(trick_name: String, points: int) -> void:
 
 
 func hold(kind: String, dt: float, rate: float) -> void:
-	hold_kind = kind
-	_hold_acc += rate * dt
+	if not live:
+		return
+	hold_kind = kind                       # still "busy": keeps the combo alive, but stops paying at the cap
+	var paid: float = _hold_paid.get(kind, 0.0)
+	var room: float = rate * HOLD_CAP_SECONDS - paid
+	if room <= 0.0:
+		return
+	var add: float = minf(rate * dt, room)
+	_hold_paid[kind] = paid + add
+	_hold_acc += add
 	var whole: int = int(_hold_acc)
 	if whole > 0:
 		pending += whole

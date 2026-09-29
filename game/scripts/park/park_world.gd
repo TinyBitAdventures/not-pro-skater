@@ -20,10 +20,23 @@ var _wrap_timer: float = 0.0
 var _hint_timer: float = 0.0
 var _shake: float = 0.0
 var free_skate: bool = false
+var _done_at_ms: int = 0
+
+
+## ParkWorld is PAUSABLE, so its own _input never fires while the tree is paused; this relay is not.
+class PauseRelay extends Node:
+	signal got(event: InputEvent)
+
+	func _input(event: InputEvent) -> void:
+		got.emit(event)
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+	var relay: PauseRelay = PauseRelay.new()
+	relay.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(relay)
+	relay.got.connect(_on_input)
 	WorldEnv.build(self)
 	level = Level.new()
 	add_child(level)
@@ -153,12 +166,17 @@ func _process(delta: float) -> void:
 		hud.hide_hint()
 
 
-func _input(event: InputEvent) -> void:
+## Enter / R / Back restart. ui_accept alone is not enough: it includes Space, which is the ollie key.
+func _is_restart(event: InputEvent) -> bool:
+	return (event.is_action_pressed("ui_accept") and not event.is_action_pressed("ollie")) or event.is_action_pressed("respawn")
+
+
+func _on_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause") and phase != Phase.DONE:
 		_set_paused(not get_tree().paused)
-	elif get_tree().paused and event.is_action_pressed("ui_accept"):
+	elif get_tree().paused and _is_restart(event):
 		_restart()
-	elif phase == Phase.DONE and event.is_action_pressed("ui_accept"):
+	elif phase == Phase.DONE and _is_restart(event) and Time.get_ticks_msec() - _done_at_ms > 1000:
 		_restart()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		var k: InputEventKey = event
@@ -228,6 +246,7 @@ func _check_pickups() -> void:
 
 func _finish() -> void:
 	phase = Phase.DONE
+	_done_at_ms = Time.get_ticks_msec()
 	var new_best: bool = Game.record(LEVEL_ID, score.score, score.best_combo)
 	var s: Dictionary = skater.stats
 	var lines: Array[String] = [

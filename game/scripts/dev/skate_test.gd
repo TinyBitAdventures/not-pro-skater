@@ -95,39 +95,39 @@ func _test_flat() -> void:
 func _test_ramp() -> void:
 	# small quarter pipe at Blender (-3.5, -8.7) climbing toward -Y (Godot +Z). Approach from the north.
 	await _setup(_at(-3.5, 0.1, 2.0, Vector3(0, 0, 1)))
-	var got_air: float = 0.0
-	var max_h: float = 0.0
+	var st: Dictionary = {"max_h": 0.0}
 	await _run_for(6.0, 0.5, "ramp", func(_e: float) -> void:
 		sk.inp.world_dir = Vector3(0, 0, 1) if sk.global_position.z < 8.0 or sk.velocity.z > 0.0 else Vector3.ZERO
-		got_air = maxf(got_air, sk.air_time)
-		max_h = maxf(max_h, sk.global_position.y))
-	print("[skate] ramp done max_air=%.2f max_h=%.2f airs=%d bails=%d" % [got_air, max_h, sk.stats["air"], sk.stats["bails"]])
+		st["max_h"] = maxf(st["max_h"], sk.global_position.y))
+	print("[skate] ramp done max_air=%.2f max_h=%.2f airs=%d bails=%d" % [sk.stats["max_air"], st["max_h"], sk.stats["air"], sk.stats["bails"]])
 
 
 func _test_grind() -> void:
-	# flat rail (orange) at Blender (0.5, -10.5) along X. Approach along +X ... at height via ollie.
-	await _setup(_at(-8.0, 0.1, 10.5, Vector3(1, 0, 0)))
-	var pressed: bool = false
-	await _run_for(4.0, 0.25, "grind", func(e: float) -> void:
-		sk.inp.world_dir = Vector3(1, 0, 0)
-		if not pressed and sk.global_position.x > -3.2:
+	# blue flat rail at Godot x=4, z from -0.75 to 4.75: approach from the south, ollie, press grind in the air.
+	await _setup(_at(4.0, 0.1, 10.0, Vector3(0, 0, -1)))
+	var st: Dictionary = {"popped": false}
+	await _run_for(3.0, 0.5, "grind", func(_e: float) -> void:
+		sk.inp.world_dir = Vector3(0, 0, -1)
+		if not st["popped"] and sk.global_position.z < 7.6 and sk.state == Skater.State.GROUND:
 			sk.inp.ollie_pressed = true
-			pressed = true
-		if pressed and sk.state == Skater.State.AIR and sk.air_time > 0.12:
-			sk.inp.grind_pressed = true)
+			st["popped"] = true
+		sk.inp.grind_pressed = st["popped"] and sk.state == Skater.State.AIR and sk.air_time > 0.1)
 	print("[skate] grind done grinds=%d score=%d/%d %s" % [sk.stats["grinds"], score.score, score.pending, score.names])
 
 
 func _test_bail() -> void:
-	await _setup(_at(-8.0, 0.1, 10.5, Vector3(1, 0, 0)))
-	var popped: bool = false
-	await _run_for(3.0, 0.3, "bail", func(e: float) -> void:
+	# open plaza: pop, then push the stick sideways in the air so the board lands crooked
+	await _setup(_at(-3.0, 0.1, 0.0, Vector3(1, 0, 0)))
+	var st: Dictionary = {"popped": false}
+	await _run_for(3.0, 0.5, "bail", func(e: float) -> void:
 		sk.inp.world_dir = Vector3(1, 0, 0)
-		if not popped and e > 1.5:
+		sk.inp.move = Vector2.ZERO
+		if not st["popped"] and e > 1.2:
 			sk.inp.ollie_pressed = true
-			popped = true
-		if popped and sk.state == Skater.State.AIR:
-			sk.inp.move = Vector2(-1, 0))
+			st["popped"] = true
+		if st["popped"] and sk.state == Skater.State.AIR:
+			sk.inp.world_dir = Vector3(0, 0, 1)
+			sk.inp.move = Vector2(1, 0))
 	print("[skate] bail done bails=%d state=%d" % [sk.stats["bails"], sk.state])
 
 

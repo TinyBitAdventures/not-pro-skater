@@ -47,10 +47,11 @@ func save() -> void:
 
 
 func record(level_id: String, score: int, combo: int) -> bool:
-	var b: Dictionary = best.get(level_id, {"score": 0, "combo": 0})
-	var new_best: bool = score > int(b["score"])
-	b["score"] = maxi(score, int(b["score"]))
-	b["combo"] = maxi(combo, int(b["combo"]))
+	var b: Dictionary = best.get(level_id, {})
+	var old_score: int = int(b.get("score", 0))
+	var new_best: bool = score > old_score
+	b["score"] = maxi(score, old_score)
+	b["combo"] = maxi(combo, int(b.get("combo", 0)))
 	best[level_id] = b
 	save()
 	return new_best
