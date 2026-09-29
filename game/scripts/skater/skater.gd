@@ -649,7 +649,7 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 	var word: String = Tricks.direction_word(inp.world_dir, d * grind_dir)
 	grind_board_turn = 0.0
 	var gname: String = "50-50"
-	if line.id.begins_with("Grind_coping"):
+	if line.kind == "coping":
 		gname = "Lip Slide"
 	if ang > 0.8:
 		gname = "Boardslide"

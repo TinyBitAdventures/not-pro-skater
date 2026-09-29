@@ -9,7 +9,9 @@ Conventions
   `Foo-colonly` = invisible collision. Godot's glTF importer builds the StaticBody3D for us.
   The part of the name before the first underscore is the surface type the skater feels:
   Grass_, Path_, Concrete_, Wood_, Metal_, Wall_.
-- Grind lines are Empties called `Grind_<id>_<index>`; Godot sorts by index and builds the polyline.
+- Grind lines are Blender curves called `Rail_<id>` (custom property `kind`: rail / ledge / coping / curb),
+  drawn ~0.07 m above the grindable edge. export() samples them into `<level>.rails.json` next to the glb
+  (glTF cannot carry curves) and leaves them out of the glb.
 """
 
 import math
@@ -288,10 +290,81 @@ def col_box(name, size, center, parent=None, surface="Wall"):
     return ob
 
 
+def rail_kind(gid):
+    head = gid.split("_")[0].lower()
+    if head == "coping":
+        return "coping"
+    if head in ("ledge", "bench", "funbox"):
+        return "ledge"
+    if head == "curb":
+        return "curb"
+    return "rail"
+
+
+def rail(parent, gid, pts, kind=None, smooth=False, resolution=24):
+    """Grindable line as a curve object `Rail_<gid>` in the parent's local space.
+    smooth=False: a polyline through pts (straight rails, kinks). smooth=True: a Bezier with automatic
+    handles through pts (curved rails); `resolution` samples per segment when exported."""
+    cu = bpy.data.curves.new(f"Rail_{gid}", "CURVE")
+    cu.dimensions = "3D"
+    if smooth:
+        sp = cu.splines.new("BEZIER")
+        sp.bezier_points.add(len(pts) - 1)
+        for bp, p in zip(sp.bezier_points, pts):
+            bp.co = Vector(p)
+            bp.handle_left_type = "AUTO"
+            bp.handle_right_type = "AUTO"
+        sp.resolution_u = resolution
+    else:
+        sp = cu.splines.new("POLY")
+        sp.points.add(len(pts) - 1)
+        for pt, p in zip(sp.points, pts):
+            pt.co = (p[0], p[1], p[2], 1.0)
+    ob = bpy.data.objects.new(f"Rail_{gid}", cu)
+    ob["kind"] = kind or rail_kind(gid)
+    return link(ob, parent)
+
+
 def grind_line(parent, gid, pts):
-    """Grind polyline as numbered empties, in the parent's local space."""
-    for k, p in enumerate(pts):
-        empty(f"Grind_{gid}_{k:02d}", tuple(p), 0.0, parent, size=0.15)
+    """Straight / kinked grind line through pts (see rail())."""
+    return rail(parent, gid, pts)
+
+
+def _rail_points(ob):
+    """World-space points along a Rail_ curve, in Godot axes (x, z, -y)."""
+    mw = ob.matrix_world
+    sp = ob.data.splines[0]
+    pts = []
+    if sp.type == "BEZIER":
+        from mathutils.geometry import interpolate_bezier
+        bps = sp.bezier_points
+        for i in range(len(bps) - 1):
+            a, b = bps[i], bps[i + 1]
+            seg = interpolate_bezier(a.co, a.handle_right, b.handle_left, b.co, sp.resolution_u + 1)
+            pts.extend(seg if i == 0 else seg[1:])
+    else:
+        pts = [Vector(p.co[:3]) for p in sp.points]
+    out = []
+    for p in pts:
+        w = mw @ Vector(p)
+        out.append([round(w.x, 4), round(w.z, 4), round(-w.y, 4)])
+    return out
+
+
+def write_rails(glb_path):
+    """Write every Rail_ curve to <glb>.rails.json. Returns the curve objects (excluded from the glb)."""
+    import json
+    curves = [ob for ob in bpy.context.scene.objects if ob.type == "CURVE" and ob.name.startswith("Rail_")]
+    if not curves:
+        return []
+    bpy.context.view_layer.update()
+    data = {"rails": [{"id": ob.name[len("Rail_"):], "kind": ob.get("kind", "rail"), "points": _rail_points(ob)}
+                      for ob in sorted(curves, key=lambda o: o.name)]}
+    out = os.path.splitext(glb_path)[0] + ".rails.json"
+    with open(out, "w") as f:
+        json.dump(data, f, indent=1)
+    print(f"[skate-park] exported {out} ({len(curves)} rails)")
+    return curves
 
 
 # --------------------------------------------------------------------------
@@ -301,8 +374,11 @@ def grind_line(parent, gid, pts):
 def export(path, selection=None):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
+    rails = set(write_rails(path))
     objs = selection if selection is not None else list(bpy.context.scene.objects)
     for ob in objs:
+        if ob in rails:
+            continue
         ob.select_set(True)
     bpy.ops.export_scene.gltf(
         filepath=path,

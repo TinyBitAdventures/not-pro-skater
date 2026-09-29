@@ -10,6 +10,7 @@ const SURFACES: Dictionary = {
 
 var spawn: Transform3D = Transform3D.IDENTITY
 var grind_lines: Array[GrindLine] = []
+var starts: Dictionary = {}              # Start_<name> markers (greybox test spots): name -> Transform3D
 var pickups: Array[Dictionary] = []
 var collision_root: Node3D
 var stats: Dictionary = {}
@@ -48,6 +49,8 @@ func load_glb(path: String) -> void:
 				if not grind_pts.has(gid):
 					grind_pts[gid] = []
 				grind_pts[gid].append([parts[1].to_int(), (n as Node3D).global_position])
+			elif nm.begins_with("Start_"):
+				starts[nm.trim_prefix("Start_")] = (n as Node3D).global_transform
 			elif nm.begins_with("Spawn_Player"):
 				spawn = (n as Node3D).global_transform
 			elif nm.begins_with("Pickup_"):
@@ -84,6 +87,8 @@ func load_glb(path: String) -> void:
 			pts.append(e[1])
 		if pts.size() >= 2:
 			grind_lines.append(GrindLine.new(gid, pts))
+	_load_rails(path.get_basename() + ".rails.json")
+	link_rails()
 
 	for t in texts:
 		_make_label(t)
@@ -109,6 +114,45 @@ func load_glb(path: String) -> void:
 	scene.queue_free()
 	stats = {"bodies": bodies.size(), "grind": grind_lines.size(), "meshes": baked.get_child_count(),
 		"ms": Time.get_ticks_msec() - t0}
+
+
+## Rails authored as Blender curves (blender/lib.py rail()) arrive as a JSON sidecar next to the glb.
+func _load_rails(json_path: String) -> void:
+	if not FileAccess.file_exists(json_path):
+		return
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(json_path))
+	if typeof(data) != TYPE_DICTIONARY:
+		push_error("bad rails file " + json_path)
+		return
+	for r in (data as Dictionary).get("rails", []):
+		var pts: PackedVector3Array = PackedVector3Array()
+		for p in r["points"]:
+			pts.append(Vector3(p[0], p[1], p[2]))
+		if pts.size() >= 2:
+			grind_lines.append(GrindLine.new(String(r["id"]), pts, String(r.get("kind", ""))))
+
+
+const LINK_GAP: float = 0.35
+const LINK_ANGLE: float = 0.61      # 35 degrees
+
+## Rails whose ends meet (a kinked handrail drawn in pieces, a ledge corner) carry a grind across the joint.
+func link_rails() -> void:
+	for a in grind_lines:
+		a.links.clear()
+	for a in grind_lines:
+		for end_a in ["start", "end"]:
+			var pa: Vector3 = a.point_at(0.0 if end_a == "start" else a.length)
+			var out_a: Vector3 = -a.dir_at(0.0) if end_a == "start" else a.dir_at(a.length)
+			for b in grind_lines:
+				if b == a:
+					continue
+				for end_b in ["start", "end"]:
+					var pb: Vector3 = b.point_at(0.0 if end_b == "start" else b.length)
+					if pa.distance_to(pb) > LINK_GAP:
+						continue
+					var into_b: Vector3 = b.dir_at(0.0) if end_b == "start" else -b.dir_at(b.length)
+					if out_a.angle_to(into_b) <= LINK_ANGLE:
+						a.links[end_a] = [b, end_b == "start"]
 
 
 func _surface_of(b: Node) -> String:
