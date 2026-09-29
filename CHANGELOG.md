@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Rebuild: skating feel (Not Pro Skaters)
+- Every skating value lives in one `SkateTuning` resource (`game/tuning/default.tres`); **F3** opens live sliders with Save / Reset.
+- **Greybox test level** (`scenes/greybox.tscn`): tile seams, curb, step, three quarter pipes up to a vert wall, a mini ramp, flat / kinked / curved rails, a ledge, stairs, funbox, hip and kicker, with a world grid; number keys warp between lanes.
+- **Feel tests** (`scenes/dev_feel.tscn`, 16 pass / fail checks) on the greybox.
+- **Momentum:** coasting drag is a sixth of what it was, so speed carries (10 m/s keeps 7.8 m/s after 5 s instead of 2.3).
+- **Curbs roll:** the floor normal comes from a ray straight under the board instead of the capsule's contact, which read a 12 cm curb edge as a 50-degree ramp and threw the skater 0.9 m up. A four-wheel plane fit (smoothed) tilts the board and rider.
+- **Vert lock:** leaving a steep face going up keeps the air in the wall's plane and turns the skater 180 on the way, so straight airs come back down the same ramp; vert air floats (gravity x0.55) and lip pops are scaled to match (a 3 m quarter gives about 1.1 s of air). Riding across a face at an angle skips the lock; holding **M** at the lip **transfers** onto the deck.
+- **Landing assist:** within 35 degrees the board lines up with the way it is going; up to 58 degrees is a *sketchy* landing (25% speed lost); beyond that bails; landing backwards rolls away **fakie** (`stance`). **Revert**: M just after landing on a ramp spins 180 and keeps the combo.
+- **Apex hang:** gravity is halved near the top of every jump.
+- **Rails** are Blender curves exported to `<level>.rails.json` and loaded as `Curve3D`s: curved rails grind smoothly, rails whose ends meet are linked. **Rail magnetism**: grind pressed in the air looks 0.35 s along the air path and bends it onto a rail up to 1.2 m to the side.
+
 First playable prototype: one level, a full skating model and the isometric toon look.
 
 ### Look

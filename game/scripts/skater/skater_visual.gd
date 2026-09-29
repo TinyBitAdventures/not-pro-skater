@@ -141,7 +141,7 @@ func _approach(cur: float, tgt: float, rate: float, dt: float) -> float:
 
 func sync_from(sk: Skater, dt: float) -> void:
 	_t += dt
-	var n: Vector3 = sk.floor_n if sk.state == Skater.State.GROUND or sk.state == Skater.State.BAIL else Vector3.UP
+	var n: Vector3 = sk.board_n if sk.state == Skater.State.GROUND else (sk.floor_n if sk.state == Skater.State.BAIL else Vector3.UP)
 	var blended: Vector3 = vis_n.lerp(n.normalized(), 1.0 - exp(-16.0 * dt))
 	vis_n = blended.normalized() if blended.length() > 0.2 else Vector3.UP
 	var fwd: Vector3 = sk.hdg

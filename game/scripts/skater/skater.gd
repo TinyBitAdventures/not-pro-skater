@@ -3,8 +3,11 @@ extends CharacterBody3D
 ## The player's skater: an arcade skate model on a CharacterBody3D.
 ##
 ## GROUND  rolls along whatever surface is underneath (ramps included, gravity acts along the slope),
-##         steers toward the stick, pumps on transitions, pops an ollie.
-## AIR     spins, flips, grabs. Landing sideways bails.
+##         steers toward the stick, pumps on transitions, pops an ollie. The floor normal comes from a ray
+##         straight under the board (not the capsule's contact), so curbs roll instead of launching.
+## AIR     spins, flips, grabs. Off a steep face the air is locked to the wall's plane and turns 180 on its own
+##         (vert), so it comes back down the same ramp. Landings within assist_angle line up; a bit more is
+##         sketchy; more than bail_angle bails; backwards lands fakie.
 ## GRIND   locks onto a GrindLine and slides along it.
 ## BAIL    tumbles for a moment, then gets back up.
 ## The skater origin is the bottom of the wheels; SkaterVisual draws the rider.
@@ -12,6 +15,7 @@ extends CharacterBody3D
 signal sfx(kind: String)
 signal bailed(reason: String)
 signal landed(air_time: float)
+signal landing(kind: String)         # "clean", "sketchy", "fakie", "revert"
 
 enum State { GROUND, AIR, GRIND, BAIL }
 
@@ -43,6 +47,16 @@ var _blob_mat: ShaderMaterial = null
 var hdg: Vector3 = Vector3(0, 0, -1)     # facing, tangent to the surface (ground) or horizontal (air)
 var yaw: float = 0.0
 var floor_n: Vector3 = Vector3.UP
+var board_n: Vector3 = Vector3.UP        # smoothed four-wheel board normal: what the visual tilts to
+var stance: String = "regular"           # "fakie" after landing backwards, back after the next backwards landing
+var vert_air: bool = false               # left a steep face: the air stays in the wall's plane
+var vert_out: Vector3 = Vector3.ZERO     # horizontal, pointing away from that wall
+var _vert_plane: float = 0.0
+var _vert_turn_left: float = 0.0         # automatic turn still to do in vert air (signed radians)
+var _vert_turn_rate: float = 0.0
+var _revert_t: float = 0.0               # time left to revert after landing on a transition
+var _prev_manual: bool = false
+var _magnet_t: float = 0.0               # seconds the air is being steered onto a rail
 var surface: String = "asphalt"
 var crouch: float = 0.0
 var lean: float = 0.0
@@ -244,6 +258,12 @@ func _physics_process(delta: float) -> void:
 	_flip_buf = maxf(0.0, _flip_buf - delta)
 	_grind_cd = maxf(0.0, _grind_cd - delta)
 	_coyote = maxf(0.0, _coyote - delta)
+	_revert_t = maxf(0.0, _revert_t - delta)
+	_magnet_t = maxf(0.0, _magnet_t - delta)
+	var manual_edge: bool = inp.manual and not _prev_manual
+	_prev_manual = inp.manual
+	if manual_edge and _revert_t > 0.0 and state == State.GROUND:
+		_revert()
 	if inp.ollie_pressed:
 		_ollie_buf = tune.buffer
 	# One release must give exactly one pop. Detect it from the held state ourselves; the engine's
@@ -401,7 +421,7 @@ func _ground(dt: float) -> void:
 		if absf(wn.y) < 0.3 and v_want.dot(wn) < 0.0:
 			v_want = v_want.slide(wn)
 	if is_on_floor():
-		floor_n = get_floor_normal()
+		floor_n = _probe_floor(floor_n, get_floor_normal())
 		_coyote = tune.coyote
 		surface = _surface_from_slide(surface)
 		var tangent: Vector3 = v_want - floor_n * v_want.dot(floor_n)
@@ -409,9 +429,63 @@ func _ground(dt: float) -> void:
 			velocity = tangent.normalized() * v_want.length()
 		else:
 			velocity = Vector3.ZERO
+		_update_board_n(dt)
 	else:
 		_enter_air()
+		_maybe_vert(false)
 	_check_wall_crash(vel_before)
+
+
+## The surface normal straight under the board centre, cast along the current board normal `up`.
+## The capsule's own contact normal is wrong on edges: touching a 12 cm curb, its round bottom reports a
+## 50-degree "ramp" and the skater was thrown 0.9 m into the air.
+func _probe_floor(up: Vector3, contact_n: Vector3) -> Vector3:
+	var c: Vector3 = _board_centre(up)
+	var hit: Dictionary = _ray(c + up * 0.5, c - up * 0.6)
+	if hit.is_empty():
+		return contact_n
+	var n: Vector3 = hit["normal"]
+	if n.angle_to(up) > 0.7 and n.angle_to(contact_n) > 0.7:
+		return contact_n                      # the ray found a wall face, not the floor
+	return n
+
+
+func _board_centre(n: Vector3) -> Vector3:
+	return global_position + Vector3.UP * (CAPSULE_R + 0.02) - n * CAPSULE_R
+
+
+func _ray(from: Vector3, to: Vector3) -> Dictionary:
+	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, to, 1)
+	return get_world_3d().direct_space_state.intersect_ray(q)
+
+
+## Four rays at the wheels give the plane the board actually sits on (nose up on a curb, the chord of a
+## transition); smoothed, it is what the rider and board tilt to.
+func _update_board_n(dt: float) -> void:
+	var n: Vector3 = floor_n
+	var fwd: Vector3 = (hdg - n * hdg.dot(n)).normalized()
+	var side: Vector3 = fwd.cross(n).normalized()
+	var c: Vector3 = _board_centre(n)
+	var pts: Array[Vector3] = []
+	for f in [0.4, -0.4]:
+		for sd in [-0.12, 0.12]:
+			var p: Vector3 = c + fwd * f + side * sd
+			var hit: Dictionary = _ray(p + n * 0.5, p - n * 0.6)
+			if hit.is_empty():
+				break
+			pts.append(hit["position"])
+	var target: Vector3 = n
+	if pts.size() == 4:
+		var along: Vector3 = (pts[0] + pts[1]) - (pts[2] + pts[3])
+		var across: Vector3 = (pts[1] + pts[3]) - (pts[0] + pts[2])
+		var fit: Vector3 = across.cross(along)
+		if fit.length_squared() > 1e-6:
+			fit = fit.normalized()
+			if fit.dot(n) < 0.0:
+				fit = -fit
+			if fit.angle_to(n) < 0.5:
+				target = fit
+	board_n = board_n.lerp(target, 1.0 - exp(-25.0 * dt)).normalized()
 
 
 func _check_wall_crash(vel_before: Vector3) -> void:
@@ -451,10 +525,13 @@ func _ollie(n: Vector3, speed: float) -> void:
 	_coyote = 0.0
 	charge = 0.0
 	# pop mostly upward even off a steep ramp face, with a little push away from the surface
+	if n.y < tune.vert_normal_y and velocity.y > 0.5:
+		speed *= tune.vert_pop_mult           # popping at a vert lip: the vert float already adds height
 	velocity += n.lerp(Vector3.UP, 0.6).normalized() * speed
 	crouch = 0.0
 	sfx.emit("ollie")
 	_enter_air()
+	_maybe_vert(true)
 	_air_popped = true
 	if manual_on and score != null:
 		score.release_hold("manual")
@@ -469,6 +546,42 @@ func _enter_air() -> void:
 	_reset_air()
 	yaw = atan2(-hdg.x, -hdg.z)
 	_air_ref = hdg
+
+
+## Leaving a steep face going up (the top of a quarter pipe or vert wall) locks the air to the wall's plane,
+## so the skater comes back down the same ramp, turning 180 on the way. Riding across the face at an angle
+## (a hip) skips the lock, and the transfer button (manual) at the lip breaks it (see _air).
+func _maybe_vert(_popped: bool) -> void:
+	var n: Vector3 = floor_n
+	if n.y > tune.vert_normal_y or velocity.y <= 0.5:
+		return
+	var out: Vector3 = Vector3(n.x, 0.0, n.z)
+	if out.length() < 0.2:
+		return
+	out = out.normalized()
+	var h: Vector3 = Vector3(hdg.x, 0.0, hdg.z)
+	var fall: Vector3 = -out                  # up the face, horizontally
+	if h.length() > 0.1 and rad_to_deg(h.normalized().angle_to(fall)) > tune.transfer_angle \
+			and rad_to_deg(h.normalized().angle_to(out)) > tune.transfer_angle:
+		return
+	vert_air = true
+	vert_out = out
+	_vert_plane = global_position.dot(out)
+	velocity -= out * velocity.dot(out)
+	var vy: float = maxf(velocity.y, 0.5)
+	var gs: float = tune.vert_gravity_scale
+	var t_total: float = vy / (tune.air_gravity_up * gs) + sqrt(vy * vy / (tune.air_gravity_up * tune.air_gravity_down * gs * gs))
+	var side: float = inp.world_dir.dot(out.cross(Vector3.UP))
+	if absf(side) < 0.2:
+		side = velocity.dot(out.cross(Vector3.UP))
+	_vert_turn_left = PI * (1.0 if side >= 0.0 else -1.0)
+	_vert_turn_rate = PI / maxf(0.25, t_total * tune.vert_turn_share)
+
+
+func _break_vert() -> void:
+	vert_air = false
+	_vert_turn_left = 0.0
+	velocity += -vert_out * tune.transfer_push
 
 
 func _enter_ground() -> void:
@@ -487,16 +600,31 @@ func _reset_air() -> void:
 	grab_kind = ""
 	_flip_done_air = false
 	_air_popped = false
+	vert_air = false
+	_vert_turn_left = 0.0
+	_magnet_t = 0.0
 
 
 # ------------------------------------------------------------------ air
 
 func _air(dt: float) -> void:
 	air_time += dt
-	velocity.y -= (tune.air_gravity_up if velocity.y > 0.0 else tune.air_gravity_down) * dt
+	var grav: float = tune.air_gravity_up if velocity.y > 0.0 else tune.air_gravity_down
+	if absf(velocity.y) < tune.apex_hang_speed:
+		grav *= tune.apex_hang_gravity        # a little float at the top of every jump
+	if vert_air:
+		grav *= tune.vert_gravity_scale       # vert airs hang: that is where the big tricks happen
+	velocity.y -= grav * dt
 	var d: Vector3 = inp.world_dir
 	d.y = 0.0
 	velocity += d * tune.air_control * dt
+	if vert_air:
+		if inp.manual and air_time < tune.lip_window + 0.1:
+			_break_vert()                     # transfer: over the coping onto the deck / next ramp
+		else:
+			var off: float = global_position.dot(vert_out) - _vert_plane
+			var v_out: float = clampf(-off * tune.vert_hold, -2.0, 2.0)
+			velocity += vert_out * (v_out - velocity.dot(vert_out))
 
 	# spin comes from the stick's sideways part relative to the take-off heading, so holding the stick
 	# in the direction of travel does not spin the board (tank mode: the raw stick x, as before)
@@ -505,13 +633,17 @@ func _air(dt: float) -> void:
 	spin_vel = move_toward(spin_vel, target, tune.spin_accel * dt)
 	yaw += spin_vel * dt
 	spin_total += spin_vel * dt
+	if vert_air and _vert_turn_left != 0.0:
+		var step: float = minf(_vert_turn_rate * dt, absf(_vert_turn_left)) * signf(_vert_turn_left)
+		yaw += step                           # the automatic vert 180 is not a trick: not in spin_total
+		_vert_turn_left -= step
 	hdg = heading_h()
 
 	if charge_mode:
 		# release just after rolling off a lip still pops: the classic "jump at the top of the ramp"
 		if _release_buf > 0.0 and (_coyote > 0.0 or air_time < tune.lip_window) and _air_popped == false:
 			_release_buf = 0.0
-			velocity.y += pop_speed() * tune.lip_pop_mult
+			velocity.y += pop_speed() * tune.lip_pop_mult * (tune.vert_pop_mult if vert_air else 1.0)
 			_air_popped = true
 			charge = 0.0
 			_coyote = 0.0
@@ -553,8 +685,10 @@ func _air(dt: float) -> void:
 		if score != null:
 			score.release_hold("grab")
 
-	if _grind_buf > 0.0 and _try_grind():
-		return
+	if _grind_buf > 0.0 or _magnet_t > 0.0:
+		if _try_grind():
+			return
+		_magnet(dt)
 
 	floor_snap_length = 0.0
 	move_and_slide()
@@ -562,20 +696,69 @@ func _air(dt: float) -> void:
 		_land()
 
 
+## Grind pressed in the air: look along the coming air path for a rail within magnet_reach and steer onto it,
+## keeping the grind request alive until the skater gets there.
+func _magnet(dt: float) -> void:
+	if _grind_cd > 0.0 or grind_lines.is_empty() or tune.magnet_reach <= 0.0:
+		return
+	var g: float = tune.air_gravity_down
+	var steps: int = int(ceil(tune.magnet_lookahead / 0.05))
+	for k in range(1, steps + 1):
+		var t: float = k * 0.05
+		var p: Vector3 = global_position + velocity * t + Vector3.DOWN * (0.5 * g * t * t)
+		for line in grind_lines:
+			var c: Dictionary = line.closest(p + Vector3.UP * 0.1)
+			var cp: Vector3 = c["point"]
+			var gap: Vector2 = Vector2(cp.x - p.x, cp.z - p.z)
+			var dy: float = p.y - cp.y
+			if gap.length() > tune.magnet_reach or dy < tune.grind_min_dy - 0.2 or dy > tune.grind_max_dy:
+				continue
+			var dirv: Vector3 = line.dir_at(c["dist"])
+			var spd: float = maxf(velocity.length(), 0.1)
+			if acos(clampf(absf(velocity.dot(dirv)) / spd, 0.0, 1.0)) > 1.31:
+				continue
+			# sideways speed that closes the gap by the time we get there
+			var need: Vector3 = Vector3(gap.x, 0.0, gap.y) / t
+			var along: Vector3 = Vector3(dirv.x, 0.0, dirv.z).normalized()
+			need -= along * need.dot(along)
+			need = need.limit_length(tune.magnet_max_side)
+			var v_h: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+			var cur_side: Vector3 = v_h - along * v_h.dot(along)
+			var new_side: Vector3 = cur_side.lerp(need, 1.0 - exp(-tune.magnet_strength * dt))
+			velocity += new_side - cur_side
+			_magnet_t = maxf(_magnet_t, minf(t + 0.1, tune.magnet_lookahead + 0.1))
+			_grind_buf = maxf(_grind_buf, 0.05)
+			return
+
+
 func _land() -> void:
-	var n: Vector3 = get_floor_normal()
+	var n: Vector3 = _probe_floor(get_floor_normal(), get_floor_normal())
 	var travel: Vector3 = velocity
 	travel.y = 0.0
 	var heading: Vector3 = heading_h()
+	# vert: the way down the face is what counts, however the skater drifted along the coping
+	var ref: Vector3 = vert_out if vert_air else (travel.normalized() if travel.length() > 2.0 else Vector3.ZERO)
 	var err: float = 0.0
-	if travel.length() > 2.0:
-		var a: float = absf(heading.signed_angle_to(travel.normalized(), Vector3.UP))
-		err = minf(a, PI - a)
+	var backwards: bool = false
+	if ref != Vector3.ZERO:
+		var a: float = absf(heading.signed_angle_to(ref, Vector3.UP))
+		backwards = a > PI * 0.5
+		err = PI - a if backwards else a
 	var was_air: float = air_time
+	var was_vert: bool = vert_air
 	if was_air > 0.25 and err > tune.bail_angle_rad():
 		_start_bail("sideways")
 		return
+	var kind: String = "clean"
+	if was_air > 0.25 and err > deg_to_rad(tune.assist_angle):
+		kind = "sketchy"
+		velocity *= tune.sketchy_keep
+	if backwards and was_air > 0.15:
+		stance = "regular" if stance == "fakie" else "fakie"
+		if kind == "clean":
+			kind = "fakie"
 	floor_n = n
+	board_n = n
 	_coyote = tune.coyote
 	surface = _surface_from_slide(surface)
 	if score != null:
@@ -590,7 +773,14 @@ func _land() -> void:
 			if was_air > 1.1:
 				score.add_trick("Big Air", 300)
 			score.landed()
-	hdg = (heading - n * heading.dot(n)).normalized()
+	# line the board up with where it is going (landing assist); backwards landings roll away fakie
+	var face: Vector3 = ref if ref != Vector3.ZERO else heading
+	var on_plane: Vector3 = face - n * face.dot(n)
+	if on_plane.length() < 0.3:
+		on_plane = Vector3.DOWN - n * Vector3.DOWN.dot(n)     # a near-vertical face: straight down it
+	hdg = on_plane.normalized()
+	if was_vert or n.y < 0.9:
+		_revert_t = tune.revert_window
 	state = State.GROUND
 	floor_snap_length = tune.floor_snap
 	if was_air > 0.15:
@@ -598,9 +788,21 @@ func _land() -> void:
 		stats["max_air"] = maxf(stats["max_air"], was_air)
 		sfx.emit("land")
 		landed.emit(was_air)
+		landing.emit(kind)
 	crouch = 1.0
 	charge = 0.0
 	_reset_air()
+
+
+## Manual right after landing on a ramp: spin the board 180 and keep the combo going (Tony Hawk's revert).
+func _revert() -> void:
+	_revert_t = 0.0
+	stance = "regular" if stance == "fakie" else "fakie"
+	if score != null and score.live:
+		score.add_trick("Revert", 100)
+		score.landed()
+	landing.emit("revert")
+	sfx.emit("trick")
 
 
 # ------------------------------------------------------------------ grind
@@ -660,6 +862,8 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 		gname = "Tailslide"
 	grind_kind = gname
 	state = State.GRIND
+	vert_air = false
+	_magnet_t = 0.0
 	_ollie_buf = 0.0
 	_grind_buf = 0.0
 	flip_kind = ""

@@ -18,8 +18,8 @@ static var _shared: SkateTuning = null
 @export_range(10.0, 40.0, 0.5) var max_speed: float = 22.0
 @export_range(1.0, 20.0, 0.1) var push_accel: float = 6.5
 @export_range(1.0, 20.0, 0.1) var pump_accel: float = 8.5
-@export_range(0.0, 1.0, 0.01) var roll_drag: float = 0.10       ## per second while pushing
-@export_range(0.0, 1.0, 0.01) var coast_drag: float = 0.30      ## per second while coasting
+@export_range(0.0, 1.0, 0.01) var roll_drag: float = 0.05       ## per second while pushing
+@export_range(0.0, 1.0, 0.01) var coast_drag: float = 0.05      ## per second while coasting: low = speed carries
 @export_range(1.0, 40.0, 0.5) var brake_decel: float = 15.0
 @export_range(0.0, 8.0, 0.1) var grass_drag: float = 2.8
 @export_range(1.0, 10.0, 0.1) var grass_push_speed: float = 4.2
@@ -51,9 +51,23 @@ static var _shared: SkateTuning = null
 @export_range(1.0, 25.0, 0.5) var spin_max: float = 11.0
 @export_range(5.0, 200.0, 1.0) var spin_accel: float = 60.0
 @export_range(0.15, 1.2, 0.01) var flip_time: float = 0.44
+@export_range(0.0, 5.0, 0.1) var apex_hang_speed: float = 1.5   ## |vertical speed| below this counts as the top of a jump
+@export_range(0.1, 1.0, 0.05) var apex_hang_gravity: float = 0.55 ## gravity multiplier at the top: a little float
+
+@export_group("Vert")
+@export_range(0.0, 0.9, 0.01) var vert_normal_y: float = 0.45   ## leaving a face steeper than this (normal.y) locks the air to the wall
+@export_range(10.0, 90.0, 1.0) var transfer_angle: float = 50.0  ## riding across a face at more than this many degrees skips the lock (hips)
+@export_range(0.0, 6.0, 0.1) var transfer_push: float = 2.5    ## speed toward the deck when the transfer button breaks the lock
+@export_range(0.5, 20.0, 0.5) var vert_hold: float = 6.0        ## how hard the air is pulled back to the wall plane
+@export_range(0.3, 1.0, 0.05) var vert_turn_share: float = 0.75 ## share of the air time the automatic 180 takes
+@export_range(0.2, 1.0, 0.05) var vert_gravity_scale: float = 0.55 ## vert airs float longer than flat ollies
+@export_range(0.0, 1.5, 0.05) var vert_pop_mult: float = 0.55    ## pops at a vert lip are scaled by this (the float already adds height)
 
 @export_group("Landing")
 @export_range(10.0, 90.0, 1.0) var bail_angle: float = 58.0    ## degrees off the travel direction
+@export_range(0.0, 60.0, 1.0) var assist_angle: float = 35.0   ## within this, landings are clean and the board lines up
+@export_range(0.3, 1.0, 0.05) var sketchy_keep: float = 0.75   ## speed kept after a sketchy landing
+@export_range(0.0, 1.0, 0.05) var revert_window: float = 0.35  ## seconds after a ramp landing to revert
 @export_range(1.0, 20.0, 0.5) var wall_crash_speed: float = 7.5
 
 @export_group("Grinding")
@@ -65,6 +79,10 @@ static var _shared: SkateTuning = null
 @export_range(0.5, 10.0, 0.1) var grind_min_speed: float = 2.5
 @export_range(0.5, 10.0, 0.1) var grind_entry_speed: float = 3.5
 @export_range(5.0, 30.0, 0.5) var grind_max_speed: float = 16.0
+@export_range(0.0, 3.0, 0.05) var magnet_reach: float = 1.2     ## air path within this of a rail gets pulled onto it
+@export_range(0.0, 0.8, 0.05) var magnet_lookahead: float = 0.35 ## seconds of air path checked for a rail
+@export_range(1.0, 30.0, 0.5) var magnet_strength: float = 12.0
+@export_range(0.0, 10.0, 0.5) var magnet_max_side: float = 6.0   ## most sideways speed the magnet may add
 
 
 func bail_angle_rad() -> float:
