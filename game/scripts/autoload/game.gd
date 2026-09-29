@@ -5,6 +5,7 @@ const SAVE_PATH: String = "user://skate_park.cfg"
 
 var best: Dictionary = {}          # level id -> {"score": int, "combo": int}
 var steer_mode: String = "tank"    # "tank" = skater steering (A/D turn, W push), "screen" = stick points where you go
+var jump_mode: String = "hold"   # "hold" = crouch while held, jump on release (hold longer = higher); "tap" = jump on press
 var camera_mode: String = "follow" # "follow" swings behind the skater, "fixed" keeps one isometric angle
 var master_volume: float = 0.8
 var free_skate: bool = false       # no timer: just cruise and practise
@@ -31,6 +32,7 @@ func load_save() -> void:
 	if int(cfg.get_value("settings", "version", 1)) >= 2:
 		steer_mode = cfg.get_value("settings", "steer_mode", "tank")
 		camera_mode = cfg.get_value("settings", "camera_mode", "follow")
+		jump_mode = cfg.get_value("settings", "jump_mode", "hold")
 	master_volume = cfg.get_value("settings", "master_volume", 0.8)
 
 
@@ -42,6 +44,7 @@ func save() -> void:
 	cfg.set_value("settings", "version", 2)
 	cfg.set_value("settings", "steer_mode", steer_mode)
 	cfg.set_value("settings", "camera_mode", camera_mode)
+	cfg.set_value("settings", "jump_mode", jump_mode)
 	cfg.set_value("settings", "master_volume", master_volume)
 	cfg.save(SAVE_PATH)
 

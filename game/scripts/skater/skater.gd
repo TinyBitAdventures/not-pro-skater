@@ -30,7 +30,11 @@ const TURN_SLOW: float = 6.5
 const TURN_FAST: float = 3.3
 const GRIP_SLOW: float = 11.0
 const GRIP_FAST: float = 6.0
-const OLLIE_SPEED: float = 8.0
+const OLLIE_SPEED: float = 8.0           # "tap" mode: jump on press
+const CHARGE_MAX: float = 0.45           # seconds of crouch for a full-power pop
+const POP_MIN: float = 6.8               # release straight away
+const POP_MAX: float = 10.0              # full crouch
+const LIP_WINDOW: float = 0.16           # a release this soon after leaving a ramp lip still pops
 const AIR_GRAVITY_UP: float = 26.0
 const AIR_GRAVITY_DOWN: float = 34.0
 const AIR_CONTROL: float = 3.0
@@ -95,12 +99,17 @@ var stats: Dictionary = {"air": 0, "grinds": 0, "bails": 0, "max_air": 0.0, "max
 
 var _coyote: float = 0.0
 var _ollie_buf: float = 0.0
+var _release_buf: float = 0.0
+var charge: float = 0.0              # seconds spent crouching for a jump
+var force_charge: bool = false       # tests: use the hold-and-release jump without a real player
+var charge_mode: bool = false
 var _grind_buf: float = 0.0
 var _flip_buf: float = 0.0
 var _air_ref: Vector3 = Vector3(0, 0, -1)   # heading at take-off: air spin is judged against it
 var _grind_cd: float = 0.0
 var _manual_started: bool = false
 var _flip_done_air: bool = false
+var _air_popped: bool = false
 var _last_safe: Vector3 = Vector3.ZERO
 var _safe_timer: float = 0.0
 var _spawn: Transform3D = Transform3D.IDENTITY
@@ -185,6 +194,7 @@ func place_at(xf: Transform3D) -> void:
 	_spawn = xf
 	global_position = xf.origin
 	cam_y = xf.origin.y
+	charge = 0.0
 	var f: Vector3 = -xf.basis.z
 	f.y = 0.0
 	hdg = f.normalized() if f.length() > 0.01 else Vector3(0, 0, -1)
@@ -234,6 +244,7 @@ func _read_input() -> void:
 		inp.world_dir = (hdg * -v.y + hdg.cross(Vector3.UP) * v.x).limit_length(1.0)
 	inp.ollie_pressed = Input.is_action_just_pressed("ollie")
 	inp.ollie_held = Input.is_action_pressed("ollie")
+	inp.ollie_released = Input.is_action_just_released("ollie")
 	inp.flip_pressed = Input.is_action_just_pressed("flip")
 	inp.grab_held = Input.is_action_pressed("grab")
 	inp.grind_pressed = Input.is_action_just_pressed("grind")
@@ -251,12 +262,16 @@ func _physics_process(delta: float) -> void:
 	elif not scripted:
 		_read_input()
 	_ollie_buf = maxf(0.0, _ollie_buf - delta)
+	_release_buf = maxf(0.0, _release_buf - delta)
+	charge_mode = force_charge or (brain == null and not scripted and Game.jump_mode == "hold")
 	_grind_buf = maxf(0.0, _grind_buf - delta)
 	_flip_buf = maxf(0.0, _flip_buf - delta)
 	_grind_cd = maxf(0.0, _grind_cd - delta)
 	_coyote = maxf(0.0, _coyote - delta)
 	if inp.ollie_pressed:
 		_ollie_buf = BUFFER
+	if inp.ollie_released:
+		_release_buf = BUFFER
 	if inp.grind_pressed:
 		_grind_buf = BUFFER
 	if inp.flip_pressed:
@@ -372,12 +387,22 @@ func _ground(dt: float) -> void:
 
 	if pushing and not braking:
 		push_phase += dt * (1.6 + spd * 0.25)
-	crouch = move_toward(crouch, 0.25 if on_ramp else 0.0, 6.0 * dt)
+	if charge_mode:
+		if inp.ollie_held:
+			charge = minf(charge + dt, CHARGE_MAX)
+		crouch = move_toward(crouch, maxf(charge / CHARGE_MAX, 0.25 if on_ramp else 0.0), 10.0 * dt)
+	else:
+		crouch = move_toward(crouch, 0.25 if on_ramp else 0.0, 6.0 * dt)
 
 	if _grind_buf > 0.0 and _try_grind():
 		return
-	if _ollie_buf > 0.0:
-		_ollie(n)
+	if charge_mode:
+		# crouch while Space is held, pop when it is released: hold longer for more height
+		if _release_buf > 0.0 or (charge > 0.0 and not inp.ollie_held):
+			_ollie(n, pop_speed())
+			return
+	elif _ollie_buf > 0.0:
+		_ollie(n, OLLIE_SPEED)
 		return
 
 	var vel_before: Vector3 = velocity
@@ -428,10 +453,21 @@ func _surface_from_slide(current: String) -> String:
 	return current
 
 
-func _ollie(n: Vector3) -> void:
+func pop_speed() -> float:
+	return lerpf(POP_MIN, POP_MAX, clampf(charge / CHARGE_MAX, 0.0, 1.0))
+
+
+func charge_frac() -> float:
+	return clampf(charge / CHARGE_MAX, 0.0, 1.0) if charge_mode and state == State.GROUND else 0.0
+
+
+func _ollie(n: Vector3, speed: float) -> void:
 	_ollie_buf = 0.0
+	_release_buf = 0.0
 	_coyote = 0.0
-	velocity += n * OLLIE_SPEED
+	charge = 0.0
+	# pop mostly upward even off a steep ramp face, with a little push away from the surface
+	velocity += n.lerp(Vector3.UP, 0.6).normalized() * speed
 	crouch = 0.0
 	sfx.emit("ollie")
 	_enter_air()
@@ -465,6 +501,7 @@ func _reset_air() -> void:
 	flip_t = 0.0
 	grab_kind = ""
 	_flip_done_air = false
+	_air_popped = false
 
 
 # ------------------------------------------------------------------ air
@@ -485,7 +522,16 @@ func _air(dt: float) -> void:
 	spin_total += spin_vel * dt
 	hdg = heading_h()
 
-	if _ollie_buf > 0.0 and _coyote > 0.0:
+	if charge_mode:
+		# release just after rolling off a lip still pops: the classic "jump at the top of the ramp"
+		if _release_buf > 0.0 and (_coyote > 0.0 or air_time < LIP_WINDOW) and _air_popped == false:
+			_release_buf = 0.0
+			velocity.y += pop_speed() * 0.8
+			_air_popped = true
+			charge = 0.0
+			_coyote = 0.0
+			sfx.emit("ollie")
+	elif _ollie_buf > 0.0 and _coyote > 0.0:
 		_ollie_buf = 0.0
 		velocity.y = maxf(velocity.y, OLLIE_SPEED * 0.85)
 		_coyote = 0.0
@@ -568,6 +614,7 @@ func _land() -> void:
 		sfx.emit("land")
 		landed.emit(was_air)
 	crouch = 1.0
+	charge = 0.0
 	_reset_air()
 
 

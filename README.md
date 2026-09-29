@@ -24,7 +24,7 @@ Two steering styles (toggle with T, or in the title menu; both are saved):
 |-----------|--------|
 | W / S, stick up / down | Push / brake (skater steering) |
 | A / D, stick left / right | Turn (skater steering) |
-| Space / A | Ollie |
+| Space / A | Hold to crouch, release to jump (hold longer = higher; a quick tap is a small hop) |
 | J / X | Flip (steer for variations) |
 | K / B | Hold to grab (steer for variations) |
 | L / Y | Grind: press near a rail, ledge or coping |
@@ -34,9 +34,12 @@ Two steering styles (toggle with T, or in the title menu; both are saved):
 | Q / E | Turn the camera in 90 degree steps |
 | C | Camera follow / fixed |
 | T | Steering skater / screen |
+| Y | Jump hold-release / instant tap |
 | R | Reset to the start |
 | N | Music on / off |
 | Esc | Pause |
+
+**Riding a half pipe:** roll into the ramp with W held, keep Space held as you climb the face (the POP meter fills), release at the lip for a big air, spin with A / D, add J or K for tricks, then land back on the transition and pump again. Bigger ramps need more speed: keep pumping.
 
 Combos: every trick adds points and, if it is new to the combo, one to the multiplier. Land cleanly and keep going within about a second; stop and the combo is banked. Bail and you lose it.
 

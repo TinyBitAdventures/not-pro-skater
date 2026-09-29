@@ -26,6 +26,8 @@ var timer_label: Label
 var best_label: Label
 var letters: Array[Label] = []
 var speed_bar: ProgressBar
+var charge_panel: PanelContainer
+var charge_bar: ProgressBar
 var center_label: Label
 var toast_layer: Control
 var hint_label: Label
@@ -170,6 +172,27 @@ func _build_bottom() -> void:
 	speed_bar.add_theme_stylebox_override("fill", fg)
 	sh.add_child(speed_bar)
 	root.add_child(sp)
+	charge_panel = _panel(NAVY, 12)
+	charge_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	charge_panel.position = Vector2(-90, -120)
+	var ch: HBoxContainer = HBoxContainer.new()
+	ch.add_theme_constant_override("separation", 8)
+	charge_panel.add_child(ch)
+	ch.add_child(_label("POP", 18, YELLOW, 4))
+	charge_bar = ProgressBar.new()
+	charge_bar.custom_minimum_size = Vector2(150, 16)
+	charge_bar.show_percentage = false
+	charge_bar.max_value = 1.0
+	var cbg: StyleBoxFlat = _style(NAVY_DK, 8, NAVY_DK, 0)
+	cbg.content_margin_top = 0
+	cbg.content_margin_bottom = 0
+	var cfg: StyleBoxFlat = _style(GREEN, 8, GREEN, 0)
+	cfg.shadow_size = 0
+	charge_bar.add_theme_stylebox_override("background", cbg)
+	charge_bar.add_theme_stylebox_override("fill", cfg)
+	ch.add_child(charge_bar)
+	charge_panel.visible = false
+	root.add_child(charge_panel)
 
 
 func _build_center() -> void:
@@ -261,6 +284,11 @@ func set_timer(seconds: float, running: bool) -> void:
 
 func set_speed(v: float) -> void:
 	speed_bar.value = v
+
+
+func set_charge(v: float) -> void:
+	charge_panel.visible = v > 0.02
+	charge_bar.value = v
 
 
 func set_best(v: int) -> void:

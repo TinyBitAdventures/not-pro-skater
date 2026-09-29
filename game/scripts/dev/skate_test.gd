@@ -74,6 +74,8 @@ func _run() -> void:
 		await _test_bail()
 	if which == "lap":
 		await _test_lap()
+	if which == "charge":
+		await _test_charge()
 	if which == "latency":
 		await _test_latency()
 	if which == "bailclear":
@@ -211,3 +213,41 @@ func _test_latency() -> void:
 				st["t20"] = st["ticks"] - st["pressed_tick"])
 	var ms: float = 1000.0 / float(Engine.physics_ticks_per_second)
 	print("[skate] latency ticks: vy>3 after %d, +5cm after %d, +20cm after %d (%.1f ms/tick)" % [st["vy_tick"], st["t5"], st["t20"], ms])
+
+
+## Hold-and-release jump: peak height vs how long Space is held, and a release at a ramp lip.
+func _test_charge() -> void:
+	for hold in [0.0, 0.15, 0.3, 0.45]:
+		await _setup(_at(-6.0, 0.1, 0.0, Vector3(1, 0, 0)))
+		sk.force_charge = true
+		var st: Dictionary = {"t0": -1.0, "y0": 0.0, "peak": 0.0, "released": false}
+		await _run_for(3.0, 10.0, "charge", func(e: float) -> void:
+			sk.inp.world_dir = Vector3(1, 0, 0)
+			sk.inp.ollie_held = false
+			sk.inp.ollie_released = false
+			if e > 1.0 and e < 1.0 + hold + 0.02:
+				if st["t0"] < 0.0:
+					st["t0"] = e
+					st["y0"] = sk.global_position.y
+				sk.inp.ollie_held = true
+			elif st["t0"] >= 0.0 and not st["released"]:
+				st["released"] = true
+				sk.inp.ollie_released = true
+			if st["released"]:
+				st["peak"] = maxf(st["peak"], sk.global_position.y - st["y0"]))
+		print("[skate] charge hold=%.2fs peak=%.2f m  charge_left=%.2f" % [hold, st["peak"], sk.charge])
+	# ramp lip: run up the small quarter pipe holding, release at the lip
+	for release_at in [0.0, 1.0]:
+		await _setup(_at(-3.5, 0.1, 2.0, Vector3(0, 0, 1)))
+		sk.force_charge = true
+		var st2: Dictionary = {"max_h": 0.0, "done": false}
+		await _run_for(5.0, 10.0, "chargeramp", func(_e: float) -> void:
+			sk.inp.world_dir = Vector3(0, 0, 1) if sk.global_position.z < 12.5 else Vector3.ZERO
+			sk.inp.ollie_released = false
+			var near_lip: bool = sk.global_position.z > 10.3 and sk.global_position.y > 0.95
+			sk.inp.ollie_held = release_at > 0.0 and sk.global_position.z > 8.0 and not st2["done"] and not near_lip
+			if release_at > 0.0 and near_lip and not st2["done"]:
+				st2["done"] = true
+				sk.inp.ollie_released = true
+			st2["max_h"] = maxf(st2["max_h"], sk.global_position.y))
+		print("[skate] chargeramp release_at_lip=%s max_h=%.2f air=%.2f" % [release_at > 0.0, st2["max_h"], sk.stats["max_air"]])

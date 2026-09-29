@@ -6,6 +6,7 @@ var move: Vector2 = Vector2.ZERO        # raw stick (x right, y down). Spin in t
 var world_dir: Vector3 = Vector3.ZERO   # stick resolved through the camera (screen mode)
 var ollie_pressed: bool = false
 var ollie_held: bool = false
+var ollie_released: bool = false
 var flip_pressed: bool = false
 var grab_held: bool = false
 var grind_pressed: bool = false
@@ -15,5 +16,6 @@ var manual: bool = false
 
 func clear_edges() -> void:
 	ollie_pressed = false
+	ollie_released = false
 	flip_pressed = false
 	grind_pressed = false

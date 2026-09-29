@@ -138,6 +138,7 @@ func _process(delta: float) -> void:
 		cam.h_offset = 0.0
 		cam.v_offset = 0.0
 	hud.set_speed(skater.velocity.length())
+	hud.set_charge(skater.charge_frac())
 	_update_audio(delta)
 	hud.set_combo(score.mult, score.combo_text(), score.pending, score.live)
 
@@ -186,6 +187,11 @@ func _on_input(event: InputEvent) -> void:
 			Game.save()
 			_refresh_hint()
 			hud.announce("SKATER STEERING" if Game.steer_mode == "tank" else "SCREEN STEERING", Hud.BLUE, 1.2)
+		elif k.physical_keycode == KEY_Y:
+			Game.jump_mode = "tap" if Game.jump_mode == "hold" else "hold"
+			Game.save()
+			_refresh_hint()
+			hud.announce("HOLD TO JUMP HIGHER" if Game.jump_mode == "hold" else "TAP TO JUMP", Hud.BLUE, 1.2)
 		elif k.physical_keycode == KEY_C:
 			Game.camera_mode = "fixed" if Game.camera_mode == "follow" else "follow"
 			Game.save()
@@ -208,10 +214,11 @@ func _on_input(event: InputEvent) -> void:
 
 
 func _refresh_hint() -> void:
+	var jump: String = "HOLD SPACE, RELEASE TO JUMP" if Game.jump_mode == "hold" else "SPACE JUMP"
 	if Game.steer_mode == "tank":
-		hud.set_hint("W PUSH   A/D TURN   S BRAKE   SPACE OLLIE   J FLIP   K GRAB   L GRIND   M MANUAL   Q/E CAMERA")
+		hud.set_hint("W PUSH   A/D TURN   S BRAKE   %s   J FLIP   K GRAB   L GRIND   M MANUAL" % jump)
 	else:
-		hud.set_hint("WASD ROLL   SPACE OLLIE   J FLIP   K GRAB   L GRIND   M MANUAL   SHIFT BRAKE   Q/E CAMERA")
+		hud.set_hint("WASD ROLL   %s   J FLIP   K GRAB   L GRIND   M MANUAL   SHIFT BRAKE" % jump)
 
 
 func _set_paused(p: bool) -> void:

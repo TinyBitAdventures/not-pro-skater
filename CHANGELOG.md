@@ -12,6 +12,7 @@ First playable prototype: one level, a full skating model and the isometric toon
 
 ### Controls and camera
 - Default steering is skater-relative (A / D turn, W push, S brake); the camera follows the skater's heading so the rider always goes "up" the screen. Screen steering and a fixed camera stay available (T / C, or the title menu).
+- Jump is hold-and-release: Space crouches (POP meter), releasing pops; hold up to 0.45 s for a full-height jump. Release at a ramp lip for a big air (about 5 m off the small quarter pipe versus 2 m for a plain roll-off). Y (or the title menu) switches to an instant jump on press.
 - Jumps: no squat before the pop, heavier fall, stronger pop, and the camera follows ground height so the whole arc is visible.
 
 ### Skating
