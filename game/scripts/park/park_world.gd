@@ -69,7 +69,7 @@ func _ready() -> void:
 	skater.bailed.connect(_on_bailed)
 	skater.landed.connect(_on_landed)
 	skater.sfx.connect(_on_sfx)
-	Sound.play_music()
+	Sound.play_music("grip_tape_summer")
 	_build_pickups()
 	_spawn_ambient_skaters(3)
 	free_skate = Game.free_skate

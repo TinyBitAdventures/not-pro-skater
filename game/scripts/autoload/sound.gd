@@ -38,6 +38,7 @@ var _pool: Array[AudioStreamPlayer] = []
 var _streams: Dictionary = {}
 var _loops: Dictionary = {}          # name -> AudioStreamPlayer
 var _music: AudioStreamPlayer
+var _music_track: String = ""
 var _pool_i: int = 0
 
 
@@ -68,9 +69,6 @@ func _ready() -> void:
 		_loops[n] = p
 	_music = AudioStreamPlayer.new()
 	_music.bus = "Music"
-	var m: AudioStreamOggVorbis = load("res://assets/audio/music/park.ogg")
-	m.loop = true
-	_music.stream = m
 	_music.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(_music)
 	apply_settings()
@@ -97,9 +95,18 @@ func toggle_music() -> bool:
 	return music_on
 
 
-func play_music() -> void:
-	if not _music.playing:
-		_music.play()
+## Start a looping track from res://assets/audio/music/<track>.ogg (no restart if it is already playing).
+func play_music(track: String = "park") -> void:
+	if _music_track == track and _music.playing:
+		return
+	var path: String = "res://assets/audio/music/%s.ogg" % track
+	if not ResourceLoader.exists(path):
+		path = "res://assets/audio/music/park.ogg"
+	var m: AudioStreamOggVorbis = load(path)
+	m.loop = true
+	_music.stream = m
+	_music_track = track
+	_music.play()
 
 
 func play(sfx_name: String, vol_db: float = 0.0, pitch: float = 1.0) -> void:

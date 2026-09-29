@@ -42,7 +42,7 @@ func _ready() -> void:
 	cam.jump_to(star.global_position)
 	add_child(PostFx.new())
 	_build_ui()
-	Sound.play_music()
+	Sound.play_music("boardwalk_morning")
 
 
 func _process(delta: float) -> void:
