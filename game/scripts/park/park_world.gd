@@ -65,6 +65,7 @@ func _ready() -> void:
 	score.changed.connect(_on_score_changed)
 	score.banked.connect(_on_banked)
 	score.lost.connect(_on_lost)
+	score.trick_added.connect(_on_trick_added)
 	skater.bailed.connect(_on_bailed)
 	skater.landed.connect(_on_landed)
 	skater.sfx.connect(_on_sfx)
@@ -305,6 +306,40 @@ func _on_sfx(kind: String) -> void:
 			Sound.play("grind_start")
 		"bail":
 			Sound.play("bail")
+
+
+var _popup_t: float = 0.0
+var _popup_n: int = 0
+
+
+## A floating "KICKFLIP +300" over the rider: rises, pops in with a little overshoot, fades out.
+func _on_trick_added(trick_name: String, points: int) -> void:
+	var now: float = Time.get_ticks_msec() / 1000.0
+	if now - _popup_t > 0.9:
+		_popup_n = 0
+	_popup_t = now
+	var l: Label3D = Label3D.new()
+	l.text = "%s  +%d" % [trick_name.to_upper(), points]
+	l.font_size = 72
+	l.pixel_size = 0.0075
+	l.outline_size = 16
+	l.outline_modulate = Color(0.09, 0.11, 0.19)
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.shaded = false
+	l.render_priority = 10
+	l.modulate = Color(1, 1, 1) if points < 300 else (Color(1.0, 0.85, 0.3) if points < 500 else Color(1.0, 0.55, 0.2))
+	var start: Vector3 = skater.global_position + Vector3(0, 2.3 + 0.55 * _popup_n, 0)
+	_popup_n += 1
+	l.position = start
+	l.scale = Vector3(0.5, 0.5, 0.5)
+	add_child(l)
+	var tw: Tween = create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(l, "scale", Vector3.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "position:y", start.y + 1.1, 1.1).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.35).set_delay(0.75)
+	tw.chain().tween_callback(l.queue_free)
 
 
 func _on_score_changed() -> void:

@@ -6,6 +6,7 @@ extends RefCounted
 signal changed
 signal banked(points: int, combo_len: int)
 signal lost
+signal trick_added(trick_name: String, points: int)
 
 const WINDOW: float = 1.25
 const HOLD_CAP_SECONDS: float = 4.0   # one combo pays at most this many seconds of each hold (manual/grab/grind)
@@ -56,6 +57,7 @@ func add_trick(trick_name: String, points: int) -> void:
 		mult = _seen.size()
 	names.append(trick_name)
 	pending += pts
+	trick_added.emit(trick_name, pts)
 	best_trick = maxi(best_trick, pts)
 	trick_count += 1
 	live = true
