@@ -27,10 +27,12 @@ const BRAKE_DECEL: float = 15.0
 const GRASS_DRAG: float = 2.8
 const GRASS_PUSH_SPEED: float = 4.2
 const TURN_SLOW: float = 6.5
-const TURN_FAST: float = 2.6
+const TURN_FAST: float = 3.3
 const GRIP_SLOW: float = 11.0
 const GRIP_FAST: float = 6.0
-const OLLIE_SPEED: float = 7.4
+const OLLIE_SPEED: float = 8.0
+const AIR_GRAVITY_UP: float = 26.0
+const AIR_GRAVITY_DOWN: float = 34.0
 const AIR_CONTROL: float = 3.0
 const COYOTE: float = 0.11
 const BUFFER: float = 0.14
@@ -56,6 +58,9 @@ var cam: Camera3D = null
 var grind_lines: Array[GrindLine] = []
 var visual: SkaterVisual = null
 var with_visual: bool = true
+var steer_mode: String = ""          # "" = follow Game.steer_mode; AI skaters use "screen"
+var cam_y: float = 0.0               # ground height the camera follows (does not rise with a jump)
+var _turn_bias: float = 1.0
 var brain: SkaterBrain = null        # set for AI skaters: replaces player input
 var is_player: bool = true           # only the player drives the occlusion hole
 var look: Dictionary = {}
@@ -177,6 +182,7 @@ func _update_blob() -> void:
 func place_at(xf: Transform3D) -> void:
 	_spawn = xf
 	global_position = xf.origin
+	cam_y = xf.origin.y
 	var f: Vector3 = -xf.basis.z
 	f.y = 0.0
 	hdg = f.normalized() if f.length() > 0.01 else Vector3(0, 0, -1)
@@ -259,6 +265,8 @@ func _physics_process(delta: float) -> void:
 	if velocity.length() > MAX_SPEED and state != State.GRIND:
 		velocity = velocity.limit_length(MAX_SPEED)
 	stats["max_speed"] = maxf(stats["max_speed"], velocity.length())
+	if state != State.AIR:
+		cam_y = lerpf(cam_y, global_position.y, 1.0 - exp(-8.0 * delta))
 	if score != null:
 		score.tick(delta, state == State.GRIND or manual_on or state == State.AIR)
 	if state == State.GROUND and surface != "grass":
@@ -289,7 +297,8 @@ func _steer_dir(n: Vector3) -> Vector3:
 func _ground(dt: float) -> void:
 	var n: Vector3 = floor_n
 	var spd: float = velocity.length()
-	var tank: bool = Game.steer_mode == "tank"
+	var mode: String = steer_mode if steer_mode != "" else Game.steer_mode
+	var tank: bool = mode == "tank"
 	pushing = false
 	braking = inp.brake
 	var turn_applied: float = 0.0
@@ -305,6 +314,11 @@ func _ground(dt: float) -> void:
 		var want: Vector3 = _steer_dir(n)
 		if want != Vector3.ZERO:
 			var ang: float = hdg.signed_angle_to(want, n)
+			# a near U-turn keeps turning the way it last turned instead of flipping sides every frame
+			if absf(ang) > 2.5:
+				ang = _turn_bias * absf(ang)
+			elif absf(ang) > 0.05:
+				_turn_bias = signf(ang)
 			var rate: float = lerpf(TURN_SLOW, TURN_FAST, clampf(spd / 12.0, 0.0, 1.0))
 			turn_applied = clampf(ang, -rate * dt, rate * dt)
 			hdg = hdg.rotated(n, turn_applied)
@@ -350,7 +364,7 @@ func _ground(dt: float) -> void:
 
 	if pushing and not braking:
 		push_phase += dt * (1.6 + spd * 0.25)
-	crouch = move_toward(crouch, 1.0 if inp.ollie_held else (0.25 if on_ramp else 0.0), 6.0 * dt)
+	crouch = move_toward(crouch, 0.25 if on_ramp else 0.0, 6.0 * dt)
 
 	if _grind_buf > 0.0 and _try_grind():
 		return
@@ -402,6 +416,7 @@ func _surface_from_slide(current: String) -> String:
 func _ollie(n: Vector3) -> void:
 	_ollie_buf = 0.0
 	velocity += n * OLLIE_SPEED
+	crouch = 0.0
 	sfx.emit("ollie")
 	_enter_air()
 	if manual_on and score != null:
@@ -439,7 +454,7 @@ func _reset_air() -> void:
 
 func _air(dt: float) -> void:
 	air_time += dt
-	velocity.y -= GRAVITY * dt
+	velocity.y -= (AIR_GRAVITY_UP if velocity.y > 0.0 else AIR_GRAVITY_DOWN) * dt
 	var d: Vector3 = inp.world_dir
 	d.y = 0.0
 	velocity += d * AIR_CONTROL * dt

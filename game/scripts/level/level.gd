@@ -89,17 +89,20 @@ func _surface_of(b: Node) -> String:
 func _make_label(marker: Node3D) -> void:
 	var words: PackedStringArray = String(marker.name).split("_")
 	var text: String = " ".join(words.slice(1, words.size() - 1))
-	var l: Label3D = Label3D.new()
-	l.text = text
-	l.font_size = 96
-	l.pixel_size = 0.0068
-	l.modulate = Color(1, 1, 1)
-	l.outline_size = 14
-	l.outline_modulate = Color(0.09, 0.11, 0.19)
-	l.double_sided = true
-	l.shaded = false
-	l.no_depth_test = false
-	add_child(l)
-	l.global_transform = marker.global_transform
-	l.rotate_object_local(Vector3.UP, PI)
-	l.position += l.global_transform.basis.z * 0.0
+	var front_dir: Vector3 = -marker.global_transform.basis.z
+	for side in 2:
+		var l: Label3D = Label3D.new()
+		l.text = text
+		l.font_size = 96
+		l.pixel_size = 0.0068
+		l.modulate = Color(1, 1, 1)
+		l.outline_size = 14
+		l.outline_modulate = Color(0.09, 0.11, 0.19)
+		l.double_sided = false
+		l.shaded = false
+		add_child(l)
+		l.global_transform = marker.global_transform
+		if side == 0:
+			l.rotate_object_local(Vector3.UP, PI)
+		else:
+			l.global_position -= front_dir * 0.09

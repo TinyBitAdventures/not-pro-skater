@@ -299,6 +299,12 @@ func show_results(text: String) -> void:
 	results_panel.visible = true
 
 
+func set_hint(text: String) -> void:
+	hint_label.text = text
+	var bp: Control = hint_label.get_meta("panel")
+	bp.modulate.a = 1.0
+
+
 func hide_hint() -> void:
 	var bp: Control = hint_label.get_meta("panel")
 	var tw: Tween = create_tween()

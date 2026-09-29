@@ -71,6 +71,7 @@ func _run() -> void:
 	park.cam.ortho_size = float(OS.get_environment("ZOOM")) if OS.get_environment("ZOOM") != "" else 9.0
 	park.phase = 3
 	park.hud.hide_hint()
+	Game.steer_mode = "screen"
 	var which: String = OS.get_environment("SHOTS")
 	if which == "":
 		which = "poses"
@@ -78,6 +79,8 @@ func _run() -> void:
 		await _poses()
 	elif which == "ramps":
 		await _ramps()
+	elif which == "follow":
+		await _follow_lap()
 	get_tree().quit()
 
 
@@ -132,3 +135,20 @@ func _ramps() -> void:
 	await _scene(_face(-3.5, 1.0, south), 4.0, [[1.7, "qp_up"], [2.05, "qp_lip"], [2.4, "qp_air"]],
 		func(_t: float) -> void:
 			sk.inp.world_dir = south if sk.global_position.z < 12.5 else Vector3.ZERO)
+
+
+func _follow_lap() -> void:
+	park.cam.follow_heading = true
+	park.cam.ortho_size = 13.0
+	var east: Vector3 = Vector3(1, 0, 0)
+	var st: Dictionary = {"i": 0}
+	await _scene(level_spawn(), 22.0, [[3.0, "f1"], [7.0, "f2"], [11.0, "f3"], [15.0, "f4"], [19.0, "f5"], [21.5, "f6"]],
+		func(_t: float) -> void:
+			var p: Vector3 = sk.global_position
+			var a: float = atan2(-p.z, p.x)
+			var ta: float = a + 0.16
+			sk.inp.world_dir = (Vector3(36.0 * cos(ta), 0.0, -36.0 * sin(ta)) - p).normalized())
+
+
+func level_spawn() -> Transform3D:
+	return park.level.spawn

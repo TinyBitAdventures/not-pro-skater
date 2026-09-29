@@ -20,6 +20,7 @@ func _detach() -> void:
 
 
 func _setup(spawn: Transform3D) -> void:
+	Game.steer_mode = "screen"
 	if level != null:
 		level.queue_free()
 	if sk != null:
@@ -73,6 +74,8 @@ func _run() -> void:
 		await _test_bail()
 	if which == "lap":
 		await _test_lap()
+	if which == "latency":
+		await _test_latency()
 	if which == "bailclear":
 		await _test_bail_clear()
 	get_tree().quit()
@@ -184,3 +187,27 @@ func _test_bail_clear() -> void:
 							st["lowest"] = minf(st["lowest"], corner.y - (sk.global_position.y + 0.02))
 			st["frames"] += 1)
 	print("[skate] bailclear bail_frames=%d lowest_rel_y=%.3f bails=%d" % [st["frames"], st["lowest"], sk.stats["bails"]])
+
+
+## Input-to-takeoff latency: physics ticks from the ollie press until the rider is measurably off the ground.
+func _test_latency() -> void:
+	await _setup(_at(-8.0, 0.1, -3.0, Vector3(1, 0, 0)))
+	var st: Dictionary = {"pressed_tick": -1, "y0": 0.0, "t5": -1, "t20": -1, "ticks": 0, "vy_tick": -1}
+	await _run_for(2.5, 10.0, "latency", func(e: float) -> void:
+		st["ticks"] += 1
+		sk.inp.world_dir = Vector3(1, 0, 0)
+		if st["pressed_tick"] < 0 and e > 1.5:
+			st["pressed_tick"] = st["ticks"]
+			st["y0"] = sk.global_position.y
+			sk.inp.ollie_pressed = true
+			sk.inp.ollie_held = true
+		if st["pressed_tick"] >= 0:
+			var dy: float = sk.global_position.y - st["y0"]
+			if st["vy_tick"] < 0 and sk.velocity.y > 3.0:
+				st["vy_tick"] = st["ticks"] - st["pressed_tick"]
+			if st["t5"] < 0 and dy > 0.05:
+				st["t5"] = st["ticks"] - st["pressed_tick"]
+			if st["t20"] < 0 and dy > 0.2:
+				st["t20"] = st["ticks"] - st["pressed_tick"])
+	var ms: float = 1000.0 / float(Engine.physics_ticks_per_second)
+	print("[skate] latency ticks: vy>3 after %d, +5cm after %d, +20cm after %d (%.1f ms/tick)" % [st["vy_tick"], st["t5"], st["t20"], ms])

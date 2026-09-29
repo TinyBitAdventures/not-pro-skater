@@ -39,6 +39,9 @@ func _ready() -> void:
 	add_child(skater)
 	skater.place_at(level.spawn)
 	cam.target = skater
+	cam.follow_heading = Game.camera_mode == "follow"
+	if cam.follow_heading:
+		cam.face_heading(skater)
 	cam.jump_to(skater.global_position)
 
 	hud = Hud.new()
@@ -54,6 +57,7 @@ func _ready() -> void:
 	_build_pickups()
 	_spawn_ambient_skaters(3)
 	free_skate = Game.free_skate
+	_refresh_hint()
 	hud.announce("COMMUNITY PARK", Hud.YELLOW, 2.4)
 	hud.set_timer(time_left, false)
 
@@ -66,6 +70,7 @@ func _spawn_ambient_skaters(count: int) -> void:
 		var lane: float = [34.4, 36.0, 37.6][i % 3]
 		var dir: float = 1.0 if i % 2 == 0 else -1.0
 		s.brain = SkaterBrain.new(lane, dir)
+		s.steer_mode = "screen"
 		s.grind_lines = level.grind_lines
 		add_child(s)
 		var a: float = deg_to_rad(20.0 + i * 130.0)
@@ -160,7 +165,17 @@ func _input(event: InputEvent) -> void:
 		if k.physical_keycode == KEY_T:
 			Game.steer_mode = "tank" if Game.steer_mode == "screen" else "screen"
 			Game.save()
-			hud.announce("TANK STEERING" if Game.steer_mode == "tank" else "SCREEN STEERING", Hud.BLUE, 1.2)
+			_refresh_hint()
+			hud.announce("SKATER STEERING" if Game.steer_mode == "tank" else "SCREEN STEERING", Hud.BLUE, 1.2)
+		elif k.physical_keycode == KEY_C:
+			Game.camera_mode = "fixed" if Game.camera_mode == "follow" else "follow"
+			Game.save()
+			cam.follow_heading = Game.camera_mode == "follow"
+			if cam.follow_heading:
+				cam.yaw_offset = 0.0
+			else:
+				cam.yaw_target = cam.yaw
+			hud.announce("FOLLOW CAMERA" if cam.follow_heading else "FIXED CAMERA", Hud.BLUE, 1.2)
 		elif k.physical_keycode == KEY_Q and not get_tree().paused:
 			cam.snap_yaw(-1)
 		elif k.physical_keycode == KEY_E and not get_tree().paused:
@@ -171,6 +186,13 @@ func _input(event: InputEvent) -> void:
 			cam.ortho_size = clampf(cam.ortho_size - 2.0, 12.0, 40.0)
 		elif k.physical_keycode == KEY_MINUS:
 			cam.ortho_size = clampf(cam.ortho_size + 2.0, 12.0, 40.0)
+
+
+func _refresh_hint() -> void:
+	if Game.steer_mode == "tank":
+		hud.set_hint("W PUSH   A/D TURN   S BRAKE   SPACE OLLIE   J FLIP   K GRAB   L GRIND   M MANUAL   Q/E CAMERA")
+	else:
+		hud.set_hint("WASD ROLL   SPACE OLLIE   J FLIP   K GRAB   L GRIND   M MANUAL   SHIFT BRAKE   Q/E CAMERA")
 
 
 func _set_paused(p: bool) -> void:

@@ -228,10 +228,11 @@ func _pose(sk: Skater, dt: float) -> void:
 			if sk.pushing and not sk.braking and speed < 7.0:
 				lean_t += 8.0
 		Skater.State.AIR:
-			hip_t = 0.80
+			var rising: bool = sk.velocity.y > 0.8
+			hip_t = 0.80 if rising else 0.66     # stretch on the pop, tuck on the way down
 			lean_t = 4.0
 			arms_t = 0.85
-			feet_t = 0.03
+			feet_t = 0.03 if rising else 0.08
 			lift_t = 0.0
 			if sk.flip_kind != "":
 				lift_t = 0.05
@@ -269,7 +270,7 @@ func _pose(sk: Skater, dt: float) -> void:
 		Skater.State.BAIL:
 			hip_t = 0.5
 			arms_t = 1.2
-	hip_h = _approach(hip_h, hip_t, 16.0, dt)
+	hip_h = _approach(hip_h, hip_t, 30.0 if st == Skater.State.AIR else 16.0, dt)
 	lean = _approach(lean, lean_t, 12.0, dt)
 	twist = _approach(twist, twist_t, 10.0, dt)
 	sway = _approach(sway, sway_t, 10.0, dt)

@@ -57,12 +57,12 @@ static func label(text: String, size: int, color: Color = WHITE, outline: int = 
 
 
 const CONTROL_LINES: Array[String] = [
-	"WASD / STICK  roll and steer (camera-relative)",
+	"W push    S brake    A / D turn        (STEERING: SKATER)",
+	"or point the stick where you want to go   (STEERING: SCREEN)",
 	"SPACE / A  ollie          SHIFT / LT  brake",
-	"J / X  flip (steer for variations)",
-	"K / B  hold to grab (steer for variations)",
+	"J / X  flip     K / B  hold to grab     M / RT  manual",
 	"L / Y  grind: press near a rail, ledge or coping",
-	"M / RT  manual on flat ground",
-	"AIR: left / right spins   Q / E  turn camera",
-	"R  reset to start   T  tank steering   N  music",
+	"IN THE AIR  A / D spin, then J or K for tricks",
+	"Q / E  turn camera     C  camera follow / fixed",
+	"T  steering     R  reset to start     N  music",
 ]
