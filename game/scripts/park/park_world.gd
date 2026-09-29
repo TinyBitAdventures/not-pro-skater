@@ -270,6 +270,11 @@ func _finish() -> void:
 		"BAILS        %d" % int(s["bails"]),
 	]
 	hud.show_results("\n".join(lines))
+	Sound.fade_music(0.6)
+	Sound.play_jingle("results-jingle")
+	if new_best:
+		# the sting sits on the jingle's last chord (10 s in); -5 dB keeps the two from clipping together
+		get_tree().create_timer(10.0).timeout.connect(func() -> void: Sound.play_jingle("new-best", -5.0, 1))
 	hud.set_best(int(Game.best.get(LEVEL_ID, {}).get("score", 0)))
 	skater.scripted = true
 	skater.inp.world_dir = Vector3.ZERO

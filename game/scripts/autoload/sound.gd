@@ -39,6 +39,8 @@ var _streams: Dictionary = {}
 var _loops: Dictionary = {}          # name -> AudioStreamPlayer
 var _music: AudioStreamPlayer
 var _music_track: String = ""
+var _jingle: AudioStreamPlayer
+var _sting: AudioStreamPlayer
 var _pool_i: int = 0
 
 
@@ -71,6 +73,12 @@ func _ready() -> void:
 	_music.bus = "Music"
 	_music.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(_music)
+	_jingle = AudioStreamPlayer.new()
+	_jingle.bus = "Music"
+	add_child(_jingle)
+	_sting = AudioStreamPlayer.new()
+	_sting.bus = "Music"
+	add_child(_sting)
 	apply_settings()
 
 
@@ -105,6 +113,7 @@ func play_music(track: String = "park") -> void:
 	var m: AudioStreamOggVorbis = load(path)
 	m.loop = true
 	_music.stream = m
+	_music.volume_db = 0.0
 	_music_track = track
 	_music.play()
 
@@ -144,3 +153,25 @@ func set_grinding(active: bool, speed: float, dt: float) -> void:
 	var want_db: float = float(LEVEL_DB.get("grind_loop", 0.0)) + lerpf(-8.0, 0.0, clampf(speed / 10.0, 0.0, 1.0)) if active else -60.0
 	p.volume_db = lerpf(p.volume_db, want_db, 1.0 - exp(-20.0 * dt))
 	p.pitch_scale = 0.85 + clampf(speed, 0.0, 14.0) * 0.03
+
+
+## Fade the looping theme out (the results jingle takes over).
+func fade_music(seconds: float = 0.6) -> void:
+	var tw: Tween = create_tween()
+	tw.tween_property(_music, "volume_db", -40.0, seconds)
+	tw.tween_callback(_music.stop)
+	_music_track = ""
+
+
+## One-shot musical stinger from res://assets/audio/jingles/<name>.ogg. slot 1 = the second player, so a
+## sting can sit on top of a jingle.
+func play_jingle(jingle_name: String, vol_db: float = 0.0, slot: int = 0) -> void:
+	var path: String = "res://assets/audio/jingles/%s.ogg" % jingle_name
+	if not ResourceLoader.exists(path):
+		return
+	var m: AudioStreamOggVorbis = load(path)
+	m.loop = false
+	var p: AudioStreamPlayer = _sting if slot == 1 else _jingle
+	p.stream = m
+	p.volume_db = vol_db
+	p.play()
