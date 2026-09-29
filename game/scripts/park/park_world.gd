@@ -63,6 +63,8 @@ func _ready() -> void:
 	add_child(WorldLife.new(level))
 	hud = Hud.new()
 	add_child(hud)
+	if OS.is_debug_build():
+		add_child(TuningPanel.new())
 	hud.set_best(int(Game.best.get(LEVEL_ID, {}).get("score", 0)))
 	score.changed.connect(_on_score_changed)
 	score.banked.connect(_on_banked)
