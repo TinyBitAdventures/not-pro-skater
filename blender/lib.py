@@ -102,10 +102,16 @@ def orient_up(me, expect=(0, 0, 1)):
 
 
 def mesh_obj(name, verts, faces, mats, face_mats=None, smooth=None, parent=None, loc=(0, 0, 0),
-             closed=False):
+             closed=False, uvs=None):
+    """uvs: optional per-face list of per-corner (u, v) in metres (the realistic look scales them per material)."""
     me = bpy.data.meshes.new(name)
     me.from_pydata([tuple(v) for v in verts], [], [tuple(f) for f in faces])
     me.update()
+    if uvs is not None:
+        layer = me.uv_layers.new(name="UVMap")
+        for poly, fuv in zip(me.polygons, uvs):
+            for li, uv in zip(poly.loop_indices, fuv):
+                layer.data[li].uv = uv
     for m in mats:
         me.materials.append(m)
     if face_mats is not None:
@@ -241,17 +247,28 @@ def prism(name, pts, x0, x1, mats, edge_mat, smooth_edges=None, cap_mat=0, paren
     for (y, z) in pts:
         verts.append((x0, y, z))
         verts.append((x1, y, z))
-    faces, fmat, fsm = [], [], []
+    # UVs in metres: side strips run u = x along the extrusion, v = distance along the profile, so a ramp's
+    # riding surface is one seamless sheet from the flat up over the curve; the caps are planar (y, z).
+    along = [0.0]
+    for i in range(n):
+        a, b = pts[i], pts[(i + 1) % n]
+        along.append(along[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    faces, fmat, fsm, uvs = [], [], [], []
     for i in range(n):
         j = (i + 1) % n
         faces.append((2 * i, 2 * j, 2 * j + 1, 2 * i + 1))
+        uvs.append([(x0, along[i]), (x0, along[i + 1]), (x1, along[i + 1]), (x1, along[i])])
         fmat.append(edge_mat[i] if i < len(edge_mat) else 0)
         fsm.append(bool(smooth_edges[i]) if smooth_edges is not None and i < len(smooth_edges) else False)
     faces.append(tuple(2 * i + 1 for i in range(n)))
+    uvs.append([(pts[i][0], pts[i][1]) for i in range(n)])
     faces.append(tuple(2 * i for i in reversed(range(n))))
+    uvs.append([(-pts[i][0], pts[i][1]) for i in reversed(range(n))])
     fmat += [cap_mat, cap_mat]
     fsm += [False, False]
-    return mesh_obj(name, verts, faces, mats, face_mats=fmat, smooth=fsm, parent=parent, loc=loc, closed=True)
+    ob = mesh_obj(name, verts, faces, mats, face_mats=fmat, smooth=fsm, parent=parent, loc=loc, closed=False, uvs=uvs)
+    recalc(ob.data)
+    return ob
 
 
 def revolve(name, profile, segs, mats, edge_mat, parent=None, loc=(0, 0, 0), a0=0.0, a1=2 * math.pi):
@@ -371,7 +388,7 @@ def write_rails(glb_path):
 # export
 # --------------------------------------------------------------------------
 
-def export(path, selection=None):
+def export(path, selection=None, images=False):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
     rails = set(write_rails(path))
@@ -388,6 +405,6 @@ def export(path, selection=None):
         export_yup=True,
         export_cameras=False,
         export_lights=False,
-        export_image_format="NONE",
+        export_image_format="AUTO" if images else "NONE",
     )
     print(f"[skate-park] exported {path}")

@@ -26,7 +26,7 @@ func _run() -> void:
 	Game.steer_mode = "screen"
 	level = Level.new()
 	add_child(level)
-	level.load_glb("res://assets/levels/greybox.glb", true)
+	level.load_glb("res://assets/levels/greybox.glb", "grey")
 	await get_tree().physics_frame
 	var want: String = OS.get_environment("FEEL")
 	var names: Array[String] = ALL.duplicate()

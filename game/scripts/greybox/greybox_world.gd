@@ -7,7 +7,8 @@ extends Node3D
 ##   SHOT=name SHOT_START=vert SHOT_AT=2.5 PUSH=1 TUNING_OPEN=1 godot --path . res://scenes/greybox.tscn
 ## writes ../shots/<name>.png and quits.
 
-const LEVEL_PATH: String = "res://assets/levels/greybox.glb"
+@export var level_path: String = "res://assets/levels/greybox.glb"
+@export var look: String = "grey"          # "grey" or "real" (PBR + baked light: scenes/looktest.tscn)
 const ORDER: Array[String] = ["flat", "seam", "curb", "miniqp", "qp", "vert", "mini", "rail", "rail_side", "kink",
 	"curve", "ledge", "stairs", "funbox", "hip", "kicker"]
 
@@ -23,10 +24,10 @@ var _shot_t: float = -1.0
 
 
 func _ready() -> void:
-	var sun: DirectionalLight3D = GreyEnv.build(self)
 	level = Level.new()
 	add_child(level)
-	level.load_glb(LEVEL_PATH, true)
+	level.load_glb(level_path, look)
+	var sun: DirectionalLight3D = RealEnv.build(self, level.lightmap_info) if look == "real" else GreyEnv.build(self)
 	for n in ORDER:
 		if level.starts.has(n):
 			start_names.append(n)
@@ -46,7 +47,7 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.set_timer(0.0, false)
-	hud.level_label.text = "GREYBOX"
+	hud.level_label.text = "GREYBOX" if look == "grey" else level_path.get_file().get_basename().to_upper()
 	hud.set_hint("1-9 / 0  WARP    TAB  NEXT SPOT    R  RESET    F3  TUNING")
 	tuning = TuningPanel.new()
 	add_child(tuning)
@@ -64,6 +65,13 @@ func _ready() -> void:
 		_shot_t = float(OS.get_environment("SHOT_AT")) if OS.get_environment("SHOT_AT") != "" else 2.0
 		if OS.get_environment("PUSH") != "":
 			skater.scripted = true
+	if OS.get_environment("CAM_AT_SUN") != "" and not level.lightmap_info.is_empty():
+		var d: Array = level.lightmap_info["sun_dir"]
+		(cam as ChaseCamera).target = null
+		cam.fov = 50.0
+		cam.global_transform = Transform3D(Basis.looking_at(Vector3(d[0], d[1], d[2]), Vector3.UP), Vector3(0, 1.7, 0))
+	if OS.get_environment("BAKE_ENERGY") != "":
+		RealLook.set_bake_energy(float(OS.get_environment("BAKE_ENERGY")))
 	if OS.get_environment("TUNING_OPEN") != "":
 		tuning.get_child(0).visible = true
 
@@ -80,7 +88,10 @@ func warp(i: int) -> void:
 		return
 	start_i = posmod(i, start_names.size())
 	var nm: String = start_names[start_i]
-	skater.place_at(level.starts[nm])
+	var xf: Transform3D = level.starts[nm]
+	if OS.get_environment("FACE_DEG") != "":
+		xf.basis = xf.basis.rotated(Vector3.UP, deg_to_rad(float(OS.get_environment("FACE_DEG"))))
+	skater.place_at(xf)
 	if OS.get_environment("V0") != "":
 		skater.velocity = skater.hdg * float(OS.get_environment("V0"))
 	if cam is IsoCamera:

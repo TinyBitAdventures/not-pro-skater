@@ -57,6 +57,7 @@ The game reads two glTF files that Blender generates from scripts.
 ./build.sh            # blender --background ... then godot --headless --import
 ./build.sh park       # just the level
 ./build.sh greybox    # just the greybox test level
+./build.sh looktest   # the realistic look test (bakes light, needs the textures in art/)
 ./build.sh skater     # just the rider
 ```
 
@@ -86,6 +87,18 @@ godot --path . res://scenes/greybox.tscn
 ```
 
 Keys **1-9 / 0** warp to a lane, **Tab / Shift+Tab** step through them, **R** resets to the lane start. **F3** opens live sliders for every skating value (`SkateTuning`, `game/scripts/skater/skate_tuning.gd`); **Save** writes `game/tuning/default.tres`. Headless experiments can override values with `TUNE="coast_drag=0.05,air_gravity_up=20"`.
+
+## Realistic look (in progress)
+
+`scenes/looktest.tscn` is the proving ground: a small plaza from the kit in CC0 PBR materials with baked light.
+
+```bash
+./build.sh looktest                                  # dress, bake (Cycles, ~1.5 min on an M2) and export
+SAMPLES=16 ./build.sh looktest                       # quick, noisy bake;  NOBAKE=1 skips the bake
+cd game && godot --path . res://scenes/looktest.tscn
+```
+
+How it works (`blender/realism.py`): kit material names map to texture sets (`SETS` / `KIT`); every visual `-col` object keeps a hidden `-colonly` collision twin so the visuals can be merged; the merged mesh gets a `Lightmap` UV set; Cycles bakes the sky (sun disc clipped out of the HDRI) with all its bounces, plus the sun's bounce only. The PNG stores `sqrt(light / 2)`; `<level>.lightmap.json` carries the sun direction and energies. In Godot, `RealLook` puts `baked_pbr.gdshader` on surfaces with a second UV set and `RealEnv` builds the matching sky and sun. Why Blender and not Godot's LightmapGI: Godot 4.7 can only bake lightmaps by clicking in the editor, and this pipeline is scripted end to end.
 
 ## Tests
 
@@ -126,11 +139,13 @@ The preset is single-threaded, so no cross-origin-isolation headers are needed a
 ## Layout
 
 ```
-blender/   lib.py (mesh helpers, rails) pieces.py (kit) park.py (level) greybox.py (test level) skater.py (rider) build.py
+blender/   lib.py (mesh helpers, rails) pieces.py (kit) park.py (level) greybox.py (test level)
+           realism.py (PBR materials, lightmap bake) looktest.py (realistic look test) skater.py (rider) build.py
+art/       CC0 source textures and HDRI (see ART_CREDITS.md)
 game/
   scripts/skater/   Skater (physics + states), SkateTuning (every feel value), GrindLine (Curve3D rails),
                     SkaterVisual (IK rig), ScoreKeeper, Tricks, SkaterBrain (AI)
-  scripts/level/    Level (glTF + rails.json loader), LevelBaker (mesh merging)
+  scripts/level/    Level (glTF + rails.json loader), LevelBaker (mesh merging), RealLook + RealEnv (realistic look)
   scripts/greybox/  GreyboxWorld (test level scene), GreyLook (grid materials), GreyEnv (sky and sun)
   scripts/camera/   ChaseCamera (perspective, greybox and the rebuild), IsoCamera (the old park)
   scripts/park/     ParkWorld (session), TitleScreen, WorldEnv (sun/sky)

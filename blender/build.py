@@ -31,6 +31,14 @@ def build_greybox():
     lib.export(os.path.join(GAME, "levels", "greybox.glb"))
 
 
+def build_looktest():
+    import looktest
+    lib.reset_scene()
+    out = os.path.join(GAME, "levels", "looktest.glb")
+    looktest.build(out, bake=os.environ.get("NOBAKE", "") == "", samples=int(os.environ.get("SAMPLES", "128")))
+    lib.export(out, images=True)
+
+
 def build_skater():
     import skater
     lib.reset_scene()
@@ -84,3 +92,5 @@ if __name__ == "__main__":
         build_park()
     if "greybox" in targets:
         build_greybox()
+    if "looktest" in targets:
+        build_looktest()
