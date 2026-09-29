@@ -36,7 +36,7 @@ Two steering styles (toggle with T, or in the title menu; both are saved):
 | T | Steering skater / screen |
 | Y | Jump hold-release / instant tap |
 | R | Reset to the start |
-| N | Music on / off |
+| N | Music: cruise / hype / off |
 | Esc | Pause |
 
 **Riding a half pipe:** roll into the ramp with W held, keep Space held as you climb the face (the POP meter fills), release at the lip for a big air, spin with A / D, add J or K for tricks, then land back on the transition and pump again. Bigger ramps need more speed: keep pumping.

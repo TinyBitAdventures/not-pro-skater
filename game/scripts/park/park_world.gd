@@ -70,7 +70,7 @@ func _ready() -> void:
 	skater.bailed.connect(_on_bailed)
 	skater.landed.connect(_on_landed)
 	skater.sfx.connect(_on_sfx)
-	Sound.play_music("grip_tape_summer")
+	Sound.play_music(Sound.gameplay_track())
 	_build_pickups()
 	_spawn_ambient_skaters(3)
 	free_skate = Game.free_skate
@@ -209,7 +209,9 @@ func _on_input(event: InputEvent) -> void:
 		elif k.physical_keycode == KEY_E and not get_tree().paused:
 			cam.snap_yaw(1)
 		elif k.physical_keycode == KEY_N:
-			hud.announce("MUSIC ON" if Sound.toggle_music() else "MUSIC OFF", Hud.BLUE, 1.0)
+			var choice: String = Sound.cycle_music_choice()
+			Sound.play_music(Sound.gameplay_track())
+			hud.announce({"cruise": "MUSIC: CRUISE", "hype": "MUSIC: HYPE", "off": "MUSIC OFF"}[choice], Hud.BLUE, 1.0)
 		elif k.physical_keycode == KEY_EQUAL:
 			cam.ortho_size = clampf(cam.ortho_size - 2.0, 12.0, 40.0)
 		elif k.physical_keycode == KEY_MINUS:

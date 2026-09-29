@@ -131,7 +131,7 @@ func _refresh_labels() -> void:
 	menu_labels[2].text = "STEERING:  %s" % ("SKATER" if Game.steer_mode == "tank" else "SCREEN")
 	menu_labels[3].text = "CAMERA:  %s" % ("FOLLOW" if Game.camera_mode == "follow" else "FIXED")
 	menu_labels[4].text = "JUMP:  %s" % ("HOLD, RELEASE" if Game.jump_mode == "hold" else "TAP")
-	menu_labels[5].text = "MUSIC:  %s" % ("ON" if Sound.music_on else "OFF")
+	menu_labels[5].text = "MUSIC:  %s" % {"cruise": "CRUISE", "hype": "HYPE", "off": "OFF"}[Game.music_choice]
 	for i in menu_panels.size():
 		var on: bool = i == selected
 		menu_panels[i].add_theme_stylebox_override("panel", UiKit.style(UiKit.BLUE if on else UiKit.NAVY, 14))
@@ -195,7 +195,7 @@ func _activate() -> void:
 			Game.save()
 			_refresh_labels()
 		5:
-			Sound.toggle_music()
+			Sound.cycle_music_choice()
 			_refresh_labels()
 		6:
 			controls_panel.visible = true

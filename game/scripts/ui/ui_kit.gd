@@ -66,5 +66,5 @@ const CONTROL_LINES: Array[String] = [
 	"L / Y  grind: press near a rail, ledge or coping",
 	"IN THE AIR  A / D spin, then J or K for tricks",
 	"Q / E  turn camera     C  camera follow / fixed",
-	"T  steering     Y  jump hold / tap     R  reset     N  music",
+	"T  steering   Y  jump hold / tap   R  reset   N  music (cruise / hype / off)",
 ]

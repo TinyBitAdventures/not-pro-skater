@@ -79,6 +79,7 @@ func _ready() -> void:
 	_sting = AudioStreamPlayer.new()
 	_sting.bus = "Music"
 	add_child(_sting)
+	music_on = Game.music_choice != "off"
 	apply_settings()
 
 
@@ -175,3 +176,23 @@ func play_jingle(jingle_name: String, vol_db: float = 0.0, slot: int = 0) -> voi
 	p.stream = m
 	p.volume_db = vol_db
 	p.play()
+
+
+## Gameplay track for the current music choice.
+func gameplay_track() -> String:
+	return "rail_rush" if Game.music_choice == "hype" else "grip_tape_summer"
+
+
+## cruise -> hype -> off -> cruise. Returns the new choice.
+func cycle_music_choice() -> String:
+	match Game.music_choice:
+		"cruise":
+			Game.music_choice = "hype"
+		"hype":
+			Game.music_choice = "off"
+		_:
+			Game.music_choice = "cruise"
+	Game.save()
+	music_on = Game.music_choice != "off"
+	apply_settings()
+	return Game.music_choice
