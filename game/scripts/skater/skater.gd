@@ -56,6 +56,8 @@ var cam: Camera3D = null
 var grind_lines: Array[GrindLine] = []
 var visual: SkaterVisual = null
 var with_visual: bool = true
+var brain: SkaterBrain = null        # set for AI skaters: replaces player input
+var is_player: bool = true           # only the player drives the occlusion hole
 var look: Dictionary = {}
 var _blob: MeshInstance3D = null
 var _blob_mat: ShaderMaterial = null
@@ -141,7 +143,8 @@ func _process(delta: float) -> void:
 	if visual != null:
 		visual.sync_from(self, delta)
 	if is_inside_tree():
-		RenderingServer.global_shader_parameter_set("player_pos", global_position)
+		if is_player:
+			RenderingServer.global_shader_parameter_set("player_pos", global_position)
 		_update_blob()
 
 
@@ -232,7 +235,9 @@ func _read_input() -> void:
 # ------------------------------------------------------------------ main loop
 
 func _physics_process(delta: float) -> void:
-	if not scripted:
+	if brain != null:
+		brain.think(self, delta)
+	elif not scripted:
 		_read_input()
 	_ollie_buf = maxf(0.0, _ollie_buf - delta)
 	_grind_buf = maxf(0.0, _grind_buf - delta)
@@ -265,7 +270,7 @@ func _physics_process(delta: float) -> void:
 		global_position = _last_safe + Vector3.UP * 0.5
 		velocity = Vector3.ZERO
 		_enter_ground()
-	if scripted:
+	if scripted or brain != null:
 		inp.clear_edges()
 
 

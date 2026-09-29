@@ -87,6 +87,28 @@ func setup(look: Dictionary = {}) -> void:
 
 # ------------------------------------------------------------------ helpers
 
+const SKINS: Array[String] = ["f2b48c", "e0a173", "c98358", "a4643f", "7a4a2f", "f7cfae"]
+const SHIRTS: Array[String] = ["ff7a3d", "3d9bff", "3fc66d", "ff5a5a", "8a5cf0", "ffd23f", "1fc2b0", "ff7eb6"]
+const HELMETS: Array[String] = ["3d9bff", "ffd23f", "ff5a5a", "3fc66d", "8a5cf0", "f4f7fb", "ff8a3d"]
+const PANTS: Array[String] = ["3b4a78", "2a3050", "5a4a3a", "4a6fa5", "6b6f7d"]
+const HAIRS: Array[String] = ["5a3a24", "20263a", "c98a3a", "8a3a24", "e8d8b0"]
+
+
+## A deterministic random look for an AI skater (material name -> Color).
+static func random_look(seed_value: int) -> Dictionary:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = seed_value
+	return {
+		"Skin": Color.html(SKINS[rng.randi() % SKINS.size()]),
+		"Shirt": Color.html(SHIRTS[rng.randi() % SHIRTS.size()]),
+		"Helmet": Color.html(HELMETS[rng.randi() % HELMETS.size()]),
+		"Pants": Color.html(PANTS[rng.randi() % PANTS.size()]),
+		"Hair": Color.html(HAIRS[rng.randi() % HAIRS.size()]),
+		"Deck": Color.html(SHIRTS[rng.randi() % SHIRTS.size()]),
+		"no_ponytail": rng.randf() < 0.5,
+	}
+
+
 static func aim_down(dir: Vector3, hint: Vector3) -> Basis:
 	var y: Vector3 = -dir.normalized()
 	var x: Vector3 = hint - y * hint.dot(y)

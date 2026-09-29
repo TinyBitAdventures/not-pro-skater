@@ -14,7 +14,6 @@ const WHITE: Color = Color(0.96, 0.98, 1.0)
 signal restart_requested
 signal resume_requested
 
-var _font: FontVariation
 var root: Control
 var score_value: Label
 var chip: PanelContainer
@@ -42,9 +41,6 @@ var _center_t: float = 0.0
 func _ready() -> void:
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_font = FontVariation.new()
-	_font.base_font = ThemeDB.fallback_font
-	_font.variation_embolden = 0.9
 	root = Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -60,38 +56,15 @@ func _ready() -> void:
 # ------------------------------------------------------------------ builders
 
 func _style(fill: Color, radius: int = 14, border: Color = NAVY_DK, bw: int = 4) -> StyleBoxFlat:
-	var sb: StyleBoxFlat = StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.set_corner_radius_all(radius)
-	sb.border_color = border
-	sb.set_border_width_all(bw)
-	sb.content_margin_left = 14
-	sb.content_margin_right = 14
-	sb.content_margin_top = 6
-	sb.content_margin_bottom = 6
-	sb.shadow_color = Color(0, 0, 0, 0.25)
-	sb.shadow_size = 4
-	sb.shadow_offset = Vector2(0, 3)
-	return sb
+	return UiKit.style(fill, radius, border, bw)
 
 
 func _panel(fill: Color, radius: int = 14) -> PanelContainer:
-	var p: PanelContainer = PanelContainer.new()
-	p.add_theme_stylebox_override("panel", _style(fill, radius))
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return p
+	return UiKit.panel(fill, radius)
 
 
 func _label(text: String, size: int, color: Color = WHITE, outline: int = 5) -> Label:
-	var l: Label = Label.new()
-	l.text = text
-	l.add_theme_font_override("font", _font)
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", color)
-	l.add_theme_constant_override("outline_size", outline)
-	l.add_theme_color_override("font_outline_color", NAVY_DK)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
+	return UiKit.label(text, size, color, outline)
 
 
 func _build_top_left() -> void:
@@ -220,18 +193,9 @@ func _build_pause() -> void:
 	v.add_theme_constant_override("separation", 6)
 	pause_panel.add_child(v)
 	v.add_child(_label("PAUSED", 46, YELLOW, 8))
-	var lines: Array[String] = [
-		"WASD / STICK  roll and steer (camera-relative)",
-		"SPACE / A  ollie          SHIFT / LT  brake",
-		"J / X  flip (steer for variations)",
-		"K / B  hold to grab (steer for variations)",
-		"L / Y  grind: press near a rail, ledge or coping",
-		"M / RT  manual on flat ground",
-		"AIR: left / right spins   Q / E  turn camera",
-		"R  reset to start        T  toggle tank steering",
-		"",
-		"ESC  resume      ENTER  restart session",
-	]
+	var lines: Array[String] = UiKit.CONTROL_LINES.duplicate()
+	lines.append("")
+	lines.append("ESC  resume      ENTER  restart session")
 	for line in lines:
 		v.add_child(_label(line, 20, WHITE, 4))
 	root.add_child(pause_panel)

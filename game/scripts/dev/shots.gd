@@ -53,6 +53,15 @@ func _scene(start: Transform3D, dur: float, shots: Array, driver: Callable) -> v
 
 
 func _run() -> void:
+	if OS.get_environment("SHOTS") == "title":
+		var t: Node = (load("res://scenes/title.tscn") as PackedScene).instantiate()
+		add_child(t)
+		await get_tree().create_timer(5.0).timeout
+		await _shot("title")
+		await get_tree().create_timer(4.0).timeout
+		await _shot("title2")
+		get_tree().quit()
+		return
 	var packed: PackedScene = load("res://scenes/park.tscn")
 	park = packed.instantiate()
 	add_child(park)

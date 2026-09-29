@@ -6,6 +6,7 @@ const SAVE_PATH: String = "user://skate_park.cfg"
 var best: Dictionary = {}          # level id -> {"score": int, "combo": int}
 var steer_mode: String = "screen"  # "screen" (camera-relative) or "tank"
 var master_volume: float = 0.8
+var free_skate: bool = false       # no timer: just cruise and practise
 
 
 func _ready() -> void:

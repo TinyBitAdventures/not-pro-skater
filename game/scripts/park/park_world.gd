@@ -52,8 +52,25 @@ func _ready() -> void:
 	skater.sfx.connect(_on_sfx)
 	Sound.play_music()
 	_build_pickups()
+	_spawn_ambient_skaters(3)
+	free_skate = Game.free_skate
 	hud.announce("COMMUNITY PARK", Hud.YELLOW, 2.4)
 	hud.set_timer(time_left, false)
+
+
+func _spawn_ambient_skaters(count: int) -> void:
+	for i in count:
+		var s: Skater = Skater.new()
+		s.is_player = false
+		s.look = SkaterVisual.random_look(100 + i)
+		var lane: float = [34.4, 36.0, 37.6][i % 3]
+		var dir: float = 1.0 if i % 2 == 0 else -1.0
+		s.brain = SkaterBrain.new(lane, dir)
+		s.grind_lines = level.grind_lines
+		add_child(s)
+		var a: float = deg_to_rad(20.0 + i * 130.0)
+		var tangent: Vector3 = Vector3(-sin(a), 0.0, -cos(a)) * dir
+		s.place_at(Transform3D(Basis.looking_at(tangent, Vector3.UP), Vector3(lane * cos(a), 0.1, -lane * sin(a))))
 
 
 func _build_pickups() -> void:

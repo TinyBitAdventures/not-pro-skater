@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Skate Park"
 config/description="An isometric skateboarding game. Cruise the park, learn the lines, land big combos."
-run/main_scene="res://scenes/park.tscn"
+run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/version="0.1.0"
 
