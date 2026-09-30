@@ -4,19 +4,19 @@ Rendered with Wavelength 0.5.0-dev (headless host) at 44.1 kHz, then sliced, fol
 
 Licence classes follow the research report (`research/sfx-palette.md`, section 4): OPEN = plugin code is open source; builtin:* = Wavelength's own DSP. No FREE-proprietary or COMMERCIAL source is used anywhere (Vital, RP2A03 and every sample library were left out).
 
-**Licence caveat, read before shipping (unknown, not checked):** the report only established that Surge XT, OB-Xf and Dexed are GPL-3.0-or-later (`wavelength kit`). It did not establish the terms of the presets themselves or of the rendered audio. On this machine every Surge XT preset used below lives in `Surge XT/patches_3rdparty/<author>/` (community-contributed, no licence file next to them) and the Dexed voice comes from the `SynprezFM_26` cartridge. Audio terms for those: **unknown**. Six sounds depend on them (ollie, land, land_hard, grab, grind_start, manual). Licence-safe stand-ins made only from builtin:* are in `alt/builtin-only/` (land, land_hard, manual, grind_start) and `alt/` (ollie__alt = builtin-only, grab__alt = builtin-only); swap them in if the patch terms turn out not to allow redistribution. Everything else is builtin:* and needs no third-party terms.
+**Licence status (v0.1.0):** every sound the game ships is made from Wavelength's builtin:* instruments and needs no third-party terms. Six sounds (ollie, land, land_hard, grab, grind_start, manual) were first made with community Surge XT patches and a Dexed cartridge voice whose terms were unknown; their builtin-only stand-ins replaced them on 2026-09-30, loudness-matched to the originals. The earlier versions and the `alt/` files that still use community patches are not shipped.
 
 | sound | source (plugin / preset or builtin patch) | class | notes |
 |---|---|---|---|
-| ollie | Surge XT "Tuned Wood" (3rdparty/Altenberg/Percussion) + Surge XT "Simple Click" (3rdparty/Rare Earth/Percussion, -11.8 dB) + builtin:drums closed hat x3 at 50/100/155 ms (high-pass 2.5 kHz, low-pass 6 kHz, +3 dB) | OPEN (plugin GPL-3.0-or-later); patch audio terms unknown | recipe `ollie__ollie_Br3` = report pick `ollie_Br` with the rattle low-passed (the original had 25% of A-weighted energy above 8 kHz) |
-| land | Surge XT "Kick Room 1" + "Snare Room 1" (low-passed 2.5 kHz, -1.9 dB), both 3rdparty/Emu/Drums | OPEN (plugin); patch terms unknown | report pick `land_Br` unchanged |
-| land_hard | Surge XT "Boomy Kick" (3rdparty/Cybersoda/Drums) + "Snare Room 2" (-3.8 dB) + "Mort Noisey Drum" (-4.1 dB) (both 3rdparty/Emu/Drums) | OPEN (plugin); patch terms unknown | report pick `landhard_Br` unchanged |
+| ollie | builtin:synth "Init": pitch-enveloped sine pop + noise click + noise rattle (`ollie_C`, was `alt/ollie__alt.wav`) | OPEN (builtin) | swapped in for v0.1.0 (the Surge XT community-patch version's terms were unknown) |
+| land | builtin-only stand-in (was `alt/builtin-only/land.wav`) | OPEN (builtin) | swapped in for v0.1.0 |
+| land_hard | builtin-only stand-in (was `alt/builtin-only/land_hard.wav`) | OPEN (builtin) | swapped in for v0.1.0 |
 | crack | builtin:synth "Init": noise tick (high-pass 2.8 kHz, low-pass 6.5 kHz, decay 8 ms, +20 dB) + sine thunk G2 with 14 st pitch envelope (-3 dB) | OPEN (builtin) | recipe `crack__crack_G5` = report pick `crack_G` with the tick raised (the original tick was inaudible next to the thunk; original kept in `alt/builtin-only/crack__report_original.wav`) |
 | flip | builtin:synth "Init": white noise, 24 dB band-pass (500 Hz, res 0.45, filter env +3 oct, attack 120 ms) | OPEN (builtin) | report pick `flip_E` |
-| grab | Surge XT "Clap - Noise Layer" (3rdparty/TNMG/Drums, velocity 0.5, low-passed 3 kHz) | OPEN (plugin); patch terms unknown | report pick `grab_B`; builtin cloth-noise alternative is `alt/grab__alt.wav` |
-| manual | Dexed "WOOD BLOCK" (DX7 cartridge SynprezFM_26), C5 | OPEN (plugin GPL-3.0-or-later); cartridge voice provenance unknown | report pick `manual_D`; builtin sine blip is `alt/builtin-only/manual.wav` |
+| grab | builtin:synth "Init": noise burst through a band-pass (`grab_H`, was `alt/grab__alt.wav`) | OPEN (builtin) | swapped in for v0.1.0 |
+| manual | builtin sine blip (was `alt/builtin-only/manual.wav`) | OPEN (builtin) | swapped in for v0.1.0 (the Dexed cartridge voice's provenance was unknown) |
 | bail | builtin:fx "impact" C3 + builtin:drums toms 41/45/41/48 bounces + builtin:drums crash (band-passed 500 Hz-5 kHz) + builtin:synth "Init" noise skid | OPEN (builtin) | report pick `bail_Ar2`, cut at 1.05 s with a 300 ms fade |
-| grind_start | Surge XT "Household Metallic" (3rdparty/Rare Earth/Percussion) | OPEN (plugin); patch terms unknown | report pick `gstart_A`; builtin inharmonic clank is `alt/builtin-only/grind_start.wav` |
+| grind_start | builtin inharmonic clank (was `alt/builtin-only/grind_start.wav`) | OPEN (builtin) | swapped in for v0.1.0 |
 | trick | builtin:synth "LD Chip" C6 then G6 | OPEN (builtin) | |
 | bank | builtin:synth "LD Chip" C5 E5 G5 C6 at 75 ms steps, last note lengthened to 0.3 s | OPEN (builtin) | |
 | bank_big | builtin:synth "LD Chip" arpeggio C5..G6 + C major chord C6 E6 G6 C7 at 0.44 s + builtin:synth "BR Stab" chord C4 E4 G4 C5 (-6 dB) | OPEN (builtin) | |

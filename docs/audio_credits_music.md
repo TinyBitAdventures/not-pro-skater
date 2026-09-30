@@ -2,7 +2,7 @@
 
 Composition, arrangement, mix and master: Claude (Anthropic, Claude Opus 5.5), for Austin Ginder, with Wavelength 0.5.0-dev (a headless music engine). Every file was rendered offline from a generated job: the generators are `~/Documents/wavelength-songs/not-pro-skaters-<slug>/make-job.py` (one folder per piece), the shared palette, delivery and measuring scripts are in `~/Documents/wavelength-songs/not-pro-skaters/tools/`. Nothing was recorded and no audio loop or sample pack was imported; the only samples are the MuseScore General SoundFont drum hits. **Nobody has listened to these files yet**: every statement about them below is a measurement.
 
-No licence has been chosen for the compositions themselves; that is the game repository's decision. Every sound source is OPEN (no commercial or freeware-only plugin, preset or sample library).
+The compositions and recordings were made for the game and are released with it under the repository's MIT licence (`license`). Every sound source is OPEN (no commercial or freeware-only plugin, preset or sample library); the MuseScore General SoundFont's acknowledgements are below.
 
 Shared theme: every piece uses the same motif, scale degrees 1-2-3-5-3-2 on a 3+3+2 sixteenth rhythm (A B C E C B in the title, D E F A F E in cruise, E F# G B G F# in hype, C D E G E D in results).
 

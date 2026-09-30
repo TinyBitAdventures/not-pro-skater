@@ -203,4 +203,4 @@ See [`docs/rebuild_plan.md`](docs/rebuild_plan.md). Next: polish (smoothness, UI
 
 ## Licence
 
-MIT, see [`license`](license).
+MIT, see [`license`](license): the code, and the music and sound effects made for the game. Third-party assets keep their own licences: CC0 textures, models, skies and MakeHuman characters ([`art_credits.md`](art_credits.md)), the Barlow Condensed font under the SIL Open Font License (`game/assets/fonts/ofl.txt`), and the MuseScore General SoundFont samples in the music (MIT, acknowledgements in [`docs/audio_credits_music.md`](docs/audio_credits_music.md)).
