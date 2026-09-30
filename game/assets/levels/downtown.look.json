@@ -16,5 +16,6 @@
  },
  "bake_energy": 2.8,
  "exposure": 1.0,
- "sky_display": 3.6
+ "sky_display": 3.6,
+ "shade_floor": 0.2
 }

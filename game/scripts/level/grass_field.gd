@@ -47,7 +47,7 @@ func _build() -> void:
 				if hit.is_empty():
 					continue
 				var col: Object = hit["collider"]
-				if col == null or String(col.get_meta("surface", "")) != "grass":
+				if col == null or String(col.get_meta("surface", "")) != "grass" or String((col as Node).name).contains("Water"):
 					continue
 				var n: Vector3 = hit["normal"]
 				var up: Vector3 = Vector3.UP.lerp(n, 0.5).normalized()

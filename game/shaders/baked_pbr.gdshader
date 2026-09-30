@@ -24,6 +24,9 @@ uniform float bake_energy = 1.0;
 // street gives it (the houses opposite, the rest of the neighbourhood) and came out near black next to sunlit
 // ground; this lifts vertical faces only, leaving the ground's shade and contact shadows as baked.
 uniform float wall_fill = 1.0;
+// a level of tall blocks (downtown) shades whole streets from the sky the bake sees: a floor under the baked light
+// keeps a canyon floor from going black (0 = off)
+uniform float shade_floor = 0.0;
 
 uniform sampler2D macro_tex : hint_default_white, filter_linear_mipmap, repeat_enable;   // seamless noise
 uniform float macro_amount = 0.0;          // +- brightness from the large-scale noise
@@ -129,6 +132,6 @@ void fragment() {
 	float fill = mix(1.0, wall_fill, vertical);
 	// a face smaller than a lightmap texel (a curb's 12 cm) samples the black around its island: never let
 	// a vertical face fall below a little sky light
-	vec3 baked = max(lm * lm * lm_range * fill, vec3(0.2 * vertical));
+	vec3 baked = max(lm * lm * lm_range * fill, vec3(max(0.2 * vertical, shade_floor)));
 	EMISSION = col * baked * bake_energy;
 }

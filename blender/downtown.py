@@ -373,7 +373,8 @@ def markers():
 def write_look(out):
     import json
     look = {"joints": {"PBR_concrete": {"grid": [2.0, 2.0], "rect": [-62.0, -30.0, 62.0, 62.0], "along_x": 1.5}},
-            "bake_energy": 2.8, "exposure": 1.0, "sky_display": 3.6}   # tall blocks shade the streets: lift the bake
+            "bake_energy": 2.8, "exposure": 1.0, "sky_display": 3.6,   # tall blocks shade the streets: lift the bake
+            "shade_floor": 0.2}                                     # and never let a canyon floor go black
     with open(os.path.splitext(out)[0] + ".look.json", "w") as f:
         json.dump(look, f, indent=1)
 

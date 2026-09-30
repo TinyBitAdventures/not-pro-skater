@@ -78,6 +78,9 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	sun.directional_shadow_blend_splits = true
 	sun.directional_shadow_max_distance = float(OS.get_environment("SH_DIST")) if OS.get_environment("SH_DIST") != "" else 40.0
 	sun.directional_shadow_fade_start = 0.85
+	# casters up-sun of the split's box are flattened onto its near plane ("pancaking"): at the default 20 m a
+	# 36 m tower's shadow broke into a lattice of sunlit stripes in the first split (downtown, north of the plaza)
+	sun.directional_shadow_pancake_size = float(OS.get_environment("SH_PANCAKE")) if OS.get_environment("SH_PANCAKE") != "" else 80.0
 	parent.add_child(sun)
 	var d: Array = info.get("sun_dir", [0.3, 0.8, 0.4])
 	var to_sun: Vector3 = Vector3(d[0], d[1], d[2]).normalized()

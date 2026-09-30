@@ -100,6 +100,8 @@ static func _baked(src: BaseMaterial3D, lightmap: Texture2D, info: Dictionary) -
 	m.set_shader_parameter("lm_range", float(info.get("range", 2.0)))
 	m.set_shader_parameter("bake_energy", bake_energy)
 	m.set_shader_parameter("wall_fill", float(info.get("wall_fill", WALL_FILL)))
+	m.set_shader_parameter("shade_floor", float(OS.get_environment("SHADE_FLOOR")) if OS.get_environment("SHADE_FLOOR") != "" \
+		else float(info.get("look", {}).get("shade_floor", 0.0)))
 	_made.append(m)
 	return m
 
