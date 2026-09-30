@@ -14,6 +14,7 @@ func _ready() -> void:
 	var nm: String = OS.get_environment("CHAR") if OS.get_environment("CHAR") != "" else "dev"
 	var ch: Node3D = (load("res://assets/characters/%s.glb" % nm) as PackedScene).instantiate()
 	add_child(ch)
+	RiderRig.prepare_character(ch, 1.0)       # as the game shows it (hair cutouts, shadows)
 	ch.position = Vector3(-14.0, 0.0, 18.0)   # open plaza in Neighborhood Park
 	cam = Camera3D.new()
 	cam.fov = 40.0

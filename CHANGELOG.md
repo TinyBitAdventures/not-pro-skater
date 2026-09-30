@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Polish: characters
+- **Everyone dresses differently now:** five of ten characters wore the same blue tee and jeans. `character.py` can recolour a plain garment (`tint`: the texture's own shading, the new colour); The Vlogger has a red tee and denim shorts, The Dad a green polo, Grandpa a tan one, Maya a yellow tee, Leo (the birthday boy) an orange tee and cargo pants, his mom a red knit sweater with her hair in a bun (her grey bob read as white).
+- **Hair renders properly:** it came in alpha-blended (Blender 5 no longer exports the cutout setting), which left dark patches on the scalp; it is now a hard cutout smoothed by alpha to coverage, and casts real shadows. Brows and lashes stay soft.
+- Bystanders ship without normal maps (not visible at their distance), and the music is re-encoded at Vorbis q3 from q5 (loop lengths and seams checked); the unused placeholder track is gone.
+
 ### Polish: a grounded UI
 - **New look for every screen** (`UiKit`): Barlow Condensed (SIL OFL), warm white text with a soft shadow, one orange accent, translucent dark panels. The cartoon navy-and-yellow panels are gone.
 - **HUD**: score top left with the event's goal checklist (ticks fill green), clock and best top right (the best score was never shown before), the **trick string** bottom centre like a skate game should have it (tricks joined with +, points x multiplier, a little pop per trick, green +total on a bank, red BAIL on a bail), slim pop and balance meters, title cards with an accent rule instead of the banner that overlapped the goals, key hints on a panel that fades once you roll.

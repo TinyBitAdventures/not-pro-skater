@@ -160,6 +160,22 @@ static func prepare_character(ch: Node, cull_margin: float) -> void:
 		var nm: String = String(m.name)
 		if nm.contains("eyebrow") or nm.contains("eyelash") or nm.contains("low-poly"):
 			m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if not (nm.contains("eyebrow") or nm.contains("eyelash")):     # brows and lashes stay soft
+			for s in m.mesh.get_surface_count():
+				_cutout(m.mesh.surface_get_material(s) as BaseMaterial3D)
+
+
+## Hair arrives alpha-blended (Blender 5 dropped the material setting that exported it as a cutout), which
+## sorts badly and leaves dark patches on the scalp. A hard cutout smoothed by alpha to coverage
+## (MSAA) looks right, sorts right and casts proper shadows. Changes the imported material once for everyone.
+static func _cutout(mat: BaseMaterial3D) -> void:
+	if mat == null or mat.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED \
+			or mat.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR:
+		return
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.4
+	mat.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 
 ## Returns [mid, end] for a two-bone chain from `origin` reaching `target`, bending toward `pole`.

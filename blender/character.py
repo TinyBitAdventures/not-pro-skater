@@ -63,7 +63,8 @@ ARCHETYPES = {
         "eyebrows": "eyebrow009",
         "eyelashes": "eyelashes03",
         "hair": "ponytail01",
-        "clothes": ["female_casualsuit01", "shoes05"],
+        "clothes": ["toigo_basic_tucked_t-shirt", "cortu_jeans_shorts", "shoes05"],
+        "tint": {"toigo_basic_tucked_t-shirt": "#d24a3a"},
     },
     "dad": {
         "title": "The Dad",
@@ -77,6 +78,7 @@ ARCHETYPES = {
         "eyelashes": "eyelashes01",
         "hair": "short03",
         "clothes": ["namuhekam_male_polo_shirt", "cortu_cargo_pants", "shoes02"],
+        "tint": {"namuhekam_male_polo_shirt": "#4d7a52"},
     },
     # the birthday party's kids (they watch your tricks; not playable)
     "kid_maya": {
@@ -86,7 +88,8 @@ ARCHETYPES = {
                   "race": {"asian": 0.2, "caucasian": 0.3, "african": 0.5}},
         "stylize": {"head-scale-vert-incr": 0.15, "head-scale-horiz-incr": 0.15},
         "skin": "young_african_female", "eyes": "brown", "eyebrows": "eyebrow010", "eyelashes": "eyelashes02",
-        "hair": "bob01", "clothes": ["female_casualsuit02", "shoes05"],
+        "hair": "bob01", "clothes": ["toigo_basic_tucked_t-shirt", "cortu_jeans_shorts", "shoes05"],
+        "tint": {"toigo_basic_tucked_t-shirt": "#e9b93c"},
     },
     "kid_leo": {
         "title": "Leo", "npc": True,
@@ -95,7 +98,8 @@ ARCHETYPES = {
                   "race": {"asian": 0.1, "caucasian": 0.8, "african": 0.1}},
         "stylize": {"head-scale-vert-incr": 0.15, "head-scale-horiz-incr": 0.15},
         "skin": "young_caucasian_male", "eyes": "blue", "eyebrows": "eyebrow001", "eyelashes": "eyelashes01",
-        "hair": "short01", "clothes": ["male_casualsuit04", "shoes06"],
+        "hair": "short01", "clothes": ["elvs_crude_t-shirt_male", "cortu_cargo_pants", "shoes06"],
+        "tint": {"elvs_crude_t-shirt_male": "#e46a2e"},        # the birthday boy, in party orange
     },
     "kid_sam": {
         "title": "Sam", "npc": True,
@@ -114,7 +118,7 @@ ARCHETYPES = {
                   "race": {"asian": 0.1, "caucasian": 0.8, "african": 0.1}},
         "stylize": {"head-scale-vert-incr": 0.2, "head-scale-horiz-incr": 0.15},
         "skin": "middleage_caucasian_female", "eyes": "blue", "eyebrows": "eyebrow009", "eyelashes": "eyelashes03",
-        "hair": "bob02", "clothes": ["female_casualsuit02", "shoes05"],
+        "hair": "rehmanpolanski_hair_bun_brown", "clothes": ["toigo_fisherman_sweater", "toigo_wool_pants", "toigo_flats"],
     },
     "guest_grandpa": {
         "title": "Grandpa", "npc": True,
@@ -124,6 +128,7 @@ ARCHETYPES = {
         "stylize": {"head-scale-vert-incr": 0.2, "head-scale-horiz-incr": 0.15},
         "skin": "old_caucasian_male", "eyes": "brown", "eyebrows": "eyebrow003", "eyelashes": "eyelashes01",
         "hair": "short03", "clothes": ["namuhekam_male_polo_shirt", "toigo_wool_pants", "shoes02"],
+        "tint": {"namuhekam_male_polo_shirt": "#b89c6e"},
     },
     "actor": {
         "title": "The Actor",
@@ -205,6 +210,9 @@ def build(key):
     rig = basemesh.parent
     _fix_materials(rig)
     _shrink_textures(rig, npc=spec.get("npc", False))
+    _tint(rig, spec.get("tint", {}))
+    if spec.get("npc", False):
+        _drop_normal_maps(rig)
     rig.name = "Rig"
     basemesh.name = "Body"
     _report(rig)
@@ -272,6 +280,67 @@ def _shrink_textures(rig, npc=False):
                 if max(w, h) > cap:
                     k = cap / max(w, h)
                     img.scale(max(1, int(w * k)), max(1, int(h * k)))
+
+
+def _drop_normal_maps(rig):
+    """Bystanders are seen from a few metres at most: their normal and bump maps cost web download (about half a
+    megabyte each once compressed) for detail nobody sees."""
+    for ob in rig.children_recursive:
+        if ob.type != "MESH":
+            continue
+        for m in ob.data.materials:
+            if m is None or not m.use_nodes:
+                continue
+            bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            if bsdf is None:
+                continue
+            for link in list(bsdf.inputs["Normal"].links):
+                m.node_tree.links.remove(link)
+
+
+def _tint(rig, tints):
+    """Recolour a garment: its base colour texture becomes the tint, shaded by the texture's own brightness
+    (relative to its average), so plain white or grey tees and polos give every character their own colour."""
+    import numpy as np
+    for ob in rig.children_recursive:
+        if ob.type != "MESH":
+            continue
+        key = next((k for k in tints if k.lower() in ob.name.lower()), None)
+        if key is None:
+            continue
+        h = tints[key].lstrip("#")
+        col = np.array([int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4)], dtype=np.float32)
+        for m in ob.data.materials:
+            if m is None or not m.use_nodes:
+                continue
+            bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            img = _upstream_image(bsdf.inputs["Base Color"]) if bsdf else None
+            if img is None:
+                continue
+            w, hgt = img.size
+            px = np.empty(w * hgt * 4, dtype=np.float32)
+            img.pixels.foreach_get(px)
+            px = px.reshape(-1, 4)
+            lum = px[:, :3] @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+            cloth = lum > 0.03
+            mean = float(lum[cloth].mean()) if cloth.any() else 1.0
+            px[:, :3] = np.clip(col[None, :] * (lum / mean)[:, None], 0.0, 1.0)
+            img.pixels.foreach_set(px.ravel())
+            img.update()
+            print(f"[character] tinted {ob.name} ({img.name}) {tints[key]}")
+
+
+def _upstream_image(socket, depth=0):
+    for link in socket.links:
+        n = link.from_node
+        if n.type == "TEX_IMAGE" and n.image is not None:
+            return n.image
+        if depth < 4:
+            for inp in n.inputs:
+                img = _upstream_image(inp, depth + 1)
+                if img is not None:
+                    return img
+    return None
 
 
 def _report(rig):

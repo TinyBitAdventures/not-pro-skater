@@ -119,12 +119,12 @@ func toggle_music() -> bool:
 
 
 ## Start a looping track from res://assets/audio/music/<track>.ogg (no restart if it is already playing).
-func play_music(track: String = "park") -> void:
+func play_music(track: String = "grip_tape_summer") -> void:
 	if _music_track == track and _music.playing:
 		return
 	var path: String = "res://assets/audio/music/%s.ogg" % track
 	if not ResourceLoader.exists(path):
-		path = "res://assets/audio/music/park.ogg"
+		path = "res://assets/audio/music/grip_tape_summer.ogg"
 	var m: AudioStreamOggVorbis = load(path)
 	m.loop = true
 	_music.stream = m
