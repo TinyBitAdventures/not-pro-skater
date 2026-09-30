@@ -1,13 +1,15 @@
 class_name RiderRig
-extends SkaterVisual
-## A skinned character (blender/character.py, MPFB game-engine skeleton) riding the real-sized board
-## (blender/board.py). SkaterVisual still decides the pose (crouch, lean, twist, flips, grabs, bails); this class
-## turns it into bone rotations: hips and spine, both feet flat on the deck by two-bone leg IK, hands by arm IK
-## (onto the board for grabs), and the head turned toward where the board is going.
+extends Node3D
+## The rider: a skinned character (blender/character.py, MPFB game-engine skeleton) on the real-sized board
+## (blender/board.py). Each frame it works out a pose from what the skater is doing (crouch, lean, twist,
+## pushing, flips, grabs, grinds, manuals) as a handful of smoothed numbers, then turns those into bones:
+## hips and spine, both feet flat on the deck by two-bone leg IK, hands by arm IK (onto the board for grabs),
+## the head turned toward where the board is going. Crashes are physical: a Ragdoll and a LooseBoard take
+## over, then the rider gets up, walks to the board and steps on (see "physical bails").
 ##
-## Everything is worked out in "model space" (SkaterVisual's: nose toward -Z, up +Y, chest toward +X for a
-## regular stance). The character glb faces +Z, so it sits in a container turned +90 degrees about Y, which
-## also puts its left foot toward the nose.
+## Everything is worked out in "model space": nose toward -Z, up +Y, chest toward +X for a regular stance.
+## The character glb faces +Z, so it sits in a container turned +90 degrees about Y, which also puts its
+## left foot toward the nose.
 
 const BOARD_SCENE: PackedScene = preload("res://assets/models/board.glb")
 const DECK: float = 0.11                 # deck top above the ground
@@ -17,8 +19,13 @@ const FOOT_BACK: float = 0.21
 const FRONT_FOOT_ANGLE: float = 20.0     # the front foot turns toward the nose, the back foot a little the other way
 const BACK_FOOT_ANGLE: float = -8.0
 const HEAD_LOOK: float = 70.0            # head turned from the chest toward the nose, degrees
+const CAPSULE_TO_CONTACT: float = 0.02
+const GETUP_TIME: float = 0.75
+const SETTLE_SPEED: float = 0.45
 
 var char_key: String = "dev"
+var model: Node3D
+var board: Node3D
 var skel: Skeleton3D
 var container: Node3D
 var _m: Transform3D                      # container: skeleton space -> model space
@@ -30,6 +37,22 @@ var _b: Dictionary = {}                  # bone name -> index
 var _leg_len: float = 0.93
 var _up_len: Dictionary = {}             # chain lengths measured from the rest pose
 var _ankle_off: Vector3 = Vector3.ZERO   # sole centre -> ankle, in the rest foot's model frame
+
+# the pose, as smoothed numbers
+var hip_h: float = 0.68
+var lean: float = 0.0            # torso pitch, + leans forward (degrees)
+var twist: float = 0.0           # torso twist toward travel (degrees)
+var sway: float = 0.0            # sideways lean into turns (degrees)
+var arms_out: float = 0.5
+var board_lift: float = 0.0
+var board_pitch: float = 0.0
+var board_roll: float = 0.0
+var board_yaw: float = 0.0
+var feet_lift: float = 0.0
+var grab_amt: float = 0.0
+var vis_n: Vector3 = Vector3.UP
+var _t: float = 0.0
+
 # physical bails: ragdoll fall -> get up (blend from the fallen pose) -> walk to the loose board -> step on
 var ragdoll: Ragdoll
 var loose: LooseBoard
@@ -46,8 +69,6 @@ var _apart_t: float = 0.0
 var _walk_pace: float = 2.4
 var _gait: float = 0.0                   # leg cycle phase for walking / running
 var _stride: float = 0.28
-const GETUP_TIME: float = 0.75
-const SETTLE_SPEED: float = 0.45
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -130,6 +151,141 @@ static func style_board(root: Node) -> void:
 			inst.set_surface_override_material(s, m)
 
 
+## Returns [mid, end] for a two-bone chain from `origin` reaching `target`, bending toward `pole`.
+static func ik(origin: Vector3, target: Vector3, l1: float, l2: float, pole: Vector3) -> Array:
+	var to_t: Vector3 = target - origin
+	var dist: float = clampf(to_t.length(), absf(l1 - l2) + 0.02, l1 + l2 - 0.004)
+	var dir: Vector3 = to_t.normalized() if to_t.length() > 0.0001 else Vector3.DOWN
+	var a: float = (dist * dist + l1 * l1 - l2 * l2) / (2.0 * dist)
+	var h: float = sqrt(maxf(l1 * l1 - a * a, 0.0))
+	var perp: Vector3 = pole - dir * pole.dot(dir)
+	perp = perp.normalized() if perp.length() > 0.001 else Vector3.RIGHT
+	return [origin + dir * a + perp * h, origin + dir * dist]
+
+
+# ------------------------------------------------------------------ riding
+
+## Riding (not crashed): place the rider on the board and pose it.
+func _sync_riding(sk: Skater, dt: float) -> void:
+	_t += dt
+	var n: Vector3 = Vector3.UP
+	var fwd: Vector3 = sk.facing()
+	match sk.state:
+		Skater.State.GROUND:
+			n = sk.board_n
+		Skater.State.AIR:
+			n = sk.air_up                  # vert airs: side-on to the wall, turning in the wall's plane
+			fwd = sk.air_fwd
+	var blended: Vector3 = vis_n.lerp(n.normalized(), 1.0 - exp(-16.0 * dt))
+	vis_n = blended.normalized() if blended.length() > 0.2 else Vector3.UP
+	fwd = (fwd - vis_n * fwd.dot(vis_n)).normalized()
+	if fwd.length() < 0.5:
+		fwd = Vector3(0, 0, -1)
+	var pos: Vector3 = sk.global_position + Vector3.UP * (Skater.CAPSULE_R + CAPSULE_TO_CONTACT) - n * Skater.CAPSULE_R
+	global_transform = Transform3D(Basis(fwd.cross(vis_n), vis_n, -fwd), pos)
+	_pose(sk, dt)
+	_apply_rig(sk)
+
+
+static func _approach(cur: float, tgt: float, rate: float, dt: float) -> float:
+	return lerpf(cur, tgt, 1.0 - exp(-rate * dt))
+
+
+func _pose(sk: Skater, dt: float) -> void:
+	var st: int = sk.state
+	var hip_t: float = 0.70
+	var lean_t: float = 8.0
+	var twist_t: float = 25.0
+	var arms_t: float = 0.45
+	var lift_t: float = 0.0
+	var pitch_t: float = 0.0
+	var roll_t: float = 0.0
+	var yaw_t: float = 0.0
+	var feet_t: float = 0.0
+	var sway_t: float = 0.0
+	var grab_t: float = 0.0
+	var speed: float = sk.velocity.length()
+	var fakie: bool = sk.stance == "fakie"
+	match st:
+		Skater.State.GROUND:
+			hip_t = 0.72 - 0.17 * sk.crouch
+			lean_t = 8.0 + 22.0 * sk.crouch + clampf(speed * 0.4, 0.0, 6.0)
+			sway_t = sk.lean * 14.0
+			arms_t = 0.5 + absf(sk.lean) * 0.4
+			if sk.manual_on:
+				hip_t = 0.66
+				arms_t = 0.95
+				if sk.manual_kind == "nose":
+					pitch_t = -20.0 - sk.manual_balance * 6.0
+					lean_t = 20.0
+				else:
+					pitch_t = 24.0 + sk.manual_balance * 6.0
+					lean_t = -8.0 - sk.manual_balance * 6.0
+			if sk.pushing and not sk.braking and speed < 7.0:
+				lean_t += 8.0
+		Skater.State.AIR:
+			var rising: bool = sk.velocity.y > 0.8
+			hip_t = 0.80 if rising else 0.66     # stretch on the pop, tuck on the way down
+			lean_t = 4.0
+			arms_t = 0.85
+			feet_t = 0.03 if rising else 0.08
+			lift_t = 0.0
+			if sk.flip_kind != "":
+				lift_t = 0.05
+				feet_t = 0.06
+				arms_t = 1.0
+				var f: float = sk.flip_t
+				var ease_f: float = f * f * (3.0 - 2.0 * f)
+				match sk.flip_kind:
+					"none":
+						roll_t = 360.0 * ease_f
+					"left":
+						roll_t = -360.0 * ease_f
+					"right":
+						yaw_t = 180.0 * ease_f
+					"forward":
+						roll_t = 360.0 * ease_f
+						yaw_t = 180.0 * ease_f
+					"back":
+						pitch_t = 360.0 * ease_f
+			if sk.grab_kind != "":
+				grab_t = 1.0
+				hip_t = 0.66
+				lean_t = 26.0
+				feet_t = 0.16
+				lift_t = 0.24
+				pitch_t = -8.0
+				arms_t = 0.7
+		Skater.State.GRIND:
+			hip_t = 0.58
+			lean_t = 20.0
+			arms_t = 0.95
+			yaw_t = rad_to_deg(sk.grind_board_turn)
+			roll_t = 6.0
+			sway_t = sin(_t * 9.0) * 3.0
+	if sk.wallplant_t > 0.12:
+		pitch_t = -70.0              # tail up, wheels on the wall
+		hip_t = 0.62
+	if fakie:
+		twist_t = -twist_t           # turned toward the way it is going (over the other shoulder)
+	hip_h = _approach(hip_h, hip_t, 30.0 if st == Skater.State.AIR else 16.0, dt)
+	lean = _approach(lean, lean_t, 12.0, dt)
+	twist = _approach(twist, twist_t, 10.0, dt)
+	sway = _approach(sway, sway_t, 10.0, dt)
+	arms_out = _approach(arms_out, arms_t, 12.0, dt)
+	board_lift = _approach(board_lift, lift_t, 18.0, dt)
+	feet_lift = _approach(feet_lift, feet_t, 18.0, dt)
+	grab_amt = _approach(grab_amt, grab_t, 14.0, dt)
+	if sk.flip_kind != "" or st == Skater.State.GRIND:
+		board_roll = roll_t
+		board_yaw = yaw_t
+		board_pitch = pitch_t
+	else:
+		board_roll = _approach(board_roll, roll_t, 20.0, dt)
+		board_yaw = _approach(board_yaw, yaw_t, 20.0, dt)
+		board_pitch = _approach(board_pitch, pitch_t, 14.0, dt)
+
+
 # ------------------------------------------------------------------ bones
 
 func _pose_bone(i: int, g: Transform3D) -> void:
@@ -191,7 +347,7 @@ func _limb(root: String, mid: String, end: String, target: Vector3, pole: Vector
 	var e: int = _b[end]
 	var p: int = _parent[r]
 	var head: Vector3 = (_glob[p] * _rest_local[r]).origin
-	var chain: Array = SkaterVisual.ik(head, target, _up_len[root], _up_len[mid], pole)
+	var chain: Array = ik(head, target, _up_len[root], _up_len[mid], pole)
 	_aim(r, m, chain[0], pole, rest_pole)
 	_aim(m, e, chain[1], pole, rest_pole)
 
@@ -199,38 +355,17 @@ func _limb(root: String, mid: String, end: String, target: Vector3, pole: Vector
 # ------------------------------------------------------------------ per frame
 
 func _apply_rig(sk: Skater) -> void:
-	# board (same moves as the cartoon rider: flips, grabs, bails)
+	# board: flips, grabs, manuals and slides tilt and spin it about the deck centre
 	var bt: Transform3D
 	var pivot: Vector3 = Vector3(0, DECK, 0)
 	var rot: Basis = Basis.from_euler(Vector3(deg_to_rad(board_pitch), deg_to_rad(board_yaw), deg_to_rad(board_roll)), EULER_ORDER_YXZ)
 	bt = Transform3D(rot, pivot - rot * pivot + Vector3(0, board_lift, 0))
-	var bail_u: float = clampf(sk.bail_time / maxf(sk.bail_duration, 0.1), 0.0, 1.0)
-	var bailing: bool = sk.state == Skater.State.BAIL
-	if _walk_mode:
-		board.transform = bt                   # hidden: the loose board is out in the world
-	elif bailing:
-		# the loose board IS the physics body: it sits where the skater's position is (rolling on and
-		# stopping), skids round a little and, after a big crash, flips over in the air first; its spin
-		# always settles back to straight so the rider steps onto it with nothing snapping
-		var t: float = sk.bail_time
-		var settle: float = clampf(t / maxf(sk.bail_duration * 0.8, 0.1), 0.0, 1.0)
-		var skid: float = sin(settle * PI) * (0.25 if sk.bail_kind == "runout" else 1.1)
-		var b_rot: Basis = Basis(Vector3.UP, skid)
-		var hop: float = 0.0
-		if sk.bail_kind == "tumble":
-			var f: float = clampf(t / 0.7, 0.0, 1.0)
-			b_rot = b_rot * Basis(Vector3(0, 0, 1), f * TAU)
-			hop = sin(f * PI) * 0.6
-		bt = Transform3D(b_rot, pivot - b_rot * pivot + Vector3(0, hop, 0))
-		board.transform = model.global_transform.affine_inverse() * upright_xf * bt
-	else:
-		board.transform = bt
+	board.transform = bt                       # (hidden while the loose board is out in the world)
 
-	# hips: SkaterVisual's hip_h (cartoon units, deck 0.145, legs 0.665) -> a share of this leg
-	var walking: bool = _walk_mode or (bailing and sk.bail_kind != "runout" and sk.bail_time > _getup_at(sk))
+	# hips: hip_h is a pose number (0.72 riding tall .. 0.55 deep crouch) mapped onto a share of this leg
 	var frac: float = clampf((hip_h - 0.145) / 0.665, 0.45, 1.05)
 	var hip_y: float = DECK + frac * LEG_FRAC * (_leg_len - _ankle_off.y) + _ankle_off.y * 0.2
-	if (bailing and sk.bail_kind == "runout") or walking:
+	if _walk_mode:
 		hip_y = frac * LEG_FRAC * _leg_len + 0.02
 	var stride: Array = []
 	var push_amt: float = 0.0              # 0..1 through a stride: the body turns to face the nose to push
@@ -266,7 +401,7 @@ func _apply_rig(sk: Skater) -> void:
 	for side in ["l", "r"]:
 		_rest_follow(_b["clavicle_" + side])
 
-	# legs: feet flat on the deck (or running on the ground in a run-out)
+	# legs: feet flat on the deck (or walking / running on the ground after a bail)
 	var lift: float = feet_lift + board_lift * 0.6
 	var front: Vector3 = Vector3(0.0, DECK + lift, FOOT_FRONT)
 	var back: Vector3 = Vector3(0.0, DECK + lift, FOOT_BACK)
@@ -276,14 +411,7 @@ func _apply_rig(sk: Skater) -> void:
 		back = stride[0]
 		back_ang = stride[1]
 		front_ang = lerpf(FRONT_FOOT_ANGLE, 65.0, push_amt)   # front foot swivels to point up the board
-	if bailing and sk.bail_kind == "runout" and not _walk_mode:
-		var phr: float = sk.bail_time * 10.0
-		var on: float = clampf((bail_u - 0.75) / 0.25, 0.0, 1.0)
-		front = Vector3(0.12, maxf(0.0, sin(phr)) * 0.25, -0.05 - cos(phr) * 0.42).lerp(front, on)
-		back = Vector3(-0.12, maxf(0.0, -sin(phr)) * 0.25, -0.05 + cos(phr) * 0.42).lerp(back, on)
-		front_ang = lerpf(80.0, front_ang, on)
-		back_ang = lerpf(80.0, back_ang, on)
-	elif _walk_mode:
+	if _walk_mode:
 		# walking forward (chest first) to the loose board; the last step lands on the deck
 		var phk: float = _gait
 		var on_k: float = _step_on
@@ -292,21 +420,6 @@ func _apply_rig(sk: Skater) -> void:
 		back = Vector3(-cos(phk) * _stride, maxf(0.0, -sin(phk)) * lift_k, 0.1).lerp(back, on_k)
 		front_ang = lerpf(0.0, front_ang, on_k)
 		back_ang = lerpf(0.0, back_ang, on_k)
-	elif walking:
-		# up and walking to the board; the last steps land on the deck
-		var span: float = maxf(sk.bail_duration - _getup_at(sk), 0.05)
-		var wu: float = clampf((sk.bail_time - _getup_at(sk)) / span, 0.0, 1.0)
-		var phw: float = sk.bail_time * 7.0
-		var on2: float = clampf((wu - 0.7) / 0.3, 0.0, 1.0)
-		front = Vector3(0.1, maxf(0.0, sin(phw)) * 0.15, -0.05 - cos(phw) * 0.3).lerp(front, on2)
-		back = Vector3(-0.1, maxf(0.0, -sin(phw)) * 0.15, -0.05 + cos(phw) * 0.3).lerp(back, on2)
-		front_ang = lerpf(85.0, front_ang, on2)
-		back_ang = lerpf(85.0, back_ang, on2)
-	elif bailing:
-		var amp: float = 0.15 if sk.bail_kind == "slam" else 0.3
-		var w: float = sin(sk.bail_time * 11.0)
-		front = Vector3(0.35, 0.25 + w * amp, -0.55)
-		back = Vector3(-0.35, 0.35 - w * amp, 0.5)
 	# feet ride the board's tilt on the ground and on rails (manuals, boardslides), not its flips in the air
 	var on_board: bool = sk.state == Skater.State.GROUND or sk.state == Skater.State.GRIND
 	var feet_xf: Transform3D = bt if on_board else Transform3D.IDENTITY
@@ -320,15 +433,10 @@ func _apply_rig(sk: Skater) -> void:
 	# balance arms: out and a little forward, elbows soft, never a stiff T
 	var free_l: Vector3 = sh_l + Vector3(0.12 + 0.1 * spread, -0.52 + 0.4 * spread, -0.18 - 0.24 * spread)
 	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
-	if (bailing and sk.bail_kind == "runout") or walking:
-		var ph2: float = _gait if _walk_mode else sk.bail_time * (10.0 if not walking else 7.0)
-		var sw: float = 0.35 if not walking else (0.12 + (_stride - 0.28) * 0.8)
-		free_l = sh_l + Vector3(0.1, -0.42, -0.05 + cos(ph2) * sw)
-		free_r = sh_r + Vector3(-0.08, -0.42, 0.05 - cos(ph2) * sw)
-	elif bailing:
-		var w2: float = sin(sk.bail_time * 9.0)
-		free_l = sh_l + Vector3(0.15, 0.35 + w2 * 0.2, -0.55)
-		free_r = sh_r + Vector3(-0.1, 0.35 - w2 * 0.2, 0.55)
+	if _walk_mode:
+		var sw: float = 0.12 + (_stride - 0.28) * 0.8
+		free_l = sh_l + Vector3(0.1, -0.42, -0.05 + cos(_gait) * sw)
+		free_r = sh_r + Vector3(-0.08, -0.42, 0.05 - cos(_gait) * sw)
 	var hand_l: Vector3 = free_l
 	var hand_r: Vector3 = free_r
 	if grab_amt > 0.01 and sk.grab_kind != "":
@@ -360,7 +468,7 @@ func sync_from(sk: Skater, dt: float) -> void:
 		return
 	if phys_phase != "":
 		_end_physical()                        # respawned or reset mid-bail
-	super.sync_from(sk, dt)
+	_sync_riding(sk, dt)
 
 
 func _physical(sk: Skater, dt: float) -> void:
@@ -592,10 +700,6 @@ func _push_stride(ph: float) -> Array:
 	return [foot, ang, on_ground * 0.06]
 
 
-func _bail_body_offset(sk: Skater) -> Vector3:
-	return sk.rider_position() - sk.global_position
-
-
 ## The rest pose's knee (or elbow) side, in model space: knees bend toward the chest (+X), elbows behind.
 func _rest_pole_leg() -> Vector3:
 	return Vector3(1, 0, 0)
@@ -636,14 +740,3 @@ func _grab_targets(kind: String, bt: Transform3D) -> Array:
 		"back":
 			return [heel, heel, 1.0, 0.0]     # method
 	return [toe, toe, 0.0, 0.0]
-
-
-## Skinned meshes keep their rest bounds, so measure the posed bones instead and lift the rider clear.
-func _keep_above(contact: Vector3) -> void:
-	var lowest: float = 0.0
-	var gx: Transform3D = model.global_transform
-	for nm in ["head", "hand_l", "hand_r", "foot_l", "foot_r", "ball_l", "ball_r", "pelvis", "calf_l", "calf_r", "lowerarm_l", "lowerarm_r"]:
-		var p: Vector3 = gx * _glob[_b[nm]].origin
-		lowest = minf(lowest, (p - contact).dot(vis_n) - 0.1)
-	if lowest < 0.0:
-		global_position += vis_n * (-lowest)

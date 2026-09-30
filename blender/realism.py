@@ -1,7 +1,7 @@
 """
 Realistic look: PBR materials from CC0 texture sets, real-scale UVs, and baked sky + bounce light.
 
-Pipeline for a level (see looktest.py):
+Pipeline for a level (see neighborhood.py):
     realism.dress(objects)          flat kit materials -> PBR sets (by material name), box UVs where missing
     realism.split_collision()       every `-col` visual keeps a hidden `-colonly` twin, so the visual can be merged
     baked = realism.join_static()   one mesh for everything that takes baked light, with a second UV set

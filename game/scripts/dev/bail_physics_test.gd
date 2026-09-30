@@ -20,7 +20,6 @@ func _spawn(start: String, offset: Vector3, vel: Vector3, yaw_off: float) -> voi
 		await get_tree().physics_frame
 	sk = Skater.new()
 	sk.rider = "dev"
-	sk.use_blob = false
 	sk.scripted = true
 	sk.grind_lines = level.grind_lines
 	add_child(sk)

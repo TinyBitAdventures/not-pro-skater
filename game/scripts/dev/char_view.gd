@@ -1,5 +1,5 @@
 extends Node3D
-## Character viewer: a character glb standing in the look test, lit like the game, screenshots from a few angles.
+## Character viewer: a character glb standing on the plaza, lit like the game, screenshots from a few angles.
 ##   CHAR=dev godot --path . res://scenes/dev_char.tscn --resolution 1280x720      (shots -> ../shots/char_<name>_*.png)
 
 var level: Level
@@ -9,12 +9,12 @@ var cam: Camera3D
 func _ready() -> void:
 	level = Level.new()
 	add_child(level)
-	level.load_glb("res://assets/levels/looktest.glb", "real")
+	level.load_glb("res://assets/levels/neighborhood.glb", "real")
 	RealEnv.build(self, level.lightmap_info)
 	var nm: String = OS.get_environment("CHAR") if OS.get_environment("CHAR") != "" else "dev"
 	var ch: Node3D = (load("res://assets/characters/%s.glb" % nm) as PackedScene).instantiate()
 	add_child(ch)
-	ch.position = Vector3(0, 0, -3)
+	ch.position = Vector3(-14.0, 0.0, 18.0)   # open plaza in Neighborhood Park
 	cam = Camera3D.new()
 	cam.fov = 40.0
 	add_child(cam)

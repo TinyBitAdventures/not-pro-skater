@@ -6,11 +6,10 @@ const KEYS: Dictionary = {
 	"move_up": [KEY_W, KEY_UP], "move_down": [KEY_S, KEY_DOWN],
 	"ollie": [KEY_SPACE], "flip": [KEY_J], "grab": [KEY_K], "grind": [KEY_L],
 	"brake": [KEY_SHIFT], "manual": [KEY_M],
-	"cam_left": [KEY_Q], "cam_right": [KEY_E], "respawn": [KEY_R], "pause": [KEY_ESCAPE],
+	"respawn": [KEY_R], "pause": [KEY_ESCAPE],
 }
 const PAD_BUTTONS: Dictionary = {
 	"ollie": [JOY_BUTTON_A], "flip": [JOY_BUTTON_X], "grab": [JOY_BUTTON_B], "grind": [JOY_BUTTON_Y],
-	"cam_left": [JOY_BUTTON_LEFT_SHOULDER], "cam_right": [JOY_BUTTON_RIGHT_SHOULDER],
 	"respawn": [JOY_BUTTON_BACK], "pause": [JOY_BUTTON_START], "manual": [JOY_BUTTON_RIGHT_SHOULDER + 100],
 }
 const PAD_AXES: Dictionary = {

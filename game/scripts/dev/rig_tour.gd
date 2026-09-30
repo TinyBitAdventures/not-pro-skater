@@ -2,6 +2,8 @@ extends Node3D
 ## Pose tour for the skinned rider: freezes a Skater in each state and photographs it close up.
 ##   RIDER=dev godot --path . res://scenes/dev_rig.tscn --resolution 960x720     (-> ../shots/rig_<pose>.png)
 
+const SPOT: Vector3 = Vector3(-14.0, 0.0, 18.0)   # open plaza in Neighborhood Park
+
 var level: Level
 var sk: Skater
 var cam: Camera3D
@@ -10,14 +12,13 @@ var cam: Camera3D
 func _ready() -> void:
 	level = Level.new()
 	add_child(level)
-	level.load_glb("res://assets/levels/looktest.glb", "real")
+	level.load_glb("res://assets/levels/neighborhood.glb", "real")
 	RealEnv.build(self, level.lightmap_info)
 	sk = Skater.new()
 	sk.rider = OS.get_environment("RIDER") if OS.get_environment("RIDER") != "" else "dev"
-	sk.use_blob = false
 	sk.scripted = true
 	add_child(sk)
-	sk.place_at(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, -4)))
+	sk.place_at(Transform3D(Basis.IDENTITY, SPOT))
 	sk.set_physics_process(false)
 	cam = Camera3D.new()
 	cam.fov = 45.0
@@ -43,7 +44,7 @@ func _pose_as(state: int, fields: Dictionary) -> void:
 	sk.push_anim = -1.0
 	sk.wallplant_t = 0.0
 	sk.manual_kind = ""
-	sk.global_position = Vector3(0, 0.0, -4)
+	sk.global_position = SPOT
 	for k in fields:
 		sk.set(k, fields[k])
 
@@ -59,14 +60,14 @@ func _tour() -> void:
 		["push5", Skater.State.GROUND, {"pushing": true, "push_anim": 0.82, "push_phase": 0.82}],
 		["fakie", Skater.State.GROUND, {"stance": "fakie"}],
 		["nosemanual", Skater.State.GROUND, {"manual_on": true, "manual_kind": "nose"}],
-		["wallplant", Skater.State.AIR, {"wallplant_t": 0.28, "global_position": Vector3(0, 0.8, -4)}],
+		["wallplant", Skater.State.AIR, {"wallplant_t": 0.28, "global_position": SPOT + Vector3.UP * 0.8}],
 		["walkback", Skater.State.BAIL, {"bail_kind": "slam", "bail_time": 1.6, "bail_duration": 2.2, "bail_getup": 1.3, "bail_origin": Vector3(0, 0, -2.5)}],
 		["idle", Skater.State.GROUND, {}],
 		["push", Skater.State.GROUND, {"pushing": true, "push_phase": 0.25, "velocity": Vector3(0, 0, -3)}],
 		["crouch", Skater.State.GROUND, {"crouch": 1.0}],
-		["air", Skater.State.AIR, {"velocity": Vector3(0, 2.0, -4), "global_position": Vector3(0, 0.8, -4)}],
-		["indy", Skater.State.AIR, {"grab_kind": "none", "global_position": Vector3(0, 0.8, -4)}],
-		["kickflip", Skater.State.AIR, {"flip_kind": "none", "flip_t": 0.45, "global_position": Vector3(0, 0.8, -4)}],
+		["air", Skater.State.AIR, {"velocity": Vector3(0, 2.0, -4), "global_position": SPOT + Vector3.UP * 0.8}],
+		["indy", Skater.State.AIR, {"grab_kind": "none", "global_position": SPOT + Vector3.UP * 0.8}],
+		["kickflip", Skater.State.AIR, {"flip_kind": "none", "flip_t": 0.45, "global_position": SPOT + Vector3.UP * 0.8}],
 		["manual", Skater.State.GROUND, {"manual_on": true}],
 		["runout", Skater.State.BAIL, {"bail_kind": "runout", "bail_time": 0.35, "bail_duration": 0.85}],
 		["slam", Skater.State.BAIL, {"bail_kind": "slam", "bail_time": 0.6, "bail_duration": 1.3}],

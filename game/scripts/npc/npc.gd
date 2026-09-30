@@ -67,7 +67,7 @@ func _arm(side: String, target: Vector3, pole: Vector3) -> void:
 	var sh: Vector3 = _rest_g[ua].origin
 	var l1: float = sh.distance_to(_rest_g[la].origin)
 	var l2: float = _rest_g[la].origin.distance_to(_rest_g[ha].origin)
-	var chain: Array = SkaterVisual.ik(sh, target, l1, l2, pole)
+	var chain: Array = RiderRig.ik(sh, target, l1, l2, pole)
 	var rest_pole: Vector3 = Vector3(0, 0, -1)
 	var g_ua: Basis = _aimed(ua, la, sh, chain[0], pole, rest_pole)
 	var parent_g: Basis = _rest_g[skel.get_bone_parent(ua)].basis

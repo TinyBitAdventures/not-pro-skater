@@ -9,8 +9,8 @@ extends CharacterBody3D
 ##         (vert), so it comes back down the same ramp. Landings within assist_angle line up; a bit more is
 ##         sketchy; more than bail_angle bails; backwards lands fakie.
 ## GRIND   locks onto a GrindLine and slides along it.
-## BAIL    tumbles for a moment, then gets back up.
-## The skater origin is the bottom of the wheels; SkaterVisual draws the rider.
+## BAIL    a physical crash: the rider ragdolls, the board rolls away, then the rider gets up and walks back.
+## The skater origin is the bottom of the wheels; RiderRig draws the rider.
 
 signal sfx(kind: String)
 signal bailed(reason: String)
@@ -31,19 +31,13 @@ var scripted: bool = false
 var score: ScoreKeeper = null
 var cam: Camera3D = null
 var grind_lines: Array[GrindLine] = []
-var visual: SkaterVisual = null
+var visual: RiderRig = null
 var fx: SkaterFx = null
 var with_visual: bool = true
-var rider: String = ""                  # a character glb (assets/characters/<rider>.glb) instead of the cartoon rider
-var use_blob: bool = true              # the toon look's fake contact shadow; real-shadow scenes turn it off
-var steer_mode: String = ""          # "" = follow Game.steer_mode; AI skaters use "screen"
+var rider: String = "dev"               # the character glb (assets/characters/<rider>.glb)
+var steer_mode: String = ""          # "" = follow Game.steer_mode
 var cam_y: float = 0.0               # ground height the camera follows (does not rise with a jump)
 var _turn_bias: float = 1.0
-var brain: SkaterBrain = null        # set for AI skaters: replaces player input
-var is_player: bool = true           # only the player drives the occlusion hole
-var look: Dictionary = {}
-var _blob: MeshInstance3D = null
-var _blob_mat: ShaderMaterial = null
 
 # --- shared with the visual ---
 var hdg: Vector3 = Vector3(0, 0, -1)     # facing, tangent to the surface (ground) or horizontal (air)
@@ -154,8 +148,6 @@ func _ready() -> void:
 	add_child(cs)
 	if with_visual:
 		_make_visual()
-		if use_blob:
-			_make_blob()
 		fx = SkaterFx.new()
 		fx.skater = self
 		add_child(fx)
@@ -164,18 +156,14 @@ func _ready() -> void:
 
 
 func _make_visual() -> void:
-	if rider != "":
-		var rig: RiderRig = RiderRig.new()
-		rig.char_key = rider
-		visual = rig
-	else:
-		visual = SkaterVisual.new()
+	visual = RiderRig.new()
+	visual.char_key = rider
 	visual.top_level = true
 	add_child(visual)
-	visual.setup(look)
+	visual.setup()
 
 
-## Swap the rider while playing ("" = the cartoon rider).
+## Swap the rider while playing.
 func set_rider(key: String) -> void:
 	rider = key
 	if visual != null:
@@ -185,54 +173,11 @@ func set_rider(key: String) -> void:
 		_make_visual()
 
 
-func _make_blob() -> void:
-	var q: QuadMesh = QuadMesh.new()
-	q.size = Vector2(1.6, 1.6)
-	_blob_mat = ShaderMaterial.new()
-	_blob_mat.shader = load("res://shaders/blob.gdshader")
-	q.material = _blob_mat
-	_blob = MeshInstance3D.new()
-	_blob.mesh = q
-	_blob.top_level = true
-	_blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_blob)
-
-
 func _process(delta: float) -> void:
 	if visual != null:
 		visual.sync_from(self, delta)
 	if fx != null:
 		fx.tick(delta)
-	if is_inside_tree():
-		if is_player:
-			Toon.set_player_pos(global_position)
-		_update_blob()
-
-
-func _update_blob() -> void:
-	if _blob == null:
-		return
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	var from: Vector3 = global_position + Vector3.UP * 0.6
-	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 30.0, 1)
-	var hit: Dictionary = space.intersect_ray(q)
-	if hit.is_empty():
-		_blob.visible = false
-		return
-	var p: Vector3 = hit["position"]
-	if global_position.y - p.y < 0.5 and state != State.AIR:
-		_blob.visible = false
-		return
-	_blob.visible = true
-	var nrm: Vector3 = hit["normal"]
-	var height: float = global_position.y - p.y
-	var sc: float = 1.0 + clampf(height * 0.12, 0.0, 0.8)
-	var b: Basis = Basis(Vector3.RIGHT, -PI * 0.5)
-	if absf(nrm.dot(Vector3.UP)) < 0.99:
-		var ax: Vector3 = Vector3.UP.cross(nrm).normalized()
-		b = Basis(ax, Vector3.UP.angle_to(nrm)) * b
-	_blob.global_transform = Transform3D(b * Basis.from_scale(Vector3(sc, sc, sc)), p + nrm * 0.03)
-	_blob_mat.set_shader_parameter("alpha", 0.42 * (1.0 - clampf(height / 9.0, 0.0, 0.7)))
 
 
 func place_at(xf: Transform3D) -> void:
@@ -329,13 +274,11 @@ func _read_input() -> void:
 # ------------------------------------------------------------------ main loop
 
 func _physics_process(delta: float) -> void:
-	if brain != null:
-		brain.think(self, delta)
-	elif not scripted:
+	if not scripted:
 		_read_input()
 	_ollie_buf = maxf(0.0, _ollie_buf - delta)
 	_release_buf = maxf(0.0, _release_buf - delta)
-	charge_mode = force_charge or (brain == null and not scripted and Game.jump_mode == "hold")
+	charge_mode = force_charge or (not scripted and Game.jump_mode == "hold")
 	_grind_buf = maxf(0.0, _grind_buf - delta)
 	_flip_buf = maxf(0.0, _flip_buf - delta)
 	_grind_cd = maxf(0.0, _grind_cd - delta)
@@ -409,7 +352,7 @@ func _physics_process(delta: float) -> void:
 		global_position = _last_safe + Vector3.UP * 0.5
 		velocity = Vector3.ZERO
 		_enter_ground()
-	if scripted or brain != null:
+	if scripted:
 		inp.clear_edges()
 
 

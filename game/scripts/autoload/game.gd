@@ -7,9 +7,7 @@ var best: Dictionary = {}          # level id -> {"score": int, "combo": int}
 var steer_mode: String = "tank"    # "tank" = skater steering (A/D turn, W push), "screen" = stick points where you go
 var jump_mode: String = "hold"   # "hold" = crouch while held, jump on release (hold longer = higher); "tap" = jump on press
 var music_choice: String = "cruise"   # "cruise" (Grip Tape Summer), "hype" (Rail Rush) or "off"
-var camera_mode: String = "follow" # "follow" swings behind the skater, "fixed" keeps one isometric angle
 var master_volume: float = 0.8
-var free_skate: bool = false       # no timer: just cruise and practise
 var rider: String = "dev"          # the playable character (assets/characters/<rider>.glb)
 
 
@@ -47,7 +45,6 @@ func load_save() -> void:
 	var version: int = int(cfg.get_value("settings", "version", 1))
 	if version >= 2:
 		steer_mode = cfg.get_value("settings", "steer_mode", "tank")
-		camera_mode = cfg.get_value("settings", "camera_mode", "follow")
 		music_choice = cfg.get_value("settings", "music_choice", "cruise")
 	if version >= 3:
 		# v3 reset a jump_mode of "tap" that was saved by accident from the title menu
@@ -64,7 +61,6 @@ func save() -> void:
 	cfg.set_value("progress", "goals", goals)
 	cfg.set_value("settings", "version", 3)
 	cfg.set_value("settings", "steer_mode", steer_mode)
-	cfg.set_value("settings", "camera_mode", camera_mode)
 	cfg.set_value("settings", "jump_mode", jump_mode)
 	cfg.set_value("settings", "music_choice", music_choice)
 	cfg.set_value("settings", "master_volume", master_volume)

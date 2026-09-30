@@ -8,8 +8,8 @@ extends Node3D
 ## writes ../shots/<name>.png and quits.
 
 @export var level_path: String = "res://assets/levels/greybox.glb"
-@export var look: String = "grey"          # "grey" or "real" (PBR + baked light: scenes/looktest.tscn)
-const RIDERS: Array[String] = ["dev", "musician", "vlogger", "dad", "actor", ""]
+@export var look: String = "grey"          # "grey" (grid materials) or "real" (PBR + baked light)
+const RIDERS: Array[String] = ["dev", "musician", "vlogger", "dad", "actor"]
 const ORDER: Array[String] = ["flat", "seam", "curb", "miniqp", "qp", "vert", "mini", "rail", "rail_side", "kink",
 	"curve", "ledge", "stairs", "funbox", "hip", "kicker", "wall"]
 
@@ -39,10 +39,7 @@ func _ready() -> void:
 	score = ScoreKeeper.new()
 	cam = _make_camera(sun)
 	skater = Skater.new()
-	skater.use_blob = false
 	skater.rider = OS.get_environment("RIDER") if OS.get_environment("RIDER") != "" else Game.rider
-	if skater.rider == "toon":
-		skater.rider = ""
 	skater.score = score
 	skater.cam = cam
 	skater.grind_lines = level.grind_lines
@@ -106,10 +103,7 @@ func warp(i: int) -> void:
 		skater._enter_air()
 		skater.yaw += deg_to_rad(float(OS.get_environment("DROP_DEG")))
 		skater.hdg = skater.heading_h()
-	if cam is IsoCamera:
-		(cam as IsoCamera).face_heading(skater)
-		(cam as IsoCamera).jump_to(skater.global_position)
-	elif cam.has_method("snap_behind"):
+	if cam.has_method("snap_behind"):
 		cam.call("snap_behind")
 	hud.announce(nm.to_upper().replace("_", " "), Hud.BLUE, 1.0)
 
@@ -129,7 +123,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif k.physical_keycode == KEY_P:
 		var i: int = (RIDERS.find(skater.rider) + 1) % RIDERS.size()
 		skater.set_rider(RIDERS[i])
-		hud.announce(("THE " + RIDERS[i].to_upper()) if RIDERS[i] != "" else "CARTOON RIDER", Hud.BLUE, 1.0)
+		hud.announce("THE " + RIDERS[i].to_upper(), Hud.BLUE, 1.0)
 
 
 func _process(delta: float) -> void:

@@ -19,9 +19,10 @@ The core rule for the controller: **the code decides where the skater goes; phys
 |---|---|
 | 1. Foundation | **Done.** `SkateTuning` + F3 panel, greybox level (`scenes/greybox.tscn`), 16 feel tests (`scenes/dev_feel.tscn`), all passing |
 | 2. Controller | **Done, awaiting Austin's feel sign-off.** Momentum, curb-safe floor probe + four-wheel board normal, vert lock + auto 180 + transfer, landing assist / sketchy / fakie / revert, apex hang + vert float, Curve3D rails from Blender curves + rail linking + rail magnet, chase camera. The tile-seam fix turned out not to be needed (seams were already smooth) |
-| 3. Realistic look | **Proof done** (`scenes/looktest.tscn`, also in the web build at `?scene=looktest`). Still to do: bake per chunk for big levels, material variety and wear, sky/exposure per event, performance numbers on real hardware |
+| 3. Realistic look | **In use** on Neighborhood Park (two bake groups). The look-test scene is retired. Still to do: material variety and wear, sky/exposure per event, performance numbers on real hardware |
 | 4. Characters | **All five archetypes built** (MPFB + MakeHuman CC0, skinned, `RiderRig` IK posing, real board, 1K textures). Next: eye/hair material polish, per-character clothing colours, facial variety |
-| 5. First level + event | **Neighborhood Park + Birthday at the Park playable** (goals, kids, cake, balloons, title screen, rename). Next: more guests at the party, wind in the trees, lighter web build, retire the old cartoon park and its tests |
+| 5. First level + event | **Neighborhood Park + Birthday at the Park playable** (goals, kids, guests, cake, balloons, swaying trees, title screen, web build ~78 MB). The old cartoon park and its tests are retired |
+| 6. Polish | **Next:** smoothness and performance, UI restyle, pause menu, trick popups, visual polish (light, props, characters), ambience |
 
 Decisions made while building (they override the text below where it differs):
 

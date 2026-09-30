@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Cleanup: the old cartoon park is gone
+- Removed the isometric cartoon prototype: the community park level and its scene, the cartoon rider, spectators, cars, ducks and backdrop (models, Blender scripts and glbs), the iso camera, the toon / outline / occlusion / blob / water / fence / post shaders, the level baker, the AI skater brain and eleven old test and screenshot scenes. The web export no longer needs an exclude list for them.
+- `RiderRig` stands on its own (it used to extend the cartoon `SkaterVisual`): the pose logic moved in, and its old kinematic bail poses are gone now that every crash is physical.
+- The air trail and the landing shockwave ring are gone (they belonged to the cartoon look); dust and grind sparks stay.
+- `Level` loads the realistic look by default; `Skater` always uses a skinned rider; `blender/pieces.py` keeps only the skate kit.
+
 ### Not Pro Skaters: first level and event
 - **Neighborhood Park** (`blender/neighborhood.py`, `scenes/neighborhood.tscn`): a real-scale suburban park. A concrete skate plaza (mini ramp with guard rails, two ledges, a manual pad, a flat rail, a four-stair set with handrails and a bank feed, a quarter pipe, a bank), a paved picnic area with bunting, lawn and paths, a street with sidewalks and curbs, fourteen houses (siding, brick, tiled roofs, glossy windows) and 23 trees. Two lightmaps: a sharp one for the plaza and picnic area, one for everything else.
 - **CC0 props** from Poly Haven (`blender/park_props.py`): picnic tables, a bench, bins, street lamps, planters, shrubs, a boombox, a cake. Imported once, shared by every copy, with box colliders. `tools/fetch_assets.py` fetches all CC0 sources (ambientCG textures and Poly Haven models) into `art/`.
@@ -37,7 +43,7 @@
 - Greybox: a 3.5 m wall lane (`wall`). Feel tests: 31.
 - **The cast:** The Musician (jacket, fedora), The Vlogger (tee and jeans, ponytail), The Dad (polo, cargo pants) and The Actor (striped shirt, boots) join The Dev; all original archetypes, 27-32k triangles each, textures capped at 1K for the web (The Dev went from 19 MB to 6.6 MB). **P** in the greybox swaps riders live.
 - **Real-sized board** (`blender/board.py`): 8.0" x 31.5" deck with kicktails, grip, printed bottom, trucks and 54 mm wheels.
-- **RiderRig** (`scripts/skater/rider_rig.gd`): drives the skeleton from the same pose logic as the cartoon rider: hips and a three-bone spine (lean, twist, sway), two-bone IK legs with the feet flat on the deck (front foot angled to the nose; the feet follow the board's tilt in manuals and boardslides but not its flips), arm IK for balance and grabs, the head turned toward the nose, the run-out and slam bails, and the board staying on the ground while the body goes down. The greybox and look test use it (`RIDER=toon` for the old rider). Pose tour: `scenes/dev_rig.tscn`.
+- **RiderRig** (`scripts/skater/rider_rig.gd`): drives the skeleton from the same pose logic as the cartoon rider: hips and a three-bone spine (lean, twist, sway), two-bone IK legs with the feet flat on the deck (front foot angled to the nose; the feet follow the board's tilt in manuals and boardslides but not its flips), arm IK for balance and grabs, the head turned toward the nose, the run-out and slam bails, and the board staying on the ground while the body goes down. The greybox uses it. Pose tour: `scenes/dev_rig.tscn`.
 - **Jumps no longer get lost:** a Space tap made while still falling (up to 0.35 s before touchdown) pops again on landing; before, anything earlier than 0.14 s was dropped, so chained ollies felt hit-and-miss. A quick tap is also a real ollie now (minimum pop 7.8, was 6.8). Checked with real key events frame by frame (`scenes/dev_jumptap.tscn`).
 - **Vert airs look like vert airs:** the rider stays side-on to the wall (feet toward the ramp, body out) and the 180 turns in the wall's plane; the vert camera sits off to one side so the whole body is in view as it turns. Fakie riding is drawn facing backwards, and fakie grinds stay fakie.
 - **Bails match the mistake:** severity (speed, air time, how crooked) picks a **run-out** (step off, run a few steps, the board rolls ahead and you hop back on, keeping half your speed), a **slam** (down onto a hip and slide, then up) or, only for fast, high crashes, a **roll**. The old end-over-end tumble was used for every bail.

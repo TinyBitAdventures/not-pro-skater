@@ -57,7 +57,7 @@ static func label(text: String, size: int, color: Color = WHITE, outline: int = 
 
 
 const CONTROL_LINES: Array[String] = [
-	"W push    S brake    A / D turn        (T: screen-relative steering instead)",
+	"W push    S brake    A / D turn        (screen-relative steering: title menu)",
 	"SPACE  hold to crouch, release to jump (longer = higher); at a ramp lip for big air",
 	"J  flip     K  hold to grab     L  grind (press near or toward a rail, ledge or coping)",
 	"IN THE AIR  A / D spin, then J or K for tricks",
