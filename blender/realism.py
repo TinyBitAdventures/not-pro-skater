@@ -21,6 +21,8 @@ import bpy
 import bmesh
 from mathutils import Vector
 
+import lightmap_denoise
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ART = os.path.normpath(os.path.join(HERE, "..", "art"))
 # the sky (and so the sun and the light) for the bakes: SKY=<polyhaven id> overrides it for comparisons
@@ -447,6 +449,8 @@ def bake(ob, out_png, size=2048, samples=128):
     rgb = lin.reshape(-1, 4)[:, :3]
     print(f"[realism] lightmap (Godot units) mean {rgb.mean():.3f} p50 {np.median(rgb):.3f} p99 {np.percentile(rgb, 99):.3f} max {rgb.max():.3f}")
     out = np.sqrt(np.clip(lin / RANGE, 0.0, 1.0))
+    px = out.reshape(size, size, 4)
+    px[..., :3] = lightmap_denoise.denoise(px[..., :3])     # sample speckle reads as purple-green blotches in shade
     out.reshape(-1, 4)[:, 3] = 1.0
     res = bpy.data.images.new("Lightmap", size, size)
     res.pixels.foreach_set(out)
