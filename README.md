@@ -1,4 +1,4 @@
-# Skate Park
+# Not Pro Skaters
 
 An isometric, Tony-Hawk-flavoured skateboarding game. Cruise a sunny community park, link ramps, rails and manuals into big combos, and beat your best two-minute score. The look is a chunky low-poly cartoon: flat colours, three-band shading and inked outlines.
 
@@ -52,6 +52,26 @@ Two steering styles (toggle with T, or in the title menu; both are saved):
 **Grinds:** press L in the air when you are heading for a rail; the air path bends onto rails up to about 1.2 m to the side.
 
 Combos: every trick adds points and, if it is new to the combo, one to the multiplier. Land cleanly and keep going within about a second; stop and the combo is banked. Bail and you lose it.
+
+## The game (Not Pro Skaters)
+
+```bash
+cd game && godot --path .          # title: Birthday at the Park, Free Skate, Practice, rider select
+```
+
+- `scenes/birthday.tscn`: **Birthday at the Park** in Neighborhood Park: six goals, two-minute sessions (`scripts/events/`).
+- `scenes/neighborhood.tscn`: the park with no timer. `scenes/greybox.tscn`: the grey test level.
+- Web: `index.html?scene=birthday`, `?scene=park` or `?scene=greybox` open those directly.
+
+Source art is CC0 and not stored in git: `python3 tools/fetch_assets.py` downloads the ambientCG textures and Poly Haven models into `art/` before a level or character build. The levels:
+
+```bash
+./build.sh neighborhood            # Neighborhood Park: props, trees, houses, two baked lightmaps (~4 min)
+NOBAKE=1 ./build.sh neighborhood   # re-export keeping the existing lightmaps (the lightmap UVs are deterministic)
+./build.sh items                   # runtime items (the cake)
+```
+
+After an import, textures are GPU-compressed by default (`[importer_defaults]` in `project.godot`); export for the web keeps the desktop formats only, so the package stays around 70 MB.
 
 ## Build the assets
 
