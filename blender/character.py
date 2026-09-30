@@ -20,21 +20,76 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "game", "assets", "characters"))
 MPFB = "bl_ext.blender_org.mpfb"
 
-# Every archetype is inspired by a kind of real skater who is not a pro (see docs/REBUILD_PLAN.md).
+# Every archetype is inspired by a KIND of real skater who is not a pro (see docs/REBUILD_PLAN.md): original
+# characters, not likenesses. Assets are named by MPFB folder (skins/<skin>, hair/<hair>, clothes/<name>, ...).
+STYLIZE = {"head-scale-vert-incr": 0.35, "head-scale-horiz-incr": 0.3, "head-scale-depth-incr": 0.25,
+           "l-hand-scale-incr": 0.35, "r-hand-scale-incr": 0.35}
+TEXTURE_MAX = 1024        # the web build cannot afford MakeHuman's 2K / 4K maps
 ARCHETYPES = {
     "dev": {
         "title": "The Dev",
         "macro": {"gender": 1.0, "age": 0.56, "muscle": 0.45, "weight": 0.45, "proportions": 0.6,
                   "height": 0.5, "cupsize": 0.5, "firmness": 0.5,
                   "race": {"asian": 0.1, "caucasian": 0.8, "african": 0.1}},
-        "stylize": {"head-scale-vert-incr": 0.35, "head-scale-horiz-incr": 0.3, "head-scale-depth-incr": 0.25,
-                    "l-hand-scale-incr": 0.35, "r-hand-scale-incr": 0.35},
-        "skin": "skins/young_caucasian_male/young_caucasian_male.mhmat",
+        "stylize": STYLIZE,
+        "skin": "young_caucasian_male",
         "eyes": "brown",
-        "eyebrows": "eyebrows/eyebrow001/eyebrow001.mhclo",
-        "eyelashes": "eyelashes/eyelashes01/eyelashes01.mhclo",
-        "hair": "hair/short02/short02.mhclo",
-        "clothes": ["clothes/male_casualsuit02/male_casualsuit02.mhclo", "clothes/shoes06/shoes06.mhclo"],
+        "eyebrows": "eyebrow001",
+        "eyelashes": "eyelashes01",
+        "hair": "short02",
+        "clothes": ["male_casualsuit02", "shoes06"],
+    },
+    "musician": {
+        "title": "The Musician",
+        "macro": {"gender": 1.0, "age": 0.5, "muscle": 0.55, "weight": 0.5, "proportions": 0.6,
+                  "height": 0.55, "cupsize": 0.5, "firmness": 0.5,
+                  "race": {"asian": 0.0, "caucasian": 0.1, "african": 0.9}},
+        "stylize": STYLIZE,
+        "skin": "young_african_male",
+        "eyes": "brown",
+        "eyebrows": "eyebrow002",
+        "eyelashes": "eyelashes02",
+        "hair": "short04",
+        "clothes": ["male_casualsuit05", "shoes05", "fedora_cocked"],
+    },
+    "vlogger": {
+        "title": "The Vlogger",
+        "macro": {"gender": 0.0, "age": 0.5, "muscle": 0.5, "weight": 0.42, "proportions": 0.6,
+                  "height": 0.5, "cupsize": 0.45, "firmness": 0.6,
+                  "race": {"asian": 0.8, "caucasian": 0.2, "african": 0.0}},
+        "stylize": STYLIZE,
+        "skin": "young_asian_female",
+        "eyes": "brown",
+        "eyebrows": "eyebrow009",
+        "eyelashes": "eyelashes03",
+        "hair": "ponytail01",
+        "clothes": ["female_casualsuit01", "shoes05"],
+    },
+    "dad": {
+        "title": "The Dad",
+        "macro": {"gender": 1.0, "age": 0.72, "muscle": 0.45, "weight": 0.62, "proportions": 0.55,
+                  "height": 0.55, "cupsize": 0.5, "firmness": 0.5,
+                  "race": {"asian": 0.05, "caucasian": 0.9, "african": 0.05}},
+        "stylize": STYLIZE,
+        "skin": "middleage_caucasian_male",
+        "eyes": "blue",
+        "eyebrows": "eyebrow003",
+        "eyelashes": "eyelashes01",
+        "hair": "short03",
+        "clothes": ["namuhekam_male_polo_shirt", "cortu_cargo_pants", "shoes02"],
+    },
+    "actor": {
+        "title": "The Actor",
+        "macro": {"gender": 1.0, "age": 0.62, "muscle": 0.4, "weight": 0.66, "proportions": 0.5,
+                  "height": 0.4, "cupsize": 0.5, "firmness": 0.5,
+                  "race": {"asian": 0.05, "caucasian": 0.85, "african": 0.1}},
+        "stylize": STYLIZE,
+        "skin": "young_caucasian_male2",
+        "eyes": "brown",
+        "eyebrows": "eyebrow004",
+        "eyelashes": "eyelashes01",
+        "hair": "culturalibre_hair_02",
+        "clothes": ["male_casualsuit03", "shoes03"],
     },
 }
 
@@ -46,6 +101,15 @@ def _svc(name, cls):
 def _enable_mpfb():
     if MPFB not in bpy.context.preferences.addons:
         bpy.ops.preferences.addon_enable(module=MPFB)
+
+
+def _asset(kind, name, ext):
+    """The .mhclo / .mhmat inside an MPFB asset folder, e.g. _asset("clothes", "shoes06", "mhclo")."""
+    folder = _data(f"{kind}/{name}")
+    for f in sorted(os.listdir(folder)):
+        if f.endswith("." + ext):
+            return os.path.join(folder, f)
+    raise FileNotFoundError(f"{kind}/{name}/*.{ext}")
 
 
 def _data(rel):
@@ -73,7 +137,7 @@ def build(key):
     # eyes, hair and clothes fit to the mesh's base shape: bake the body shape first or they sit on the
     # unshaped head (the eyes ended up on the forehead)
     ts.bake_targets(basemesh)
-    hs.set_character_skin(_data(spec["skin"]), basemesh, skin_type="GAMEENGINE")
+    hs.set_character_skin(_asset("skins", spec["skin"], "mhmat"), basemesh, skin_type="GAMEENGINE")
     hs.add_builtin_rig(basemesh, "game_engine")
     eyes = hs.add_mhclo_asset(_data("eyes/low-poly/low-poly.mhclo"), basemesh, asset_type="Eyes",
                               subdiv_levels=0, material_type="MAKESKIN")
@@ -82,15 +146,18 @@ def build(key):
         _svc("materialservice", "MaterialService").create_and_assign_material_slots(eyes, eye_mat)
     except Exception:
         pass
-    for kind, rel in (("Eyebrows", spec["eyebrows"]), ("Eyelashes", spec["eyelashes"]), ("Hair", spec["hair"])):
-        hs.add_mhclo_asset(_data(rel), basemesh, asset_type=kind, subdiv_levels=0, material_type="MAKESKIN")
-    for rel in spec["clothes"]:
-        hs.add_mhclo_asset(_data(rel), basemesh, asset_type="Clothes", subdiv_levels=0, material_type="MAKESKIN")
+    for kind, folder, name in (("Eyebrows", "eyebrows", spec["eyebrows"]), ("Eyelashes", "eyelashes", spec["eyelashes"]),
+                               ("Hair", "hair", spec["hair"])):
+        hs.add_mhclo_asset(_asset(folder, name, "mhclo"), basemesh, asset_type=kind, subdiv_levels=0, material_type="MAKESKIN")
+    for name in spec["clothes"]:
+        hs.add_mhclo_asset(_asset("clothes", name, "mhclo"), basemesh, asset_type="Clothes", subdiv_levels=0,
+                           material_type="MAKESKIN")
 
     # bake shape keys and the "hidden under clothes" masks into real geometry, drop helper geometry
     es.bake_modifiers_remove_helpers(basemesh, bake_masks=True, bake_subdiv=False, remove_helpers=True)
     rig = basemesh.parent
     _fix_materials(rig)
+    _shrink_textures(rig)
     rig.name = "Rig"
     basemesh.name = "Body"
     _report(rig)
@@ -134,6 +201,25 @@ def _fix_materials(rig):
                 m.blend_method = "OPAQUE"
             if hasattr(m, "surface_render_method"):
                 m.surface_render_method = "DITHERED"
+
+
+def _shrink_textures(rig):
+    done = set()
+    for ob in rig.children_recursive:
+        if ob.type != "MESH":
+            continue
+        for m in ob.data.materials:
+            if m is None or not m.use_nodes:
+                continue
+            for n in m.node_tree.nodes:
+                img = getattr(n, "image", None)
+                if img is None or img.name in done:
+                    continue
+                done.add(img.name)
+                w, h = img.size
+                if max(w, h) > TEXTURE_MAX:
+                    k = TEXTURE_MAX / max(w, h)
+                    img.scale(max(1, int(w * k)), max(1, int(h * k)))
 
 
 def _report(rig):

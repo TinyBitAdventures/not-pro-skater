@@ -30,7 +30,7 @@ Licence: https://polyhaven.com/license
 
 ## Characters (MakeHuman / MPFB, CC0)
 
-Built by `blender/character.py` with **MPFB** (MakeHuman for Blender, installed from extensions.blender.org) from the MakeHuman **CC0** asset packs. The generated meshes are CC0 (MakeHuman's licence exception for exported characters); the MPFB add-on itself is GPL but is a build tool, not shipped.
+Built by `blender/character.py` with **MPFB** (MakeHuman for Blender, installed from extensions.blender.org) from the MakeHuman **CC0** asset packs. MakeHuman's base mesh and targets and these packs are CC0, so the exported characters are CC0 too; the MPFB add-on itself is GPL but is a build tool and is not shipped.
 
 | Pack | Used for | Source |
 |---|---|---|

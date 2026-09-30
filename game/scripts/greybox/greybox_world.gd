@@ -1,7 +1,7 @@
 extends Node3D
 ## The greybox: a plain test level with every kind of obstacle, for tuning how skating feels.
 ##   godot --path . res://scenes/greybox.tscn
-## Keys: 1-9 / 0 warp to a lane start, TAB / SHIFT+TAB next / previous start, R back to the start,
+## Keys: 1-9 / 0 warp to a lane start, TAB / SHIFT+TAB next / previous start, P next rider, R back to the start,
 ##       F3 tuning sliders, plus the normal skating keys.
 ## Screenshot mode (for checking visuals from the command line):
 ##   SHOT=name SHOT_START=vert SHOT_AT=2.5 PUSH=1 TUNING_OPEN=1 godot --path . res://scenes/greybox.tscn
@@ -9,6 +9,7 @@ extends Node3D
 
 @export var level_path: String = "res://assets/levels/greybox.glb"
 @export var look: String = "grey"          # "grey" or "real" (PBR + baked light: scenes/looktest.tscn)
+const RIDERS: Array[String] = ["dev", "musician", "vlogger", "dad", "actor", ""]
 const ORDER: Array[String] = ["flat", "seam", "curb", "miniqp", "qp", "vert", "mini", "rail", "rail_side", "kink",
 	"curve", "ledge", "stairs", "funbox", "hip", "kicker"]
 
@@ -51,7 +52,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.set_timer(0.0, false)
 	hud.level_label.text = "GREYBOX" if look == "grey" else level_path.get_file().get_basename().to_upper()
-	hud.set_hint("1-9 / 0  WARP    TAB  NEXT SPOT    R  RESET    F3  TUNING")
+	hud.set_hint("1-9 / 0  WARP    TAB  NEXT SPOT    P  RIDER    R  RESET    F3  TUNING")
 	tuning = TuningPanel.new()
 	add_child(tuning)
 	score.changed.connect(func() -> void: hud.set_score(score.score))
@@ -121,6 +122,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		warp(9)
 	elif k.physical_keycode == KEY_TAB:
 		warp(start_i + (-1 if k.shift_pressed else 1))
+	elif k.physical_keycode == KEY_P:
+		var i: int = (RIDERS.find(skater.rider) + 1) % RIDERS.size()
+		skater.set_rider(RIDERS[i])
+		hud.announce(("THE " + RIDERS[i].to_upper()) if RIDERS[i] != "" else "CARTOON RIDER", Hud.BLUE, 1.0)
 
 
 func _process(delta: float) -> void:

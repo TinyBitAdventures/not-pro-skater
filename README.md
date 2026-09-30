@@ -86,7 +86,7 @@ cd game
 godot --path . res://scenes/greybox.tscn
 ```
 
-Keys **1-9 / 0** warp to a lane, **Tab / Shift+Tab** step through them, **R** resets to the lane start. **F3** opens live sliders for every skating value (`SkateTuning`, `game/scripts/skater/skate_tuning.gd`); **Save** writes `game/tuning/default.tres`. Headless experiments can override values with `TUNE="coast_drag=0.05,air_gravity_up=20"`.
+Keys **1-9 / 0** warp to a lane, **Tab / Shift+Tab** step through them, **P** swaps the rider (The Dev, Musician, Vlogger, Dad, Actor, or the old cartoon rider), **R** resets to the lane start. **F3** opens live sliders for every skating value (`SkateTuning`, `game/scripts/skater/skate_tuning.gd`); **Save** writes `game/tuning/default.tres`. Headless experiments can override values with `TUNE="coast_drag=0.05,air_gravity_up=20"`.
 
 ## Realistic look (in progress)
 
@@ -103,7 +103,8 @@ How it works (`blender/realism.py`): kit material names map to texture sets (`SE
 ## Characters
 
 ```bash
-blender --background --python blender/character.py -- dev      # NOT --factory-startup: needs the MPFB extension
+blender --background --python blender/character.py              # all five (or: -- dev musician vlogger dad actor)
+                                                               # NOT --factory-startup: needs the MPFB extension
 ./build.sh board                                               # the real-sized skateboard
 cd game && godot --path . res://scenes/dev_rig.tscn             # pose tour -> ../shots/rig_*.png
 ```

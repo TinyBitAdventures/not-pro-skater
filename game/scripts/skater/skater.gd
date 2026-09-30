@@ -129,15 +129,7 @@ func _ready() -> void:
 	cs.position = Vector3(0, CAPSULE_H * 0.5 + 0.02, 0)
 	add_child(cs)
 	if with_visual:
-		if rider != "":
-			var rig: RiderRig = RiderRig.new()
-			rig.char_key = rider
-			visual = rig
-		else:
-			visual = SkaterVisual.new()
-		visual.top_level = true
-		add_child(visual)
-		visual.setup(look)
+		_make_visual()
 		if use_blob:
 			_make_blob()
 		fx = SkaterFx.new()
@@ -145,6 +137,28 @@ func _ready() -> void:
 		add_child(fx)
 		landed.connect(fx.landed)
 		bailed.connect(func(_r: String) -> void: fx.bailed())
+
+
+func _make_visual() -> void:
+	if rider != "":
+		var rig: RiderRig = RiderRig.new()
+		rig.char_key = rider
+		visual = rig
+	else:
+		visual = SkaterVisual.new()
+	visual.top_level = true
+	add_child(visual)
+	visual.setup(look)
+
+
+## Swap the rider while playing ("" = the cartoon rider).
+func set_rider(key: String) -> void:
+	rider = key
+	if visual != null:
+		visual.queue_free()
+		visual = null
+	if with_visual and is_inside_tree():
+		_make_visual()
 
 
 func _make_blob() -> void:
