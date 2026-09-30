@@ -92,11 +92,21 @@ func _desired() -> Dictionary:
 	var back: Vector3 = Vector3(sin(_yaw), 0.0, cos(_yaw))
 	var look: Vector3 = _collide(focus + Vector3.UP * look_height, focus + Vector3.UP * look_height + ahead)
 	var pos: Vector3 = focus + back * distance + Vector3.UP * height
-	if sk.vert_air and _vert_hold:
+	if _vert_hold:
 		pos = _vert_anchor
 		look = _vert_lip.lerp(sk.render_position() + Vector3.UP * 0.8, 0.5)
 		return {"pos": _collide(look, pos), "look": look}
-	return {"pos": _clear_of_rider(focus, look, _collide_rise(look, pos)), "look": look}
+	# rise tests look for the rider's chest, so a lift over a ramp's deck never hides the rider behind the lip
+	var chest: Vector3 = focus + Vector3.UP * 1.0
+	return {"pos": _clear_of_rider(focus, look, _collide_rise(chest, pos)), "look": look}
+
+
+## After a vert air the shot stays out in front while the rider comes back down the wall, and lets go (to
+## swing behind) once the rider is off the steep part, or doing something else.
+func _vert_done(sk: Skater) -> bool:
+	if sk.state != Skater.State.GROUND:
+		return true
+	return sk.floor_n.y > 0.8
 
 
 ## A wall close behind pulls the camera in; closer than min_distance it would end up inside the rider.
@@ -145,8 +155,6 @@ func _process(dt: float) -> void:
 		return
 	var sk: Skater = target
 	var st: int = sk.state
-	if _was_state == Skater.State.AIR and st != Skater.State.AIR and _vert_hold:
-		_swing_boost = 1.0
 	_was_state = st
 	_swing_boost = maxf(0.0, _swing_boost - dt * 1.2)
 
@@ -170,8 +178,9 @@ func _process(dt: float) -> void:
 		var side: float = 1.0 if sk.velocity.dot(along) >= 0.0 else -1.0
 		_vert_anchor = _collide(_vert_lip + Vector3.UP * 0.5,
 			_vert_lip + sk.vert_out * vert_back + along * side * vert_side + Vector3.UP * vert_rise)
-	elif not sk.vert_air:
+	elif _vert_hold and not sk.vert_air and _vert_done(sk):
 		_vert_hold = false
+		_swing_boost = 1.0                     # now swing round behind, quickly
 
 	var r: Dictionary = _desired()
 	_pos = _pos.lerp(r["pos"], 1.0 - exp(-follow_rate * dt))

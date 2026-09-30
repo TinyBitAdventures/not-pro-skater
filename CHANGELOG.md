@@ -5,6 +5,7 @@
 ### Polish: the camera on ramps
 - Rolling back down a ramp after an air, "behind the rider" is inside the ramp: the camera used to pull in against the ramp's face, right at the coping. It now rises (up to 3 m) until it sees the rider clearly, floating over the deck and looking down the transition, like a skate game camera should.
 - A big swing (after a vert landing) no longer slides straight through the rider: the camera keeps a minimum radius as it comes round.
+- After a vert air the shot stays out in front while the rider comes back down the wall, then swings behind once the rider is off the steep part (it used to swing at touchdown and end up over the deck with the rider hidden below the lip). Rises over a deck only count if the rider's chest stays in view.
 
 ### Polish: boards and details
 - **Every rider has their own deck graphic** (base colour, a slanted band toward the tail, a ring toward the nose, pinstripes; drawn at load, `RiderRig.deck_art`); the board that rolls away in a crash keeps it.
