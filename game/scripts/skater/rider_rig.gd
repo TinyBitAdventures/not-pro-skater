@@ -1,0 +1,344 @@
+class_name RiderRig
+extends SkaterVisual
+## A skinned character (blender/character.py, MPFB game-engine skeleton) riding the real-sized board
+## (blender/board.py). SkaterVisual still decides the pose (crouch, lean, twist, flips, grabs, bails); this class
+## turns it into bone rotations: hips and spine, both feet flat on the deck by two-bone leg IK, hands by arm IK
+## (onto the board for grabs), and the head turned toward where the board is going.
+##
+## Everything is worked out in "model space" (SkaterVisual's: nose toward -Z, up +Y, chest toward +X for a
+## regular stance). The character glb faces +Z, so it sits in a container turned +90 degrees about Y, which
+## also puts its left foot toward the nose.
+
+const BOARD_SCENE: PackedScene = preload("res://assets/models/board.glb")
+const DECK: float = 0.11                 # deck top above the ground
+const LEG_FRAC: float = 0.9              # hip_h fractions map onto this share of the real leg length
+const FOOT_FRONT: float = -0.22          # foot centres along the deck (over the bolts)
+const FOOT_BACK: float = 0.21
+const FRONT_FOOT_ANGLE: float = 20.0     # the front foot turns toward the nose, the back foot a little the other way
+const BACK_FOOT_ANGLE: float = -8.0
+const HEAD_LOOK: float = 70.0            # head turned from the chest toward the nose, degrees
+
+var char_key: String = "dev"
+var skel: Skeleton3D
+var container: Node3D
+var _m: Transform3D                      # container: skeleton space -> model space
+var _rest_local: Array[Transform3D] = []
+var _rest_model: Array[Transform3D] = []
+var _glob: Array[Transform3D] = []       # current global pose per bone, model space
+var _parent: PackedInt32Array = PackedInt32Array()
+var _b: Dictionary = {}                  # bone name -> index
+var _leg_len: float = 0.93
+var _up_len: Dictionary = {}             # chain lengths measured from the rest pose
+var _ankle_off: Vector3 = Vector3.ZERO   # sole centre -> ankle, in the rest foot's model frame
+
+
+func setup(_look: Dictionary = {}) -> void:
+	model = Node3D.new()
+	model.name = "Rider"
+	add_child(model)
+	container = Node3D.new()
+	container.transform = Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3.ZERO)
+	model.add_child(container)
+	var ch: Node3D = (load("res://assets/characters/%s.glb" % char_key) as PackedScene).instantiate()
+	container.add_child(ch)
+	skel = ch.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
+	_m = container.transform * ch.transform * _node_to(ch, skel)
+	board = BOARD_SCENE.instantiate()
+	model.add_child(board)
+	_style_board(board)
+	var n: int = skel.get_bone_count()
+	_rest_local.resize(n)
+	_rest_model.resize(n)
+	_glob.resize(n)
+	_parent.resize(n)
+	for i in n:
+		_parent[i] = skel.get_bone_parent(i)
+		_rest_local[i] = skel.get_bone_rest(i)
+		_rest_model[i] = _m * skel.get_bone_global_rest(i)
+		_b[skel.get_bone_name(i)] = i
+	for side in ["l", "r"]:
+		var th: Vector3 = _rest_model[_b["thigh_" + side]].origin
+		var ca: Vector3 = _rest_model[_b["calf_" + side]].origin
+		var fo: Vector3 = _rest_model[_b["foot_" + side]].origin
+		_up_len["thigh_" + side] = th.distance_to(ca)
+		_up_len["calf_" + side] = ca.distance_to(fo)
+		var ua: Vector3 = _rest_model[_b["upperarm_" + side]].origin
+		var la: Vector3 = _rest_model[_b["lowerarm_" + side]].origin
+		var ha: Vector3 = _rest_model[_b["hand_" + side]].origin
+		_up_len["upperarm_" + side] = ua.distance_to(la)
+		_up_len["lowerarm_" + side] = la.distance_to(ha)
+	var ankle: Vector3 = _rest_model[_b["foot_l"]].origin
+	var ball: Vector3 = _rest_model[_b["ball_l"]].origin
+	_leg_len = _up_len["thigh_l"] + _up_len["calf_l"] + ankle.y
+	# sole centre: under the ankle, a little toward the ball of the foot
+	var sole: Vector3 = Vector3(ankle.x + (ball.x - ankle.x) * 0.45, 0.0, ankle.z + (ball.z - ankle.z) * 0.45)
+	_ankle_off = ankle - sole
+	for mi in ch.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).extra_cull_margin = 1.5     # skinned: poses reach well outside the rest bounds
+
+
+static func _node_to(from: Node3D, to: Node3D) -> Transform3D:
+	var xf: Transform3D = Transform3D.IDENTITY
+	var chain: Array[Node3D] = []
+	var n: Node = to
+	while n != null and n != from:
+		chain.push_front(n as Node3D)
+		n = n.get_parent()
+	for c in chain:
+		xf = xf * c.transform
+	return xf
+
+
+func _style_board(root: Node) -> void:
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		var inst: MeshInstance3D = mi
+		for s in inst.mesh.get_surface_count():
+			var m: StandardMaterial3D = (inst.mesh.surface_get_material(s) as StandardMaterial3D)
+			if m == null:
+				continue
+			m = m.duplicate() as StandardMaterial3D
+			match m.resource_name:
+				"TruckMetal":
+					m.metallic = 1.0
+					m.roughness = 0.35
+				"Wheel":
+					m.roughness = 0.55
+				"Grip":
+					m.roughness = 1.0
+				"DeckArt":
+					m.roughness = 0.45
+			inst.set_surface_override_material(s, m)
+
+
+# ------------------------------------------------------------------ bones
+
+func _pose_bone(i: int, g: Transform3D) -> void:
+	var p: int = _parent[i]
+	var local: Transform3D = (_glob[p].affine_inverse() * g) if p >= 0 else (_m.affine_inverse() * g)
+	skel.set_bone_pose_position(i, local.origin)
+	skel.set_bone_pose_rotation(i, local.basis.orthonormalized().get_rotation_quaternion())
+	_glob[i] = Transform3D(g.basis.orthonormalized(), g.origin)
+
+
+## Follow the parent at rest (for bones this rig does not drive: fingers, toes, clavicles).
+func _rest_follow(i: int) -> void:
+	var p: int = _parent[i]
+	_glob[i] = (_glob[p] * _rest_local[i]) if p >= 0 else (_m * _rest_local[i])
+	skel.set_bone_pose_position(i, _rest_local[i].origin)
+	skel.set_bone_pose_rotation(i, _rest_local[i].basis.get_rotation_quaternion())
+
+
+## Rotate bone i (as it is now, following its parent) by `q` about its own head, in model space.
+func _rotated(i: int, q: Basis) -> Transform3D:
+	var p: int = _parent[i]
+	var here: Transform3D = (_glob[p] * _rest_local[i]) if p >= 0 else (_m * _rest_local[i])
+	var rest_rel: Basis = _rest_model[p].basis.inverse() * _rest_model[i].basis if p >= 0 else _rest_model[i].basis
+	var b: Basis = q * (_glob[p].basis * rest_rel if p >= 0 else _rest_model[i].basis)
+	return Transform3D(b, here.origin)
+
+
+## Point bone i from its head toward `target`, bending around `pole`: its rest direction (toward its child)
+## maps onto the new direction and its rest "knee side" onto the pole.
+func _aim(i: int, child: int, target: Vector3, pole: Vector3, rest_pole: Vector3) -> void:
+	var p: int = _parent[i]
+	var head: Vector3 = ((_glob[p] * _rest_local[i]) if p >= 0 else (_m * _rest_local[i])).origin
+	var rest_dir: Vector3 = (_rest_model[child].origin - _rest_model[i].origin).normalized()
+	var want: Vector3 = (target - head).normalized()
+	var f_rest: Basis = _frame(rest_dir, rest_pole)
+	var f_want: Basis = _frame(want, pole)
+	var b: Basis = f_want * f_rest.inverse() * _rest_model[i].basis
+	_pose_bone(i, Transform3D(b, head))
+
+
+static func _frame(dir: Vector3, pole: Vector3) -> Basis:
+	var x: Vector3 = dir.normalized()
+	var y: Vector3 = pole - x * pole.dot(x)
+	if y.length() < 0.001:
+		y = Vector3.UP - x * Vector3.UP.dot(x)
+		if y.length() < 0.001:
+			y = Vector3.RIGHT - x * Vector3.RIGHT.dot(x)
+	y = y.normalized()
+	return Basis(x, y, x.cross(y))
+
+
+func _limb(root: String, mid: String, end: String, target: Vector3, pole: Vector3, rest_pole: Vector3) -> void:
+	var r: int = _b[root]
+	var m: int = _b[mid]
+	var e: int = _b[end]
+	var p: int = _parent[r]
+	var head: Vector3 = (_glob[p] * _rest_local[r]).origin
+	var chain: Array = SkaterVisual.ik(head, target, _up_len[root], _up_len[mid], pole)
+	_aim(r, m, chain[0], pole, rest_pole)
+	_aim(m, e, chain[1], pole, rest_pole)
+
+
+# ------------------------------------------------------------------ per frame
+
+func _apply_rig(sk: Skater) -> void:
+	# board (same moves as the cartoon rider: flips, grabs, bails)
+	var bt: Transform3D
+	var pivot: Vector3 = Vector3(0, DECK, 0)
+	var rot: Basis = Basis.from_euler(Vector3(deg_to_rad(board_pitch), deg_to_rad(board_yaw), deg_to_rad(board_roll)), EULER_ORDER_YXZ)
+	bt = Transform3D(rot, pivot - rot * pivot + Vector3(0, board_lift, 0))
+	var bail_u: float = clampf(sk.bail_time / maxf(sk.bail_duration, 0.1), 0.0, 1.0)
+	var bailing: bool = sk.state == Skater.State.BAIL
+	if bailing:
+		match sk.bail_kind:
+			"runout":
+				bt = Transform3D(Basis(Vector3.UP, sin(sk.bail_time * 5.0) * 0.15 * (1.0 - bail_u)), Vector3(0, 0, -sin(bail_u * PI) * 1.3))
+			"slam":
+				var p2: float = 1.0 - pow(1.0 - minf(sk.bail_time / 0.6, 1.0), 2.0)
+				var back_on: float = clampf((bail_u - 0.7) / 0.3, 0.0, 1.0)
+				bt = Transform3D(Basis(Vector3.UP, p2 * 1.4 * (1.0 - back_on)), Vector3(0.7 * p2, 0.0, -0.9 * p2) * (1.0 - back_on))
+			_:
+				var p: float = clampf(sk.bail_time / 1.0, 0.0, 1.0)
+				bt = Transform3D(Basis.from_euler(Vector3(p * 5.0, p * 3.0, p * 2.0)), Vector3(0.5 * p, sin(p * PI) * 0.9, -0.9 * p))
+	board.transform = bt
+	if bailing and sk.bail_kind != "runout":
+		# the body rolls, the board stays on the ground under where the rider went down
+		board.transform = model.global_transform.affine_inverse() * upright_xf * bt
+
+	# hips: SkaterVisual's hip_h (cartoon units, deck 0.145, legs 0.665) -> a share of this leg
+	var frac: float = clampf((hip_h - 0.145) / 0.665, 0.45, 1.05)
+	var hip_y: float = DECK + frac * LEG_FRAC * (_leg_len - _ankle_off.y) + _ankle_off.y * 0.2
+	if bailing and sk.bail_kind == "runout":
+		hip_y = frac * LEG_FRAC * _leg_len + 0.02
+	for i in [_b["Root"]]:
+		_rest_follow(i)
+	var pelvis: int = _b["pelvis"]
+	var q_body: Basis = Basis(Vector3(0, 0, 1), deg_to_rad(-sway)) * Basis(Vector3.UP, deg_to_rad(twist * 0.3))
+	var pg: Transform3D = _rotated(pelvis, q_body)
+	pg.origin = Vector3(-0.03, hip_y, 0.0)
+	_pose_bone(pelvis, pg)
+
+	# spine: lean toward the chest and twist toward the nose, spread over three bones
+	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7)) * Basis(Vector3(0, 0, 1), deg_to_rad(-lean))
+	var spine: Array[String] = ["spine_01", "spine_02", "spine_03"]
+	for k in spine.size():
+		var i: int = _b[spine[k]]
+		var part: Basis = Basis(Quaternion.IDENTITY.slerp(q_torso.get_rotation_quaternion(), 1.0 / spine.size()))
+		_pose_bone(i, _rotated(i, part))
+	# head: look along the board toward the nose (and down at it in the air)
+	var look: float = HEAD_LOOK - twist
+	var nod: float = 10.0 if sk.state == Skater.State.AIR else 4.0
+	var neck: int = _b["neck_01"]
+	_pose_bone(neck, _rotated(neck, Basis(Vector3.UP, deg_to_rad(look * 0.4))))
+	var hd: int = _b["head"]
+	_pose_bone(hd, _rotated(hd, Basis(Vector3.UP, deg_to_rad(look * 0.6)) * Basis(Vector3(0, 0, 1), deg_to_rad(-nod))))
+	for side in ["l", "r"]:
+		_rest_follow(_b["clavicle_" + side])
+
+	# legs: feet flat on the deck (or running on the ground in a run-out)
+	var lift: float = feet_lift + board_lift * 0.6
+	var front: Vector3 = Vector3(0.0, DECK + lift, FOOT_FRONT)
+	var back: Vector3 = Vector3(0.0, DECK + lift, FOOT_BACK)
+	var front_ang: float = FRONT_FOOT_ANGLE
+	var back_ang: float = BACK_FOOT_ANGLE
+	if sk.pushing and not sk.braking and sk.state == Skater.State.GROUND and sk.velocity.length() < 6.5 and not sk.manual_on:
+		var ph: float = fposmod(sk.push_phase, 1.0)
+		if ph < 0.55:
+			var k2: float = ph / 0.55
+			back = Vector3(-0.06, maxf(0.0, sin(k2 * PI) * 0.2), FOOT_BACK + 0.55 * sin(k2 * PI * 0.5))
+			back_ang = -60.0 * sin(k2 * PI * 0.5)
+	if bailing and sk.bail_kind == "runout":
+		var phr: float = sk.bail_time * 10.0
+		var on: float = clampf((bail_u - 0.75) / 0.25, 0.0, 1.0)
+		front = Vector3(0.12, maxf(0.0, sin(phr)) * 0.25, -0.05 - cos(phr) * 0.42).lerp(front, on)
+		back = Vector3(-0.12, maxf(0.0, -sin(phr)) * 0.25, -0.05 + cos(phr) * 0.42).lerp(back, on)
+		front_ang = lerpf(80.0, front_ang, on)
+		back_ang = lerpf(80.0, back_ang, on)
+	elif bailing:
+		var amp: float = 0.15 if sk.bail_kind == "slam" else 0.3
+		var w: float = sin(sk.bail_time * 11.0)
+		front = Vector3(0.35, 0.25 + w * amp, -0.55)
+		back = Vector3(-0.35, 0.35 - w * amp, 0.5)
+	# feet ride the board's tilt on the ground and on rails (manuals, boardslides), not its flips in the air
+	var on_board: bool = sk.state == Skater.State.GROUND or sk.state == Skater.State.GRIND
+	var feet_xf: Transform3D = bt if on_board else Transform3D.IDENTITY
+	_rig_leg("l", front, front_ang, feet_xf)
+	_rig_leg("r", back, back_ang, feet_xf)
+
+	# arms: out for balance, onto the board for grabs
+	var sh_l: Vector3 = (_glob[_b["clavicle_l"]] * _rest_local[_b["upperarm_l"]]).origin
+	var sh_r: Vector3 = (_glob[_b["clavicle_r"]] * _rest_local[_b["upperarm_r"]]).origin
+	var spread: float = arms_out
+	# balance arms: out and a little forward, elbows soft, never a stiff T
+	var free_l: Vector3 = sh_l + Vector3(0.12 + 0.1 * spread, -0.52 + 0.4 * spread, -0.18 - 0.24 * spread)
+	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
+	if bailing and sk.bail_kind == "runout":
+		var ph2: float = sk.bail_time * 10.0
+		free_l = sh_l + Vector3(0.15, -0.35, -0.05 + cos(ph2) * 0.35)
+		free_r = sh_r + Vector3(-0.1, -0.35, 0.05 - cos(ph2) * 0.35)
+	elif bailing:
+		var w2: float = sin(sk.bail_time * 9.0)
+		free_l = sh_l + Vector3(0.15, 0.35 + w2 * 0.2, -0.55)
+		free_r = sh_r + Vector3(-0.1, 0.35 - w2 * 0.2, 0.55)
+	var hand_l: Vector3 = free_l
+	var hand_r: Vector3 = free_r
+	if grab_amt > 0.01 and sk.grab_kind != "":
+		var gp: Array = _grab_targets(sk.grab_kind, bt)
+		hand_l = free_l.lerp(gp[0], grab_amt * float(gp[2]))
+		hand_r = free_r.lerp(gp[1], grab_amt * float(gp[3]))
+	var elbow_back: Vector3 = Vector3(-0.6, -0.3, 0.0)
+	_limb("upperarm_l", "lowerarm_l", "hand_l", hand_l, elbow_back + Vector3(0, 0, -0.3), _rest_pole_arm("l"))
+	_limb("upperarm_r", "lowerarm_r", "hand_r", hand_r, elbow_back + Vector3(0, 0, 0.3), _rest_pole_arm("r"))
+	for side in ["l", "r"]:
+		_pose_bone(_b["hand_" + side], _rotated(_b["hand_" + side], Basis.IDENTITY))
+	# everything else follows at rest
+	for i in skel.get_bone_count():
+		var nm: String = skel.get_bone_name(i)
+		if nm.begins_with("index") or nm.begins_with("middle") or nm.begins_with("ring") or nm.begins_with("pinky") or nm.begins_with("thumb"):
+			_rest_follow(i)
+
+
+## The rest pose's knee (or elbow) side, in model space: knees bend toward the chest (+X), elbows behind.
+func _rest_pole_leg() -> Vector3:
+	return Vector3(1, 0, 0)
+
+
+func _rest_pole_arm(_side: String) -> Vector3:
+	return Vector3(-1, 0, 0)
+
+
+func _rig_leg(side: String, sole: Vector3, foot_angle: float, board_xf: Transform3D) -> void:
+	# the foot turns about the up axis (toes across the board, front foot angled to the nose) and rides the
+	# board's tilt; the ankle sits above and behind the sole centre
+	var turn: Basis = board_xf.basis * Basis(Vector3.UP, deg_to_rad(foot_angle))
+	var sole_w: Vector3 = board_xf * (sole - Vector3(0, board_lift, 0)) if board_xf != Transform3D.IDENTITY else sole
+	var ankle: Vector3 = sole_w + turn * _ankle_off
+	var knee_pole: Vector3 = Vector3(1.0, 0.1, -0.35 if side == "l" else 0.25)
+	_limb("thigh_" + side, "calf_" + side, "foot_" + side, ankle, knee_pole, _rest_pole_leg())
+	var f: int = _b["foot_" + side]
+	var fg: Transform3D = _glob[_parent[f]] * _rest_local[f]
+	_pose_bone(f, Transform3D(turn * _rest_model[f].basis, fg.origin))
+	_rest_follow(_b["ball_" + side])
+
+
+## [left hand target, right hand target, use left, use right] for a grab, on the board as it is posed now.
+func _grab_targets(kind: String, bt: Transform3D) -> Array:
+	var toe: Vector3 = bt * Vector3(0.1, DECK, -0.02)
+	var heel: Vector3 = bt * Vector3(-0.1, DECK, -0.02)
+	var nose: Vector3 = bt * Vector3(0.0, DECK + 0.03, -0.36)
+	match kind:
+		"none":
+			return [toe, toe, 0.0, 1.0]       # indy: back hand, toe edge
+		"left":
+			return [heel, heel, 1.0, 0.0]     # melon
+		"right":
+			return [toe, toe, 1.0, 0.0]       # mute
+		"forward":
+			return [nose, nose, 1.0, 0.0]     # nosegrab
+		"back":
+			return [heel, heel, 1.0, 0.0]     # method
+	return [toe, toe, 0.0, 0.0]
+
+
+## Skinned meshes keep their rest bounds, so measure the posed bones instead and lift the rider clear.
+func _keep_above(contact: Vector3) -> void:
+	var lowest: float = 0.0
+	var gx: Transform3D = model.global_transform
+	for nm in ["head", "hand_l", "hand_r", "foot_l", "foot_r", "ball_l", "ball_r", "pelvis", "calf_l", "calf_r", "lowerarm_l", "lowerarm_r"]:
+		var p: Vector3 = gx * _glob[_b[nm]].origin
+		lowest = minf(lowest, (p - contact).dot(vis_n) - 0.1)
+	if lowest < 0.0:
+		global_position += vis_n * (-lowest)

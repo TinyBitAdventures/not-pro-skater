@@ -29,9 +29,9 @@ var _fov_kick: float = 0.0
 var _vert_hold: bool = false
 var _vert_anchor: Vector3 = Vector3.ZERO
 var _vert_lip: Vector3 = Vector3.ZERO
-var vert_back: float = 6.0         # how far out from the wall the vert shot sits
+var vert_back: float = 4.8         # how far out from the wall the vert shot sits
 var vert_rise: float = 0.2         # and how far above the lip
-var vert_side: float = 3.5         # and how far to the side along the coping
+var vert_side: float = 2.8         # and how far to the side along the coping
 var _swing_boost: float = 0.0      # extra swing speed just after a vert landing
 var _was_state: int = -1
 

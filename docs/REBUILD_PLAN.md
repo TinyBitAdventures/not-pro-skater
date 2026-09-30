@@ -20,7 +20,7 @@ The core rule for the controller: **the code decides where the skater goes; phys
 | 1. Foundation | **Done.** `SkateTuning` + F3 panel, greybox level (`scenes/greybox.tscn`), 16 feel tests (`scenes/dev_feel.tscn`), all passing |
 | 2. Controller | **Done, awaiting Austin's feel sign-off.** Momentum, curb-safe floor probe + four-wheel board normal, vert lock + auto 180 + transfer, landing assist / sketchy / fakie / revert, apex hang + vert float, Curve3D rails from Blender curves + rail linking + rail magnet, chase camera. The tile-seam fix turned out not to be needed (seams were already smooth) |
 | 3. Realistic look | **Proof done** (`scenes/looktest.tscn`, also in the web build at `?scene=looktest`). Still to do: bake per chunk for big levels, material variety and wear, sky/exposure per event, performance numbers on real hardware |
-| 4. Characters | Not started. Needs a go-ahead to install MPFB2 into Blender (extension + CC0 asset packs) |
+| 4. Characters | **The Dev done** (MPFB + MakeHuman CC0, skinned, `RiderRig` IK posing, real board). Next: the other archetypes, eye/hair material polish, lighter textures for the web |
 | 5. First level + event | Not started |
 
 Decisions made while building (they override the text below where it differs):

@@ -39,6 +39,9 @@ func _ready() -> void:
 	cam = _make_camera(sun)
 	skater = Skater.new()
 	skater.use_blob = false
+	skater.rider = OS.get_environment("RIDER") if OS.get_environment("RIDER") != "" else "dev"
+	if skater.rider == "toon":
+		skater.rider = ""
 	skater.score = score
 	skater.cam = cam
 	skater.grind_lines = level.grind_lines

@@ -27,3 +27,15 @@ Licence: https://docs.ambientcg.com/license/
 | Kloofendal 48d Partly Cloudy (Pure Sky), 2K for baking, 1K in the game | sky, sky light, sun direction | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
 
 Licence: https://polyhaven.com/license
+
+## Characters (MakeHuman / MPFB, CC0)
+
+Built by `blender/character.py` with **MPFB** (MakeHuman for Blender, installed from extensions.blender.org) from the MakeHuman **CC0** asset packs. The generated meshes are CC0 (MakeHuman's licence exception for exported characters); the MPFB add-on itself is GPL but is a build tool, not shipped.
+
+| Pack | Used for | Source |
+|---|---|---|
+| makehuman_system_assets | base skins, eyes, eyebrows, eyelashes | https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html |
+| shirts01, pants01, shoes01 | clothing (The Dev: male_casualsuit02, shoes06) | https://static.makehumancommunity.org/assets/assetpacks/ |
+| hair01, hats01 | hair (The Dev: short02), hats | https://static.makehumancommunity.org/assets/assetpacks/ |
+
+Licence: https://www.makehumancommunity.org/content/license_explanation.html

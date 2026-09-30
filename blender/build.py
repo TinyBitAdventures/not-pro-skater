@@ -39,6 +39,13 @@ def build_looktest():
     lib.export(out, images=True)
 
 
+def build_board():
+    import board
+    lib.reset_scene()
+    board.build()
+    lib.export(os.path.join(GAME, "models", "board.glb"))
+
+
 def build_skater():
     import skater
     lib.reset_scene()
@@ -94,3 +101,5 @@ if __name__ == "__main__":
         build_greybox()
     if "looktest" in targets:
         build_looktest()
+    if "board" in targets:
+        build_board()

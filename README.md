@@ -100,6 +100,16 @@ cd game && godot --path . res://scenes/looktest.tscn
 
 How it works (`blender/realism.py`): kit material names map to texture sets (`SETS` / `KIT`); every visual `-col` object keeps a hidden `-colonly` collision twin so the visuals can be merged; the merged mesh gets a `Lightmap` UV set; Cycles bakes the sky (sun disc clipped out of the HDRI) with all its bounces, plus the sun's bounce only. The PNG stores `sqrt(light / 2)`; `<level>.lightmap.json` carries the sun direction and energies. In Godot, `RealLook` puts `baked_pbr.gdshader` on surfaces with a second UV set and `RealEnv` builds the matching sky and sun. Why Blender and not Godot's LightmapGI: Godot 4.7 can only bake lightmaps by clicking in the editor, and this pipeline is scripted end to end.
 
+## Characters
+
+```bash
+blender --background --python blender/character.py -- dev      # NOT --factory-startup: needs the MPFB extension
+./build.sh board                                               # the real-sized skateboard
+cd game && godot --path . res://scenes/dev_rig.tscn             # pose tour -> ../shots/rig_*.png
+```
+
+Archetypes are recipes in `ARCHETYPES` (body settings, stylizing targets, skin, eyes, hair, clothes). MPFB and the MakeHuman CC0 asset packs must be installed (see `ART_CREDITS.md`). In Godot, `RiderRig` poses the skeleton; `Skater.rider = "dev"` picks the character.
+
 ## Tests
 
 Feel tests on the greybox (pass / fail, exit code = failures):

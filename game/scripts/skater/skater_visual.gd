@@ -50,6 +50,7 @@ var tumble: float = 0.0
 var tumble_axis: Vector3 = Vector3.RIGHT
 var _t: float = 0.0
 var shoes: Dictionary = {}       # node -> rest transform, per side
+var upright_xf: Transform3D = Transform3D.IDENTITY   # the rider's frame before any bail roll (the ground under it)
 
 
 func setup(look: Dictionary = {}) -> void:
@@ -160,6 +161,7 @@ func sync_from(sk: Skater, dt: float) -> void:
 	var basis_v: Basis = Basis(fwd.cross(vis_n), vis_n, -fwd)
 	_pose(sk, dt)
 	var xf: Transform3D = Transform3D(basis_v, pos)
+	upright_xf = xf
 	if sk.state == Skater.State.BAIL and sk.bail_kind != "runout":
 		xf = _slam_transform(sk, basis_v, pos) if sk.bail_kind == "slam" else _tumble_transform(sk, basis_v, pos)
 	global_transform = xf

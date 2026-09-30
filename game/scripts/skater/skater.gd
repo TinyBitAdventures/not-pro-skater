@@ -34,6 +34,7 @@ var grind_lines: Array[GrindLine] = []
 var visual: SkaterVisual = null
 var fx: SkaterFx = null
 var with_visual: bool = true
+var rider: String = ""                  # a character glb (assets/characters/<rider>.glb) instead of the cartoon rider
 var use_blob: bool = true              # the toon look's fake contact shadow; real-shadow scenes turn it off
 var steer_mode: String = ""          # "" = follow Game.steer_mode; AI skaters use "screen"
 var cam_y: float = 0.0               # ground height the camera follows (does not rise with a jump)
@@ -128,7 +129,12 @@ func _ready() -> void:
 	cs.position = Vector3(0, CAPSULE_H * 0.5 + 0.02, 0)
 	add_child(cs)
 	if with_visual:
-		visual = SkaterVisual.new()
+		if rider != "":
+			var rig: RiderRig = RiderRig.new()
+			rig.char_key = rider
+			visual = rig
+		else:
+			visual = SkaterVisual.new()
 		visual.top_level = true
 		add_child(visual)
 		visual.setup(look)
