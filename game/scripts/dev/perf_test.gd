@@ -20,6 +20,7 @@ var _prims: int = 0
 var _objs: int = 0
 var _samples: int = 0
 var _last_pos: Vector3 = Vector3.ZERO
+var _beat: int = -1
 var _cpu: Dictionary = {"process": 0.0, "physics": 0.0, "render_cpu": 0.0, "render_gpu": 0.0}
 
 
@@ -57,6 +58,30 @@ func _cost() -> void:
 	for i in n:
 		sk._physics_process(1.0 / 120.0)
 	var phys_us: float = float(Time.get_ticks_usec() - t0) / n
+	t0 = Time.get_ticks_usec()
+	var hud: Node = world.get("hud")
+	for i in n:
+		world.call("_process", 1.0 / 60.0)
+	var world_us: float = float(Time.get_ticks_usec() - t0) / n
+	var runner: Node = world.get("runner")
+	t0 = Time.get_ticks_usec()
+	for i in n:
+		runner.call("_process", 1.0 / 60.0)
+	var runner_us: float = float(Time.get_ticks_usec() - t0) / n
+	t0 = Time.get_ticks_usec()
+	for i in n:
+		sk.fx.tick(1.0 / 60.0)
+	var fx_us: float = float(Time.get_ticks_usec() - t0) / n
+	var cam: Node = world.get("cam")
+	t0 = Time.get_ticks_usec()
+	for i in n:
+		cam.call("_process", 1.0 / 60.0)
+	var cam_us: float = float(Time.get_ticks_usec() - t0) / n
+	t0 = Time.get_ticks_usec()
+	for i in n:
+		hud.call("_process", 1.0 / 60.0)
+	var hud_us: float = float(Time.get_ticks_usec() - t0) / n
+	print("[cost] world %.0f us, event runner %.0f us, fx %.0f us, camera %.0f us, hud %.0f us" % [world_us, runner_us, fx_us, cam_us, hud_us])
 	print("[cost] rider rig %.0f us/frame   %d bystanders %.0f us/frame   skater physics step %.0f us (x2 per frame)" % [rig_us, npcs.size(), npc_us, phys_us])
 
 
@@ -96,9 +121,20 @@ func _process(dt: float) -> void:
 	if sk == null:
 		return
 	_t += dt
-	# cruise: push, weave gently
+	# cruise: push, weave gently; STRESS=1 also jumps, flips and crashes now and then
 	sk.inp.move = Vector2(sin(_t * 0.5) * 0.35, -1.0 if sk.velocity.length() < 6.0 else 0.0)
 	sk.inp.world_dir = sk.hdg
+	if OS.get_environment("STRESS") != "":
+		var beat: int = int(_t * 2.0)
+		if beat != _beat:
+			_beat = beat
+			if beat % 3 == 0 and sk.state == Skater.State.GROUND:
+				sk.inp.ollie_pressed = true
+				sk.inp.ollie_released = true
+			if beat % 5 == 1 and sk.state == Skater.State.AIR:
+				sk.inp.flip_pressed = true
+			if beat % 17 == 8 and sk.state == Skater.State.GROUND:
+				sk._start_bail("crash")
 	var p: Vector3 = sk.visual.global_position if sk.visual != null else sk.global_position
 	if _t > WARMUP:
 		_frames.append(dt)
