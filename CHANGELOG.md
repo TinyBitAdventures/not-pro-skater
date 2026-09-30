@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Playtest fixes: crashes, letters, quit
+- **Crashes look like a person falling, not a rag doll:** the ragdoll has muscles now. Each part pulls toward the pose it had when it went down (neck and back firmest), the arms reach down toward where the body is falling to catch it, and the legs let go of the riding crouch; once the body lies still the muscles relax and the back and legs ease straight. Before, it went completely limp: face-plants with the arms tucked under the chest, the head thrown back against a wall. `LIMP=1` turns the muscles off for comparison.
+- Fixed: a one-frame pop at every get-up after a crash (the rider flashed upright on the board), from the skeleton showing its stale riding pose the frame the ragdoll stopped.
+- **P-A-R-T-Y on the HUD:** the event's letters are balloon badges at the top of the screen, dim until grabbed. A grabbed letter flies from its balloon to its badge, which fills with the balloon's colour and pops; with the whole word in, the row waves. The goal list counts them (2/5).
+- **Quit on the title menu** (desktop; the web build has nothing to quit to). Esc on the title jumps to it.
+- Dev: `dev_bailfilm.tscn` films physical bails side-on up close (slam, tumble, half pipe, wall, grind fall); `tools/film_sheet.sh` makes contact sheets.
+
 ### Playtest fixes: grind balance, the level's edge
 - **Grinds have a balance meter:** the lean tips away from the middle faster and faster (quicker the longer the grind; nose and tail slides tip faster than a 50-50), and left / right shift the weight back. Coming in across the rail starts you leaning the way you were going. Past either end the rider falls off to that side (a slam, never a run-out). The rider sways with the lean. A clean 50-50 left alone lasts about 1.7 s, a sloppy entry about 1.1 s. Tuning in F3 under Grinding (`grind_wobble`, `grind_control`, ...). Feel tests `grind_hold`, `grind_drop`, `grind_lean`.
 - **Lip stalls balance the same way:** the stick is the rider's weight, so push against the lean (it was the other way round, unlike grinds).
