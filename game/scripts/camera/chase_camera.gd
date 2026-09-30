@@ -96,7 +96,7 @@ func _desired() -> Dictionary:
 		pos = _vert_anchor
 		look = _vert_lip.lerp(sk.render_position() + Vector3.UP * 0.8, 0.5)
 		return {"pos": _collide(look, pos), "look": look}
-	return {"pos": _clear_of_rider(focus, look, _collide(look, pos)), "look": look}
+	return {"pos": _clear_of_rider(focus, look, _collide_rise(look, pos)), "look": look}
 
 
 ## A wall close behind pulls the camera in; closer than min_distance it would end up inside the rider.
@@ -112,6 +112,20 @@ func _clear_of_rider(focus: Vector3, look: Vector3, pos: Vector3) -> Vector3:
 	if axis.length() < 0.55 and pos.y < focus.y + 2.1:
 		pos = _collide(look, Vector3(pos.x, focus.y + 2.3, pos.z))
 	return pos
+
+
+## Behind the rider can be inside a ramp (rolling back down a transition, "behind" is up the slope): rather
+## than pulling in to the ramp's face, right against the coping, rise until the view is clear, like a skate
+## game camera floating over the deck. Only if no height up to 3 m clears it does it pull in.
+func _collide_rise(from: Vector3, to: Vector3) -> Vector3:
+	if not is_inside_tree():
+		return to
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	for lift in [0.0, 0.8, 1.6, 2.4, 3.2]:
+		var p: Vector3 = to + Vector3.UP * lift
+		if space.intersect_ray(PhysicsRayQueryParameters3D.create(from, p, WORLD_MASK)).is_empty():
+			return p
+	return _collide(from, to)
 
 
 ## Keep a clear line from the skater to the camera: if a wall is in the way, sit just in front of it.
@@ -161,6 +175,12 @@ func _process(dt: float) -> void:
 
 	var r: Dictionary = _desired()
 	_pos = _pos.lerp(r["pos"], 1.0 - exp(-follow_rate * dt))
+	# a big swing (after a vert landing) would slide straight through the rider: keep it out on a radius
+	var f: Vector3 = sk.rider_position() + Vector3.UP * look_height
+	var off: Vector3 = _pos - f
+	var min_r: float = maxf(min_distance, distance * 0.7)
+	if off.length() < min_r and off.length() > 0.01:
+		_pos = f + off.normalized() * min_r
 	_pos = _collide(r["look"], _pos)           # the smoothed position must not pass through walls either
 	_look = _look.lerp(r["look"], 1.0 - exp(-14.0 * dt))
 	var spd: float = sk.velocity.length()
