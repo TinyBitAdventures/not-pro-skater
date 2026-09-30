@@ -136,7 +136,7 @@ def _tube(verts, faces, uvs, fmat, path, radii, sides=8, mat=0):
             uvs.append([(ua * 1.2, va), (ub * 1.2, va), (ub * 1.2, vb), (ua * 1.2, vb)])
 
 
-def tree(name, loc, height=7.0, crown=3.2, seed=0, cards=110, parent=None):
+def tree(name, loc, height=7.0, crown=3.2, seed=0, cards=110, parent=None, litter=10):
     rnd = random.Random(seed)
     verts, faces, uvs, fmat = [], [], [], []
     normals = {}                                  # vertex index -> custom normal (leaf cards)
@@ -172,6 +172,22 @@ def tree(name, loc, height=7.0, crown=3.2, seed=0, cards=110, parent=None):
             q = p + (u * a + v * b2) * s * 0.6
             verts.append(q)
             normals[len(verts) - 1] = (q - centre).normalized()
+        faces.append((base, base + 1, base + 2, base + 3))
+        fmat.append(1)
+        uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+    # fallen leaves: flat cards scattered on the ground under the crown (normals up: lit like the ground)
+    for i in range(litter):
+        ang = rnd.uniform(0.0, math.tau)
+        r = crown * 0.85 * rnd.random() ** 0.6
+        p = Vector((math.cos(ang) * r, math.sin(ang) * r, 0.025 + i * 0.002))
+        rot = rnd.uniform(0.0, math.tau)
+        u = Vector((math.cos(rot), math.sin(rot), 0.0))
+        v = Vector((-u.y, u.x, 0.0))
+        s = rnd.uniform(0.5, 0.8)
+        base = len(verts)
+        for (a, b2) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+            verts.append(p + (u * a + v * b2) * s)
+            normals[len(verts) - 1] = Vector((0.0, 0.0, 1.0))
         faces.append((base, base + 1, base + 2, base + 3))
         fmat.append(1)
         uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
