@@ -176,6 +176,25 @@ Criteria: how it looks in a web build, PCK size, rebuild time, whether it can ru
 - **Events system.** `scripts/events/event_def.gd` resources, each with goals, a time of day or grade, a music track, and props to spawn. The same level can host several events later (a fundraiser in the same park at a different time of day).
 - **Then:** delete the toon pipeline and the old park, rename the project to Not Pro Skaters (Godot `config/name`, README, window title, title screen), and do a web performance pass.
 
+## Phase 7: Second level + event: the school skate-a-thon
+
+- **Level 2: "Maple Grove Elementary"** on a Saturday morning (a higher, fresher sun than the park's golden hour). Real-scale school grounds with everyday spots:
+  - the front **entrance plaza**: steps down from the doors with two handrails and a centre rail, a long access ramp with its own rail, planter ledges, benches, a flagpole;
+  - the **school sign**: a low brick wall by the street, its capstone a ledge;
+  - a **covered walkway** to the car park (a row of columns to weave through);
+  - the **car park**: painted bays, grindable wheel stops, curb islands with trees, a speed bump, parked cars, light poles;
+  - the **loading dock** at the building's end (a 1.1 m dock ledge);
+  - the **basketball court**, where the PTA set up portable ramps for the day (two quarter pipes, a funbox with a rail, a kicker, a flat bar);
+  - the old fenced playground the money is for, lawns, trees, the street and houses opposite.
+- **Event 2: "Skate-a-thon"**, raising money for a new playground. Sponsors pledge per trick, so the score reads as dollars, and a big fundraising thermometer on the plaza fills as you raise it. Goals:
+  - ride laps of the school through the gates (the heart of a skate-a-thon)
+  - grind the front-steps handrail
+  - carry the bake-sale cake from a car to the table without bailing
+  - collect **D-O-N-A-T-E**
+  - impress the principal (land a trick near her)
+  - raise $2,500
+- **Pipeline first:** levels share their textures (one copy of each CC0 set and prop texture for every level) so a second level fits the web build.
+
 ## Later: the rest of the cast and events
 
 | Archetype | Home event | Music |
