@@ -31,9 +31,12 @@ var _fov_kick: float = 0.0
 var _vert_hold: bool = false
 var _vert_anchor: Vector3 = Vector3.ZERO
 var _vert_lip: Vector3 = Vector3.ZERO
-var vert_back: float = 4.8         # how far out from the wall the vert shot sits
-var vert_rise: float = 0.2         # and how far above the lip
-var vert_side: float = 2.8         # and how far to the side along the coping
+var vert_back: float = 2.9         # how far out from the wall the vert shot sits
+var vert_rise: float = 0.6         # and how far above the lip
+var vert_side: float = 1.8         # and how far to the side along the coping
+const VERT_FOLLOW_Y: float = 0.7   # share of the rider's height above the lip the vert shot rises with
+const VERT_LOOK_RIDER: float = 0.95  # how far from the lip toward the rider the vert shot looks
+const AIR_ZOOM: float = 12.0       # degrees of field of view taken off at the top of a big air
 var min_distance: float = 1.7      # closer than this to the rider (a wall behind), rise over instead
 var _swing_boost: float = 0.0      # extra swing speed just after a vert landing
 var _was_state: int = -1
@@ -93,8 +96,14 @@ func _desired() -> Dictionary:
 	var look: Vector3 = _collide(focus + Vector3.UP * look_height, focus + Vector3.UP * look_height + ahead)
 	var pos: Vector3 = focus + back * distance + Vector3.UP * height
 	if _vert_hold:
-		pos = _vert_anchor
-		look = _vert_lip.lerp(sk.render_position() + Vector3.UP * 0.8, 0.5)
+		# the air is the show: the shot rises with the rider, slides along the coping with any drift, and
+		# keeps the rider (not the lip) at the centre of the frame
+		var rp: Vector3 = sk.render_position()
+		var along: Vector3 = sk.vert_out.cross(Vector3.UP).normalized() if sk.vert_out.length() > 0.1 else Vector3.ZERO
+		var drift: float = (rp - _vert_lip).dot(along)
+		var above: float = maxf(0.0, rp.y - _vert_lip.y)
+		pos = _vert_anchor + along * drift + Vector3.UP * above * VERT_FOLLOW_Y
+		look = _vert_lip.lerp(rp + Vector3.UP * 0.8, VERT_LOOK_RIDER)
 		return {"pos": _collide(look, pos), "look": look}
 	# rise tests look for the rider's chest, so a lift over a ramp's deck never hides the rider behind the lip
 	var chest: Vector3 = focus + Vector3.UP * 1.0
@@ -195,6 +204,14 @@ func _process(dt: float) -> void:
 	var spd: float = sk.velocity.length()
 	_fov_kick = move_toward(_fov_kick, 0.0, dt * 12.0)
 	var want_fov: float = fov_base + (fov_fast - fov_base) * clampf((spd - 6.0) / 12.0, 0.0, 1.0) + _fov_kick
+	# push in on the rider through a big air (vert above the lip, or high off a kicker): the trick fills the frame
+	if st == Skater.State.AIR:
+		var into: float = clampf(sk.air_time / 0.3, 0.0, 1.0)
+		if _vert_hold:
+			want_fov -= AIR_ZOOM * into                          # every vert air is a moment
+		else:
+			var high: float = sk.render_position().y - _ground_y
+			want_fov -= AIR_ZOOM * clampf(high / 2.0, 0.0, 1.0) * into
 	fov = lerpf(fov, want_fov, 1.0 - exp(-5.0 * dt))
 	# slightly underdamped spring back to rest
 	var k: float = 90.0

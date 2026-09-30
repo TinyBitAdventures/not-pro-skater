@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fix: half pipe airs are the shot
+- Off a quarter or half pipe the camera used to park where the air began and watch the lip, so the air read as a pause. The vert shot now sits closer and a little higher (2.9 m out, 1.8 m to the side), rises with the rider, slides along the coping with any drift, looks at the rider instead of the lip, and pushes in (12 degrees of zoom) as the rider leaves the lip; big airs off kickers get the same push-in by height. It still holds out front until the rider is back down the wall, then swings behind.
+
 ### Fix: crashes bend like a body, not a doll
 - Knees are hinges now: they bend the natural way only, about the leg's left-right axis. They hung off cone joints that let them fold 60 degrees sideways and hyperextend backwards by up to 48 (the frog-legged half pipe slams). The legs also ease out of the riding crouch as soon as the fall starts, so a rider face down on the ground no longer lies there with the feet in the air.
 - The bail physics test measures every knee through each crash and fails on hyperextension or sideways bending (before: sideways up to 62 degrees, backwards up to 48; now: at most 3 and none).
