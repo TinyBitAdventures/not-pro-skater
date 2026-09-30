@@ -388,10 +388,11 @@ def build(out, bake=True, samples=128):
     furniture()
     plant_trees()
     markers()
-    tree_fn = lambda name, base, h, crown, seed: trees.tree(name, base, height=h, crown=crown, seed=seed)
+    # past the edge: an industrial district (a corrugated fence, sheds, a container yard, a rail spur), hills beyond
     terrain.backdrop(tree_fn=lambda name, base, h, crown, seed: trees.tree(name, base, height=h, crown=crown, seed=seed,
-                                                                         cards=60, litter=0))
-    terrain.edge_trees(tree_fn)
+                                                                         cards=60, litter=0),
+                     flat_to=125.0, near_ground=("FarYard", "#7d7a72"))
+    terrain.industrial()
     objs = list(bpy.context.scene.objects)
     realism.dress([o for o in objs if not o.get("library") and not o.name.startswith(("Tree", "Far_Tree", "FarTree"))])
     realism.split_collision()

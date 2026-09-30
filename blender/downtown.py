@@ -79,9 +79,11 @@ def ground():
 
 # ------------------------------------------------------------------ buildings
 
-def facade(name, x0, x1, y0, y1, h, material, front_y=None, front_x=None, shop=None, storey=3.4, seed=0, first_floor=0):
+def facade(name, x0, x1, y0, y1, h, material, front_y=None, front_x=None, shop=None, storey=3.4, seed=0, first_floor=0,
+           side_x=None):
     """A city building: a box with rows of windows on its street faces, a shopfront at street level (glass, an
-    awning, a sign) if `shop` is given as (text, colour)."""
+    awning, a sign) if `shop` is given as (text, colour). side_x: one more face (x) with windows on every floor,
+    for a side that faces open ground."""
     trim = mat("Trim", "#e8e4dc")
     box(f"Wall_{name}-col", (x1 - x0, y1 - y0, h), ((x0 + x1) / 2, (y0 + y1) / 2, CURB + h / 2), material)
     box(lib.uname(name + "_cornice"), (x1 - x0 + 0.3, y1 - y0 + 0.3, 0.4), ((x0 + x1) / 2, (y0 + y1) / 2, CURB + h + 0.2),
@@ -101,6 +103,14 @@ def facade(name, x0, x1, y0, y1, h, material, front_y=None, front_x=None, shop=N
             for i in range(n):
                 houses._window_side(r, front_x, y0 + d * (i + 0.5) / n, z, 1.6, 2.0, trim,
                                     facing=1 if front_x > (x0 + x1) / 2 else -1)
+    if side_x is not None:
+        d = y1 - y0
+        n = max(1, int(d // 3.0))
+        for f in range(max(first_floor, 0), max(floors, 1)):
+            z = CURB + 1.0 + f * storey
+            for i in range(n):
+                houses._window_side(r, side_x, y0 + d * (i + 0.5) / n, z, 1.6, 2.0, trim,
+                                    facing=1 if side_x > (x0 + x1) / 2 else -1)
     if shop:
         text, colour = shop
         glass = houses.glass()
@@ -131,12 +141,12 @@ def buildings():
     # the south-west block: the café on the corner of Second Street, shops down to the avenue
     facade("Cafe", -24.0, -12.0, 0.0, 16.0, 8.2, brick, front_x=-12.0, shop=("MORNING GLORY CAFE", "#2f6f5a"), seed=1)
     facade("ShopSW", -24.0, -12.0, -26.0, -4.0, 11.0, cream, front_x=-12.0, shop=("BOOKS", "#8a3b33"), seed=2)
-    facade("BlockSW", -44.0, -26.0, -26.0, 16.0, 16.0, stone, front_y=16.0, seed=3)
+    facade("BlockSW", -44.0, -26.0, -26.0, 16.0, 16.0, stone, front_y=16.0, seed=3, side_x=-44.0)
     # the north-west block: tall offices, the subway entrance on the corner
     facade("BlockNW", -40.0, -12.0, 29.0, 60.0, 21.0, grey, front_x=-12.0, front_y=29.0, seed=4)
     # the south-east block: a long building with a plinth (the bank to wall) along Market Street
     facade("BlockSE", 14.0, 44.0, -26.0, 2.0, 13.0, brick, front_x=14.0, front_y=2.0, seed=5, first_floor=1)
-    facade("ShopSE", 30.0, 44.0, 2.0, 16.0, 7.0, cream, front_y=16.0, shop=("DELI", "#b8732c"), seed=6)
+    facade("ShopSE", 30.0, 44.0, 2.0, 16.0, 7.0, cream, front_y=16.0, shop=("DELI", "#b8732c"), seed=6, side_x=30.0)
     # the office tower on the civic plaza
     tx0, tx1, ty0, ty1 = TOWER
     box("Wall_Tower-col", (tx1 - tx0, ty1 - ty0, 36.0), ((tx0 + tx1) / 2, (ty0 + ty1) / 2, 18.0), stone)
@@ -145,19 +155,44 @@ def buildings():
     for z in range(4, 36, 4):
         for yy in range(int(ty0) + 2, int(ty1) - 1, 3):
             houses._window_side(r, tx0, yy + 0.5, float(z), 2.6, 3.0, mull, facing=-1)
+            houses._window_side(r, tx1, yy + 0.5, float(z), 2.6, 3.0, mull, facing=1)
+        for xx in range(int(tx0) + 2, int(tx1) - 1, 3):
+            houses._window(r, xx + 0.5, ty0, float(z), 2.6, 3.0, mull, facing=-1)
     glass = houses.glass()
     lib.quad(lib.uname("Lobby_glass"), (tx0 - 0.04, 36.0, PLAZA_H + 0.1), (tx0 - 0.04, 46.0, PLAZA_H + 0.1),
              (tx0 - 0.04, 46.0, PLAZA_H + 3.6), (tx0 - 0.04, 36.0, PLAZA_H + 3.6), glass, expect=(-1, 0, 0))
     box(lib.uname("Lobby_canopy"), (3.0, 11.0, 0.25), (tx0 - 1.5, 41.0, PLAZA_H + 4.0), M("Steel"))
     school.text_mesh("Tower_name", "ONE MARKET PLACE", 0.5, (tx0 - 0.12, 41.0, PLAZA_H + 4.8),
                      (math.pi / 2, 0.0, -math.pi / 2), mat("SignWhite", "#f2f0ea"), depth=0.02)
-    # the backdrop: glass towers beyond the blocks (the city goes on)
+    # the backdrop: towers beyond the blocks (the city goes on). Glass ones banded by stone floor slabs, stone ones
+    # with ribbon windows; some stand on a podium, some step back near the top. A band is one box a little bigger
+    # than the tower, so it reads on all four faces. Far colours only: they stay live and out of the bake
+    f_glass = mat("FarGlass", "#34404a")
+    f_stone = mat("FarBlockC", "#b7b0a5")     # the city_blocks palette: shared draw calls
+    f_dark = mat("FarBlockD", "#7d7f84")
+    f_win = mat("FarWin", "#2c343c")
     for i, (x, y, w, d, h) in enumerate(((-75.0, 10.0, 18, 22, 60), (-80.0, 50.0, 20, 20, 44), (-70.0, -50.0, 16, 16, 38),
                                          (75.0, -10.0, 22, 18, 70), (80.0, 40.0, 18, 22, 52), (72.0, -52.0, 16, 18, 34),
                                          (-20.0, 85.0, 24, 18, 58), (20.0, 88.0, 18, 18, 76), (50.0, 82.0, 16, 16, 40),
                                          (-50.0, 82.0, 20, 16, 48))):
-        box(lib.uname("Far_Tower"), (w, d, h), (x, y, h / 2), glass)
-        box(lib.uname("Far_TowerCap"), (w + 0.6, d + 0.6, 1.0), (x, y, h + 0.5), mat("StoneDk", "#77736c"))
+        glassy = i % 3 != 1
+        body, band = (f_glass, f_stone) if glassy else (f_stone, f_win)
+        z0 = -0.2
+        if i % 4 == 0:                                         # a podium with a dark shopfront band
+            box(lib.uname("Far_TowerPodium"), (w + 10.0, d + 10.0, 9.0 - z0), (x, y, (9.0 + z0) / 2), f_stone)
+            box(lib.uname("Far_TowerPodium"), (w + 10.1, d + 10.1, 3.2), (x, y, 2.2), f_win)
+        top = round(h * 0.72) if i % 3 == 2 else h            # the step back
+        box(lib.uname("Far_Tower"), (w, d, top - z0), (x, y, (top + z0) / 2), body)
+        if top < h:
+            box(lib.uname("Far_Tower"), (w * 0.7, d * 0.7, h - top), (x, y, (top + h) / 2), body)
+            box(lib.uname("Far_TowerCap"), (w + 0.6, d + 0.6, 0.8), (x, y, top + 0.4), f_dark)
+        z = 5.0
+        while z < h - 2.0:
+            s = 1.0 if z < top else 0.7
+            box(lib.uname("Far_TowerBand"), (w * s + 0.12, d * s + 0.12, 0.75 if glassy else 1.7), (x, y, z), band)
+            z += 3.6
+        box(lib.uname("Far_TowerCap"), ((w * (0.7 if top < h else 1.0)) + 0.6, (d * (0.7 if top < h else 1.0)) + 0.6, 1.2),
+            (x, y, h + 0.6), f_dark)
 
 
 # ------------------------------------------------------------------ the civic plaza
