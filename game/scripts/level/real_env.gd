@@ -28,7 +28,7 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	env.tonemap_exposure = float(info.get("look", {}).get("exposure", info.get("exposure", 0.9)))
 	# drawn sky only (not the light it casts): photographs of sunny parks show the sky brighter than a
 	# physically scaled HDRI next to sunlit concrete does
-	env.background_energy_multiplier = float(info.get("sky_display", 1.7))
+	env.background_energy_multiplier = float(info.get("look", {}).get("sky_display", info.get("sky_display", 1.7)))
 	env.glow_enabled = true
 	env.glow_intensity = 0.3
 	env.glow_bloom = 0.05
