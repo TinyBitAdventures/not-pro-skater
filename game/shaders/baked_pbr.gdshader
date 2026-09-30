@@ -13,6 +13,7 @@ uniform vec4 albedo : source_color = vec4(1.0);
 uniform sampler2D orm_tex : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float roughness : hint_range(0.0, 1.0) = 1.0;
 uniform float metallic : hint_range(0.0, 1.0) = 0.0;
+uniform float rough_min : hint_range(0.0, 1.0) = 0.0;   // grass and rough ground never shine like a wet road
 uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform bool has_normal = false;
 uniform float normal_scale = 1.0;
@@ -117,7 +118,7 @@ void fragment() {
 	}
 	ALBEDO = col;
 	vec4 orm = texture(orm_tex, UV);
-	ROUGHNESS = mix(orm.g * roughness, 1.0, joint);
+	ROUGHNESS = max(mix(orm.g * roughness, 1.0, joint), rough_min);
 	METALLIC = orm.b * metallic;
 	if (has_normal) {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;

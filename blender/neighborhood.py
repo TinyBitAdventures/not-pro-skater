@@ -228,7 +228,9 @@ def write_look(out_glb):
     """Surface dressing Godot applies to the baked concrete (baked_pbr.gdshader): a 2 m saw-cut grid across the
     plaza (its edges sit on the grid) and cross cuts every 1.5 m along the sidewalks. Godot axes (x, -y)."""
     import json
-    look = {"joints": {"PBR_concrete": {"grid": [2.0, 2.0], "rect": [-34.0, -10.0, 6.0, 24.0], "along_x": 1.5}}}
+    look = {"joints": {"PBR_concrete": {"grid": [2.0, 2.0], "rect": [-34.0, -10.0, 6.0, 24.0], "along_x": 1.5}},
+            # late afternoon (realism.SKY): the low sun's sky is dim, so the baked shade is lifted and exposed up
+            "bake_energy": 2.1, "exposure": 1.0}
     with open(out_glb[:-4] + ".look.json", "w") as f:
         json.dump(look, f, indent=1)
 

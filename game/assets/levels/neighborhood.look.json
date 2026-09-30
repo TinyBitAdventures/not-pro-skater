@@ -13,5 +13,7 @@
    ],
    "along_x": 1.5
   }
- }
+ },
+ "bake_energy": 2.1,
+ "exposure": 1.0
 }

@@ -13,6 +13,11 @@ const PLY_TILE: float = 1.2               # metres per texture tile of the "wood
 static var _made: Array[ShaderMaterial] = []
 static var _macro: Texture2D
 
+## A floor on roughness per texture set: under a low sun the maps' glossier texels read as a wet sheen.
+const ROUGH_MIN: Dictionary = {"grass": 0.92, "concrete": 0.7, "concrete_rough": 0.75, "asphalt": 0.75, "paving": 0.72,
+	"wood": 0.6, "wood_side": 0.6, "roof": 0.7, "brick": 0.8, "siding": 0.6, "siding_blue": 0.6, "siding_sage": 0.6,
+	"siding_cream": 0.6, "siding_grey": 0.6, "dirt": 0.9}
+
 ## Large-scale variation per texture set (baked_pbr.gdshader): [amount, tint, tint amount]. Grass gets dry
 ## yellow patches, concrete and asphalt faint stains, everything else a whisper so no tile repeats exactly.
 const MACRO: Dictionary = {
@@ -28,6 +33,9 @@ const MACRO: Dictionary = {
 ## its node name (Blender's join_static names it "Baked_<group>").
 static func apply(root: Node, lightmaps: Dictionary, info: Dictionary) -> void:
 	_made.clear()
+	# the level's look can set how strong the baked light is (a low sun's sky gives dim shade: lift it)
+	if info.get("look", {}).has("bake_energy") and OS.get_environment("BAKE_ENERGY") == "":
+		bake_energy = float(info["look"]["bake_energy"])
 	var cache: Dictionary = {}
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		var inst: MeshInstance3D = mi as MeshInstance3D
@@ -91,6 +99,7 @@ static func _baked(src: BaseMaterial3D, lightmap: Texture2D, info: Dictionary) -
 static func _dress(m: ShaderMaterial, mat_name: String, look: Dictionary) -> void:
 	var set_name: String = mat_name.trim_prefix("PBR_")
 	var mc: Array = MACRO.get(set_name, [0.05, Color(1, 1, 1), 0.0])
+	m.set_shader_parameter("rough_min", float(ROUGH_MIN.get(set_name, 0.0)))
 	m.set_shader_parameter("macro_tex", _macro_texture())
 	m.set_shader_parameter("macro_amount", mc[0])
 	var tint: Color = mc[1]

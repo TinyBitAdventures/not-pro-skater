@@ -23,7 +23,9 @@ from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ART = os.path.normpath(os.path.join(HERE, "..", "art"))
-HDRI = os.path.join(ART, "hdri", "kloofendal_48d_partly_cloudy_puresky_2k.hdr")
+# the sky (and so the sun and the light) for the bakes: SKY=<polyhaven id> overrides it for comparisons
+SKY = os.environ.get("SKY", "qwantani_late_afternoon_puresky")      # late afternoon: long shadows, warm light
+HDRI = os.path.join(ART, "hdri", SKY + "_2k.hdr")
 RANGE = 2.0
 SKY_CLAMP = 30.0          # HDRI radiance above this is the sun disc: left out of the sky bake
 

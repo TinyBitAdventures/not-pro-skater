@@ -5,11 +5,11 @@
   "world"
  ],
  "sun_dir": [
-  0.5546,
-  0.742,
-  0.3767
+  0.7634,
+  0.3268,
+  0.5572
  ],
  "sun_energy": 1.0,
- "sky_energy": 0.737702,
- "hdri": "kloofendal_48d_partly_cloudy_puresky_1k.hdr"
+ "sky_energy": 0.431453,
+ "hdri": "qwantani_late_afternoon_puresky_1k.hdr"
 }

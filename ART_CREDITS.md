@@ -24,7 +24,7 @@ Licence: https://docs.ambientcg.com/license/
 
 | HDRI | Used for | Source |
 |---|---|---|
-| Kloofendal 48d Partly Cloudy (Pure Sky), 2K for baking, 1K in the game | sky, sky light, sun direction | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
+| Qwantani Late Afternoon (Pure Sky), 2K for baking, 1K in the game | sky, sky light, sun direction | https://polyhaven.com/a/qwantani_late_afternoon_puresky |
 
 Licence: https://polyhaven.com/license
 

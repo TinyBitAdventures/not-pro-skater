@@ -5,6 +5,7 @@ extends Node3D
 const EVENT_SCENE: String = "res://scenes/birthday.tscn"
 const FREE_SCENE: String = "res://scenes/neighborhood.tscn"
 const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
+const SPOT: Vector3 = Vector3(-18.0, 0.02, 4.0)      # where the rider stands: by the mini ramp, in the late sun
 const ITEMS: Array[String] = ["event", "free", "practice", "rider", "steer", "jump", "music", "controls"]
 
 var level: Level
@@ -21,7 +22,7 @@ var rider_name: Label
 var rider_blurb: Label
 var _hint: Control
 var _hint_root: Control
-var _orbit: float = 1.75            # starts on the rider's front three-quarter (the chest faces the board's right)
+var _orbit: float = 0.0             # set in _ready: starts on the sunny side, the rider's front three-quarter
 
 
 func _ready() -> void:
@@ -32,6 +33,8 @@ func _ready() -> void:
 	cam = Camera3D.new()
 	cam.fov = 50.0
 	add_child(cam)
+	var sh: Vector3 = _sun_h()
+	_orbit = atan2(sh.x, sh.z) - 0.45
 	_spawn_rider()
 	_build_ui()
 	Sound.play_music("title")
@@ -45,7 +48,20 @@ func _spawn_rider() -> void:
 	rider.rider = Game.rider
 	rider.scripted = true
 	add_child(rider)
-	rider.place_at(Transform3D(Basis(Vector3.UP, 0.5), Vector3(-12.0, 0.02, 6.0)))
+	# chest to the sun (a regular rider's chest faces the board's right): lit from the front on the title
+	var sun_h: Vector3 = _sun_h()
+	var hdg: Vector3 = Vector3.UP.cross(sun_h)
+	var spot: Vector3 = SPOT
+	if OS.get_environment("TITLE_AT") != "":
+		var p: PackedStringArray = OS.get_environment("TITLE_AT").split(",")
+		spot = Vector3(float(p[0]), 0.02, float(p[1]))
+	rider.place_at(Transform3D(Basis.looking_at(hdg, Vector3.UP), spot))
+
+
+func _sun_h() -> Vector3:
+	var d: Array = level.lightmap_info.get("sun_dir", [0.7, 0.3, 0.6])
+	var v: Vector3 = Vector3(d[0], 0.0, d[2])
+	return v.normalized() if v.length() > 0.01 else Vector3(0, 0, 1)
 
 
 func _process(delta: float) -> void:

@@ -25,7 +25,7 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	env.ambient_light_energy = 1.0
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.tonemap_exposure = float(info.get("exposure", 0.9))
+	env.tonemap_exposure = float(info.get("look", {}).get("exposure", info.get("exposure", 0.9)))
 	# drawn sky only (not the light it casts): photographs of sunny parks show the sky brighter than a
 	# physically scaled HDRI next to sunlit concrete does
 	env.background_energy_multiplier = float(info.get("sky_display", 1.7))
@@ -53,13 +53,14 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	sun.light_energy = float(info.get("sun_energy", 1.0))
 	sun.light_color = Color(1.0, 0.96, 0.9)
 	sun.shadow_enabled = true
-	sun.shadow_blur = 1.5
-	# two blended splits over 55 m: every split redraws the shadow casters, and four cost more than the sharpness
-	# they add at chase-camera distances
+	sun.shadow_blur = float(OS.get_environment("SH_BLUR")) if OS.get_environment("SH_BLUR") != "" else 2.5
+	# two blended splits over 40 m: every split redraws the shadow casters, and four cost more than the sharpness
+	# they add at chase-camera distances. A low sun stretches each shadow texel along the ground: the shorter
+	# range, a wider first split and more blur keep shadow edges from stair-stepping (SH_* env vars to compare)
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_split_1 = 0.12
+	sun.directional_shadow_split_1 = float(OS.get_environment("SH_SPLIT")) if OS.get_environment("SH_SPLIT") != "" else 0.2
 	sun.directional_shadow_blend_splits = true
-	sun.directional_shadow_max_distance = 55.0
+	sun.directional_shadow_max_distance = float(OS.get_environment("SH_DIST")) if OS.get_environment("SH_DIST") != "" else 40.0
 	sun.directional_shadow_fade_start = 0.85
 	parent.add_child(sun)
 	var d: Array = info.get("sun_dir", [0.3, 0.8, 0.4])

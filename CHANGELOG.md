@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Graphics: late afternoon light
+- **The park is lit by a late afternoon sun** (Poly Haven's CC0 Qwantani Late Afternoon sky, sun 19 degrees up): long shadows across the plaza and street, warm backlight on the trees, rim light on the riders. The midday sun (48 degrees) made everything flat. `SKY=<polyhaven id>` in `blender/realism.py` switches the sky for a bake; the level's `look.json` carries the matching exposure and baked-light strength.
+- **Grass and ground never shine like a wet road:** a roughness floor per material (grass 0.92), which a low sun had turned into glare.
+- **Clean shadow edges:** a low sun stretches each shadow texel along the ground and the edges stair-stepped; the sun's shadows now cover 40 m with a wider near split, more blur and the higher soft-shadow filter.
+- **Title screen:** the rider stands by the mini ramp in the sun, facing it, and the camera starts on the sunny side.
+
 ### New soundtrack: melodic techno
 - Five new Wavelength pieces replace the cartoon-era music, all built on one motif: **title** (atmospheric melodic techno, 120 BPM, A minor, 32 bars), **cruise** (friendly, groovy, swung, 125 BPM, D dorian, 64 bars, with a lift, a peak, a break and a return), **hype** (harder, straight 16ths, 131.25 BPM, E minor, 64 bars), and **results** / **new best** stings (the new-best run lands on the results chord). Seamless loops (exact sample counts, seams checked), -14 LUFS, balanced left/right, the 2-5 kHz band kept clear for the sound effects. All open-licensed sounds (Wavelength built-ins, MuseScore General, Surge XT patches); credits in `docs/AUDIO_CREDITS_music.md`.
 - Free Skate and Practice play the gameplay music too (only the event did).
