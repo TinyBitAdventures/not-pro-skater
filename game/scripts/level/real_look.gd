@@ -15,7 +15,7 @@ static var _macro: Texture2D
 
 ## A floor on roughness per texture set: under a low sun the maps' glossier texels read as a wet sheen.
 const ROUGH_MIN: Dictionary = {"grass": 0.92, "concrete": 0.7, "concrete_rough": 0.75, "asphalt": 0.75, "paving": 0.72,
-	"wood": 0.6, "wood_side": 0.6, "roof": 0.7, "brick": 0.8, "siding": 0.6, "siding_blue": 0.6, "siding_sage": 0.6,
+	"wood": 0.6, "wood_side": 0.6, "roof": 0.9, "roof_dark": 0.9, "roof_brown": 0.9, "brick": 0.8, "siding": 0.6, "siding_blue": 0.6, "siding_sage": 0.6,
 	"siding_cream": 0.6, "siding_grey": 0.6, "dirt": 0.9, "steel_plate": 0.62, "side_paint": 0.7}
 
 ## Large-scale variation per texture set (baked_pbr.gdshader): [amount, tint, tint amount]. Grass gets dry
@@ -100,6 +100,8 @@ static func _dress(m: ShaderMaterial, mat_name: String, look: Dictionary) -> voi
 	var set_name: String = mat_name.trim_prefix("PBR_")
 	var mc: Array = MACRO.get(set_name, [0.05, Color(1, 1, 1), 0.0])
 	m.set_shader_parameter("rough_min", float(ROUGH_MIN.get(set_name, 0.0)))
+	if set_name.begins_with("roof"):             # tile rows at grazing angles shimmered: flatter normals
+		m.set_shader_parameter("normal_scale", 0.45)
 	m.set_shader_parameter("macro_tex", _macro_texture())
 	m.set_shader_parameter("macro_amount", mc[0])
 	var tint: Color = mc[1]
