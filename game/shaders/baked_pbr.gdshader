@@ -107,6 +107,10 @@ void fragment() {
 		NORMAL_MAP_DEPTH = normal_scale;
 	}
 	vec3 lm = texture(lightmap, UV2).rgb;
-	float fill = mix(1.0, wall_fill, clamp(1.0 - abs(wnorm.y), 0.0, 1.0));
-	EMISSION = col * lm * lm * lm_range * bake_energy * fill;
+	float vertical = clamp(1.0 - abs(wnorm.y), 0.0, 1.0);
+	float fill = mix(1.0, wall_fill, vertical);
+	// a face smaller than a lightmap texel (a curb's 12 cm) samples the black around its island: never let
+	// a vertical face fall below a little sky light
+	vec3 baked = max(lm * lm * lm_range * fill, vec3(0.2 * vertical));
+	EMISSION = col * baked * bake_energy;
 }

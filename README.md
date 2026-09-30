@@ -166,6 +166,7 @@ The preset is single-threaded, so no cross-origin-isolation headers are needed a
 
 ```
 blender/   lib.py (mesh helpers, rails) pieces.py (skate kit) greybox.py (test level) neighborhood.py (level 1)
+           terrain.py (rolling lawn, the world past the edge)
            houses.py trees.py park_props.py (CC0 props) realism.py (PBR materials, lightmap bake)
            character.py (MPFB riders and bystanders) board.py build.py
 art/       CC0 source textures, models and HDRI (fetched, not in git; see ART_CREDITS.md)
@@ -174,7 +175,8 @@ game/
   scripts/skater/   Skater (physics + states), SkateTuning (every feel value), GrindLine (Curve3D rails),
                     RiderRig (skinned rider, poses, physical bails), Ragdoll, LooseBoard, SkaterFx,
                     ScoreKeeper, Tricks
-  scripts/level/    Level (glTF + rails.json loader), RealLook + RealEnv (baked-light materials, sky and sun)
+  scripts/level/    Level (glTF + rails.json loader), RealLook + RealEnv (baked-light materials, sky and sun),
+                    GrassField (grass tufts on the lawns)
   scripts/events/   Events (event definitions), EventRunner (goals), EventWorld (timed session)
   scripts/npc/      Npc (bystanders: look, cheer)
   scripts/greybox/  GreyboxWorld (base world: warps, rider swap), GreyLook (grid materials), GreyEnv

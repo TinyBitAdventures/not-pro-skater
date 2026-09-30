@@ -35,6 +35,7 @@ SETS = {
     "wood": ("Wood094", 1.2, (1.0, 1.0, 1.0), 0.0, True),
     "wood_side": ("Wood094", 1.2, (0.45, 0.42, 0.4), 0.0, True),
     "grass": ("Grass004", 2.5, (1.0, 1.0, 1.0), 0.0, True),
+    "grass_far": ("Grass004", 4.0, (0.8, 0.84, 0.74), 0.0, False),     # past the park's edge: lit live, not baked
     "metal": ("Metal032", 0.6, (1.0, 1.0, 1.0), 1.0, False),
     "paint_red": ("PaintedMetal004", 0.8, (1.0, 1.0, 1.0), 0.0, False),
     "bark": ("Bark012", 1.0, (1.0, 1.0, 1.0), 0.0, False),
@@ -64,7 +65,7 @@ KIT = {
     "Siding": "siding", "SidingBlue": "siding_blue", "SidingSage": "siding_sage", "Roof": "roof", "Brick": "brick",
     "Paving": "paving", "Dirt": "dirt", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
     "SidingCream": "siding_cream", "SidingGrey": "siding_grey", "RoofDark": "roof_dark", "RoofBrown": "roof_brown",
-    "Pole": "wood_side", "Driveway": "concrete",
+    "Pole": "wood_side", "Driveway": "concrete", "FarGrass": "grass_far",
 }
 
 _mats = {}
@@ -233,6 +234,9 @@ def join_static(name="Baked", group=None):
     bpy.ops.object.join()
     baked = bpy.context.view_layer.objects.active
     baked.name = name
+    # the joined mesh keeps the first object's mesh name: a "-col" there makes Godot build a second collider
+    # out of the whole baked mesh (it did: the lawn's), so name it after the object
+    baked.data.name = name
     me = baked.data
     # undersides resting on or below the ground are never seen: drop them so they take no lightmap space
     bm = bmesh.new()
@@ -263,8 +267,8 @@ def join_live(cell=30.0, prefix="Live"):
     for ob in bpy.context.scene.objects:
         if ob.type != "MESH" or ob.get("library") or ob.hide_render or not ob.data.polygons:
             continue
-        if ob.name.endswith("-colonly") or ob.name.startswith(("Baked", prefix)):
-            continue
+        if ob.name.endswith("-colonly") or ob.name.startswith(("Baked", prefix, "Far")):
+            continue                              # (the world past the edge is joined on its own: terrain.join_far)
         if ob.data.users > 1:                     # repeated props stay shared: Godot draws them as one MultiMesh
             continue
         centre = ob.matrix_world @ (sum((Vector(c) for c in ob.bound_box), Vector()) / 8.0)

@@ -15,7 +15,8 @@ var markers: Dictionary = {}             # Event_<name> markers (goals, props, N
 var starts: Dictionary = {}              # Start_<name> markers (warp spots): name -> Transform3D
 var collision_root: Node3D
 var stats: Dictionary = {}
-var lightmap_info: Dictionary = {}       # the bake's info (<level>.lightmap.json): sun direction, energies, groups
+var lightmap_info: Dictionary = {}
+var grass: GrassField       # the bake's info (<level>.lightmap.json): sun direction, energies, groups
 
 
 func load_glb(path: String, look: String = "real") -> void:
@@ -72,6 +73,8 @@ func load_glb(path: String, look: String = "real") -> void:
 				maps[String(g)] = load(gp)
 		RealLook.apply(scene, maps, lightmap_info)
 		_instance_repeats(scene)
+		grass = GrassField.new()                      # clumps of grass on the lawns near the rider
+		add_child(grass)
 	stats = {"bodies": bodies.size(), "grind": grind_lines.size(), "ms": Time.get_ticks_msec() - t0}
 
 

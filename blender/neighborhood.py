@@ -21,6 +21,7 @@ from pieces import bank, flat_rail, ledge, manual_pad, mini_ramp, quarter_pipe, 
 import houses
 import park_props as props
 import realism
+import terrain
 import trees
 
 LAWN_Z = -0.04
@@ -45,13 +46,13 @@ def marker(name, x, y, z=0.02, rot_deg=0.0):
 
 
 def ground():
-    # lawn around everything, with holes left for the hard surfaces (separate slabs sit on top)
-    slab("Lawn", "Grass", "Grass", -60.0, 60.0, -30.0, 60.0, top=LAWN_Z)
+    # the lawn rolls a little (terrain.py) and flattens to meet everything built; hard surfaces sit on top
+    terrain.lawn()
     # street: sidewalk, curb drop, road, sidewalk. Raised slabs are only as thick as their step down (plus a
     # little): a buried side face bakes black and bleeds into the visible strip as a dark line along the curb.
-    slab("SidewalkN", "Concrete", "Sidewalk", -60.0, 60.0, -32.5, -30.0, top=0.0, t=0.18)
+    slab("SidewalkN", "Concrete", "Sidewalk", -60.0, 60.0, -32.5, -30.0, top=0.0, t=-ROAD_Z)   # down to the road exactly
     slab("Road", "Path", "Road", -60.0, 60.0, -40.5, -32.5, top=ROAD_Z, t=0.3)
-    slab("SidewalkS", "Concrete", "Sidewalk", -60.0, 60.0, -43.0, -40.5, top=0.0, t=0.18)
+    slab("SidewalkS", "Concrete", "Sidewalk", -60.0, 60.0, -43.0, -40.5, top=0.0, t=-ROAD_Z)
     slab("FrontYards", "Grass", "Grass", -60.0, 60.0, -60.0, -43.0, top=LAWN_Z)
     # the skate plaza, the path in from the street and the one across to the party
     slab("Plaza", "Plaza", "Plaza", -34.0, 6.0, -24.0, 10.0, top=0.0, t=0.1, group="plaza")
@@ -81,10 +82,11 @@ def party():
     lo2, hi2 = props.bounds("wooden_picnic_table")
     props.place("boombox", 21.0, -6.3, 20.0, z=hi2.z, collide=False)
     # the party bench: a bench along the path with its seat edge as a grindable line
-    b = props.place("painted_wooden_bench", 13.0, 2.2, 0.0, surface="Wood", name="Prop_party_bench")
+    bz = terrain.lawn_rise(13.0, 2.2)
+    b = props.place("painted_wooden_bench", 13.0, 2.2, 0.0, z=bz, surface="Wood", name="Prop_party_bench")
     blo, bhi = props.bounds("painted_wooden_bench")
-    rail(None, "party_bench", [(13.0 + blo.x + 0.1, 2.2 + blo.y + 0.05, bhi.z * 0.62 + 0.07),
-                               (13.0 + bhi.x - 0.1, 2.2 + blo.y + 0.05, bhi.z * 0.62 + 0.07)], kind="ledge")
+    rail(None, "party_bench", [(13.0 + blo.x + 0.1, 2.2 + blo.y + 0.05, bz + bhi.z * 0.62 + 0.07),
+                               (13.0 + bhi.x - 0.1, 2.2 + blo.y + 0.05, bz + bhi.z * 0.62 + 0.07)], kind="ledge")
     # the cake starts on a table at the street (the bakery drop-off)
     props.place("round_wooden_table_02", -9.0, -31.2, 0.0, surface="Wood")
     marker("Event_cake_pickup", -9.0, -31.2, hi.z + 0.02)
@@ -118,14 +120,20 @@ def furniture():
         props.place("street_lamp_02", x, y, 45.0, surface="Metal")
     for x in range(-50, 51, 20):
         props.place("street_lamp_02", float(x), -30.6, 0.0, surface="Metal")
-    props.place("metal_trash_can", 11.5, 1.2, 0.0, surface="Metal")
-    props.place("metal_trash_can", -17.5, -26.0, 0.0, surface="Metal")
+    rise = terrain.lawn_rise
+    props.place("metal_trash_can", 11.5, 1.2, 0.0, z=rise(11.5, 1.2), surface="Metal")
+    props.place("metal_trash_can", -17.5, -26.0, 0.0, z=rise(-17.5, -26.0), surface="Metal")
     for x, y in ((-35.5, 0.0), (7.5, -10.0), (-20.0, 11.5)):
-        props.place("planter_box_01", x, y, 0.0, surface="Wall")
-    for i, (x, y) in enumerate(((-40.0, -28.0), (-30.0, -28.5), (20.0, -28.0), (35.0, -28.5), (40.0, 12.0),
-                                (-40.0, 14.0), (36.0, -14.0), (12.0, -16.0))):
-        props.place("shrub_03", x, y, i * 47.0, collide=False)
-    props.place("tree_stump_01", 38.0, 2.0, 0.0, surface="Wood")
+        props.place("planter_box_01", x, y, 0.0, z=rise(x, y), surface="Wall")
+    shrubs = [(-40.0, -28.0), (-30.0, -28.5), (20.0, -28.0), (35.0, -28.5), (40.0, 12.0), (-40.0, 14.0), (36.0, -14.0),
+              (12.0, -16.0),
+              # clumps around the plaza's edges and along the paths: soft green edges instead of lawn meeting slab
+              (-36.5, -8.0), (-36.2, -5.5), (-36.8, 4.5), (-27.0, 12.2), (-24.5, 12.6), (-5.0, 12.4), (2.5, 12.0),
+              (8.2, -18.0), (8.6, -21.0), (-10.0, -27.0), (-18.2, 16.0), (-9.8, 22.0), (-18.3, 30.0), (-9.7, 38.0),
+              (35.8, 5.0), (36.0, -6.0), (18.0, 10.5), (26.0, 10.2)]
+    for i, (x, y) in enumerate(shrubs):
+        props.place("shrub_03", x, y, i * 47.0, z=rise(x, y), scale=0.7 + (i * 31 % 7) * 0.08, collide=False)
+    props.place("tree_stump_01", 38.0, 2.0, 0.0, z=rise(38.0, 2.0), surface="Wood")
 
 
 def plant_trees():
@@ -138,7 +146,7 @@ def plant_trees():
     spots = [(x, y) for (x, y) in spots if not any(x0 - 2.5 < x < x1 + 2.5 and y < -20.0 for (x0, x1) in paths)]
     for i, (x, y) in enumerate(spots):
         h = 6.0 + (i * 37 % 5) * 0.7
-        trees.tree(lib.uname("Tree"), (x, y, LAWN_Z), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=i)
+        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=i)
 
 
 def neighbourhood_houses():
@@ -209,7 +217,7 @@ def event_markers():
     marker("Start_party", 10.0, -2.0, 0.02, -90.0)
     marker("Start_street", -45.0, -36.5, 0.02, -90.0)
     for i, (x, y) in enumerate(((9.0, 4.5), (-6.0, -15.0), (-31.0, 9.0))):
-        marker(f"Event_kid_{i + 1}", x, y, 0.02, 0.0)
+        marker(f"Event_kid_{i + 1}", x, y, max(0.02, terrain.lawn_rise(x, y) + 0.02), 0.0)
     # P-A-R-T-Y balloons: over the mini ramp, the flat rail, the stairs' drop, the quarter pipe, the picnic tables
     for letter, (x, y, z) in zip("PARTY", ((-24.0, 2.0, 3.6), (-20.0, -11.0, 1.9), (0.0, -1.5, 2.2),
                                             (2.0, -17.6, 4.0), (24.0, -3.0, 2.6))):
@@ -234,8 +242,10 @@ def build(out_glb, bake=True, samples=128):
     street_details()
     plant_trees()
     event_markers()
+    terrain.backdrop()
+    terrain.edge_trees(lambda name, base, h, crown, seed: trees.tree(name, base, height=h, crown=crown, seed=seed))
     objs = list(lib.bpy.context.scene.objects)
-    realism.dress([o for o in objs if not o.get("library") and not o.name.startswith("Tree")])
+    realism.dress([o for o in objs if not o.get("library") and not o.name.startswith(("Tree", "Far_Tree"))])
     realism.split_collision()
     plaza = realism.join_static("Baked_plaza", group="plaza")
     world = realism.join_static("Baked_world", group="world")
@@ -249,4 +259,5 @@ def build(out_glb, bake=True, samples=128):
         realism.bake(world, base + ".lightmap.world.png", size=1024, samples=samples)     # lawn, street, houses: soft light
     props.remove_library()
     realism.join_live()
+    terrain.join_far()
     write_look(out_glb)

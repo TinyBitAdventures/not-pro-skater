@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Graphics: an environment with depth
+- **A world past the fence:** the park used to end at a flat lawn edge under the sky. Now the ground rolls out to low hills with a few hundred trees in clumps, real trees just past the edge, and the street carrying on to the horizon both ways; the haze does the rest (`blender/terrain.py`, one object, a few draw calls).
+- **The ground has shape:** the lawn gently rolls with a few low mounds (flattening to meet the plaza, paths, picnic paving and street), with trees, props and markers following it.
+- **Grass you can see:** tens of thousands of grass tufts on the lawns (`GrassField`, `grass_tuft.gdshader`), dropped onto grass collision at load (about 150 ms), in 20 m chunks culled past 46 m, swaying in the wind, fading into the ground at the edge of their range, no shadow cost. Shrub clumps soften the edges of the plaza and paths.
+- Fixed: every joined mesh (the baked plaza, the baked world) kept the first object's mesh name, and a "-col" in it made Godot build a second collider from the whole baked mesh; the lawn's copy sat on top of everything and reported "wall".
+- The curb faces were black (a 12 cm face is smaller than a lightmap texel and sampled the black around its island); vertical baked faces never fall below a little sky light now, and the sidewalks' curb face drops exactly to the road.
+
 ### Feel fixes (Austin's playtest)
 - **Grass is rideable:** grass drag 0.9 per second (was 2.8, which stopped you in a couple of seconds) and pushing tops out at 6.5 m/s there (was 4.2; 9 on concrete).
 - **Ramps look built:** the plywood riding surfaces show their 4 x 8 ft sheets, a screw every foot along each edge, faint wheel wear down the ride line, and a less pink tone (in `baked_pbr.gdshader`, from the ramps' metre UVs).
