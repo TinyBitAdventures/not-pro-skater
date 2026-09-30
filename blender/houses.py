@@ -9,7 +9,7 @@ centre.
 import math
 import random
 
-from lib import box, cyl_between, cyl_z, mat, prism, uname
+from lib import box, cyl_between, cyl_z, mat, prism, quad, uname
 
 _glass = None
 
@@ -17,7 +17,12 @@ _glass = None
 def glass():
     """Dark, very smooth glass: reflects the sky in Godot."""
     global _glass
-    if _glass is None:
+    try:
+        if _glass is not None and _glass.name:
+            return _glass
+    except ReferenceError:            # a previous level's scene was reset (several levels in one Blender run)
+        pass
+    if True:
         m = mat("Glass", "#1d2630")
         bsdf = m.node_tree.nodes.get("Principled BSDF")
         bsdf.inputs["Roughness"].default_value = 0.06
@@ -82,19 +87,26 @@ def _door(root, x, y, base_h, trim):
 
 
 def _window(root, x, y, z, ww, wh, trim, facing=1, shutters=False):
+    # the pane is one flat face just proud of the frame: a glass box's thin side faces caught the sky reflection at
+    # grazing angles and flickered along every pane edge as the camera moved
     box(uname("House_wtrim"), (ww + 0.2, 0.06, wh + 0.2), (x, y + 0.02 * facing, z + wh / 2), trim, parent=root)
-    box(uname("House_glass"), (ww, 0.06, wh), (x, y + 0.05 * facing, z + wh / 2), glass(), parent=root)
-    box(uname("House_sill"), (ww + 0.3, 0.12, 0.06), (x, y + 0.06 * facing, z - 0.07), trim, parent=root)
+    gy = y + 0.058 * facing
+    quad(uname("House_glass"), (x - ww / 2, gy, z), (x + ww / 2, gy, z), (x + ww / 2, gy, z + wh), (x - ww / 2, gy, z + wh),
+         glass(), parent=root, expect=(0, facing, 0))
+    # (the sill's underside sits 5 mm below the frame's: coplanar, the two flickered from below)
+    box(uname("House_sill"), (ww + 0.3, 0.12, 0.06), (x, y + 0.06 * facing, z - 0.075), trim, parent=root)
     if shutters:
         for sx in (-1, 1):
             box(uname("House_shutter"), (0.42, 0.05, wh + 0.1), (x + sx * (ww / 2 + 0.32), y + 0.04 * facing, z + wh / 2),
                 mat("Shutter", "#2f3b36"), parent=root)
 
 
-def _window_side(root, x, y, z, ww, wh, trim):
-    s = 1 if x > 0 else -1
+def _window_side(root, x, y, z, ww, wh, trim, facing=None):
+    s = facing if facing is not None else (1 if x > 0 else -1)
     box(uname("House_wtrim"), (0.06, ww + 0.2, wh + 0.2), (x + 0.02 * s, y, z + wh / 2), trim, parent=root)
-    box(uname("House_glass"), (0.06, ww, wh), (x + 0.05 * s, y, z + wh / 2), glass(), parent=root)
+    gx = x + 0.058 * s
+    quad(uname("House_glass"), (gx, y - ww / 2, z), (gx, y + ww / 2, z), (gx, y + ww / 2, z + wh), (gx, y - ww / 2, z + wh),
+         glass(), parent=root, expect=(s, 0, 0))
 
 
 def _garage(root, w, d, siding, roof, trim, left=True):

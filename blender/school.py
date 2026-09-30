@@ -149,8 +149,8 @@ def building():
     # the entrance: glass double doors, sidelights, a canopy and the school's name
     door_frame = mat("DoorFrame", "#2c3136")
     glass = houses.glass()
-    for dx in (-1.25, 1.25):
-        box(lib.uname("School_door"), (1.2, 0.06, 2.3), (-10.0 + dx * 0.5, y0 - 0.03, LANDING_H + 1.15), glass)
+    for dx in (-1.25, 1.25):                                  # two leaves side by side (they overlapped by 5 cm and flickered)
+        box(lib.uname("School_door"), (1.15, 0.06, 2.3), (-10.0 + dx * 0.5, y0 - 0.03, LANDING_H + 1.15), glass)
     box(lib.uname("School_doorframe"), (3.6, 0.05, 2.6), (-10.0, y0 - 0.005, LANDING_H + 1.3), door_frame)
     for sx in (-1, 1):
         box(lib.uname("School_sidelight"), (0.9, 0.06, 2.3), (-10.0 + sx * 1.9, y0 - 0.03, LANDING_H + 1.15), glass)
