@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixes
+- **No more "BPTC_RGBFU not supported" warnings:** the skies were imported as BPTC-compressed HDR, which Macs (and other OpenGL drivers without BPTC) had to convert at load, with a warning each time. They're stored as uncompressed 32-bit HDR (RGBE9995) now; the two in the web build's first download are 768 px wide to keep it under the 80 MB budget (78.7 MB).
 - **Half pipe airs are framed wide:** the vert shot sits 4.8 m out from the wall and 3 m to the side (it was 2.9 and 1.8) and no longer zooms in at the top, so a flip or grab's whole shape stays in view.
 - **Holding S stops you in screen steering:** pulling the stick back (toward the camera) used to mean "turn round and go that way", and since the chase camera swings round behind as you turn, back was back again and the rider spun on the spot. Back now brakes to a stop; A / D turn round.
 - The floating NEXT marker no longer repeats a gate's own banner: it hides over the start and finish gates of the Skate-a-thon laps and the Rush Hour one-take run (both said START twice).
