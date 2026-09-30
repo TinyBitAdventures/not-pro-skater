@@ -39,3 +39,11 @@ Built by `blender/character.py` with **MPFB** (MakeHuman for Blender, installed 
 | hair01, hats01 | hair (The Dev: short02), hats | https://static.makehumancommunity.org/assets/assetpacks/ |
 
 Licence: https://www.makehumancommunity.org/content/license_explanation.html
+
+## Font (SIL Open Font License)
+
+| Font | Used for | Source |
+|---|---|---|
+| Barlow Condensed (Medium, Bold, ExtraBold), The Barlow Project Authors | all UI text | https://github.com/jpt/barlow |
+
+The font is **not** CC0: it is under the SIL Open Font License 1.1 (`game/assets/fonts/OFL.txt`), which allows bundling it with the game; it must keep its licence and cannot be sold on its own.

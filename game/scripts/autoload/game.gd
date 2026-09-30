@@ -11,6 +11,22 @@ var master_volume: float = 0.8
 var rider: String = "dev"          # the playable character (assets/characters/<rider>.glb)
 
 
+## The playable archetypes (assets/characters/<key>.glb). Inspired by people who skate but never went pro;
+## original characters, not likenesses.
+const RIDERS: Array[String] = ["dev", "musician", "vlogger", "dad", "actor"]
+const RIDER_INFO: Dictionary = {
+	"dev": {"name": "The Dev", "blurb": "Ships code by day. Skates the office car park after stand-up."},
+	"musician": {"name": "The Musician", "blurb": "Tours with a board in the van. Every loading dock is a ledge."},
+	"vlogger": {"name": "The Vlogger", "blurb": "Films everything. One take, no bails, like and subscribe."},
+	"dad": {"name": "The Dad", "blurb": "Picked it back up at forty. Birthday parties are home turf."},
+	"actor": {"name": "The Actor", "blurb": "Between takes, the studio backlot is a skatepark."},
+}
+
+
+static func rider_name(key: String) -> String:
+	return String(RIDER_INFO.get(key, {}).get("name", key.capitalize()))
+
+
 const PREVIEW_SCENES: Dictionary = {
 	"greybox": "res://scenes/greybox.tscn",
 	"birthday": "res://scenes/birthday.tscn",
@@ -18,13 +34,47 @@ const PREVIEW_SCENES: Dictionary = {
 }
 
 
+var _fade: ColorRect
+var _going: bool = false
+
+
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	var layer: CanvasLayer = CanvasLayer.new()
+	layer.layer = 100
+	add_child(layer)
+	_fade = ColorRect.new()
+	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fade.color = Color(0.02, 0.02, 0.03, 0.0)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_fade)
 	load_save()
 	# web: index.html?scene=greybox (or birthday, park) opens that scene straight away
 	if OS.has_feature("web"):
 		var q: Variant = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('scene') || ''")
 		if typeof(q) == TYPE_STRING and PREVIEW_SCENES.has(q):
 			get_tree().change_scene_to_file.call_deferred(PREVIEW_SCENES[q])
+
+
+## Change scene behind a quick fade to black and back ("" reloads the current scene).
+func go(path: String) -> void:
+	if _going:
+		return
+	_going = true
+	var out: Tween = create_tween()
+	out.tween_property(_fade, "color:a", 1.0, 0.22)
+	await out.finished
+	get_tree().paused = false
+	Sound.set_paused(false)
+	if path == "":
+		get_tree().reload_current_scene()
+	else:
+		get_tree().change_scene_to_file(path)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var back: Tween = create_tween()
+	back.tween_property(_fade, "color:a", 0.0, 0.4)
+	_going = false
 
 
 func is_dev_run() -> bool:

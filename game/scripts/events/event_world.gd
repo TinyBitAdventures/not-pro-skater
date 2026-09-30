@@ -20,7 +20,10 @@ func _ready() -> void:
 	if OS.get_environment("SHOT_START") != "":
 		warp(start_names.find(OS.get_environment("SHOT_START")))     # screenshot mode
 	(cam as ChaseCamera).snap_behind()
-	hud.level_label.text = ev["title"]
+	hud.set_title(ev["title"])
+	hud.show_timer(true)
+	hud.show_speed(false)
+	hud.set_best(int(Game.best.get(String(ev["id"]), {}).get("score", 0)))
 	runner = EventRunner.new()
 	add_child(runner)
 	runner.setup(event_id, level, skater, score)
@@ -28,10 +31,10 @@ func _ready() -> void:
 	runner.goal_done.connect(_on_goal)
 	time_left = float(ev.get("session", 120.0))
 	hud.set_timer(time_left, false)
-	hud.set_hint("ROLL TO START THE CLOCK    P  RIDER    R  RESET    F3  TUNING")
-	hud.announce(ev["title"], Hud.YELLOW, 2.4)
+	hud.set_hints([["W", "roll to start the clock"], ["P", "rider"], ["R", "reset"], ["ESC", "pause"]])
+	hud.announce(ev["title"], Hud.PAPER, 2.4)
 	Sound.play_music(Sound.gameplay_track())
-	get_tree().create_timer(2.6).timeout.connect(func() -> void: hud.announce(String(ev["blurb"]).to_upper(), Hud.BLUE, 2.6))
+	get_tree().create_timer(2.6).timeout.connect(func() -> void: hud.announce(String(ev["blurb"]), Hud.INFO, 2.6))
 	_refresh_goals()
 
 
@@ -41,10 +44,10 @@ func _refresh_goals() -> void:
 
 func _on_goal(id: String, text: String) -> void:
 	if id == "":
-		hud.announce(text, Hud.RED, 1.6)
+		hud.announce(text, Hud.BAD, 1.6)
 		Sound.play("combo_lost")
 	else:
-		hud.announce("GOAL!  " + text.to_upper(), Hud.GREEN, 2.0)
+		hud.announce("Goal: " + text, Hud.GOOD, 2.0)
 		Sound.play("skate_done")
 	_refresh_goals()
 
@@ -55,6 +58,7 @@ func _process(delta: float) -> void:
 		return
 	if not running and skater.velocity.length() > 1.0:
 		running = true
+		hud.hide_hints()
 		Sound.play("go")
 	if running:
 		time_left = maxf(0.0, time_left - delta)
@@ -66,20 +70,15 @@ func _process(delta: float) -> void:
 func _finish() -> void:
 	finished = true
 	score.bank()
-	var lines: Array[String] = ["SCORE        %s" % Hud._commas(score.score), "BEST COMBO   %s" % Hud._commas(score.best_combo), ""]
-	for g in runner.goal_list():
-		lines.append(("DONE   " if g["done"] else "       ") + String(g["text"]))
-	lines.append("")
-	lines.append("ENTER  PLAY AGAIN")
-	hud.show_results("\n".join(lines))
-	Game.record(String(ev["id"]), score.score, score.best_combo)
+	var new_best: bool = Game.record(String(ev["id"]), score.score, score.best_combo)
+	hud.show_results({"title": ev["title"], "score": score.score, "best_combo": score.best_combo,
+		"new_best": new_best and score.score > 0, "goals": runner.goal_list()})
 	skater.scripted = true
 	skater.inp = SkaterInput.new()
 	skater.inp.brake = true
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if finished and (event.is_action_pressed("ui_accept") or event.is_action_pressed("respawn")):
-		get_tree().reload_current_scene()
-		return
+	if finished:
+		return                    # the results screen handles its own keys
 	super._unhandled_input(event)

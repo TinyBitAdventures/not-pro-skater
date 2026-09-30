@@ -1,21 +1,24 @@
 extends Node3D
-## Title: Neighborhood Park under a slowly circling camera, the chosen rider standing on the board, and the menu.
+## Title: Neighborhood Park under a slowly circling camera, the chosen rider on the board, the logo and menu on
+## the left, the rider's card bottom right. Up / down choose, Enter goes, left / right change a setting.
 
 const EVENT_SCENE: String = "res://scenes/birthday.tscn"
 const FREE_SCENE: String = "res://scenes/neighborhood.tscn"
 const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
-const RIDERS: Array[String] = ["dev", "musician", "vlogger", "dad", "actor"]
-const CENTRE: Vector3 = Vector3(-12.0, 0.0, 4.0)
+const ITEMS: Array[String] = ["event", "free", "practice", "rider", "steer", "jump", "music", "controls"]
 
 var level: Level
 var cam: Camera3D
 var rider: Skater
 var ui: CanvasLayer
-var menu_panels: Array[PanelContainer] = []
-var menu_labels: Array[Label] = []
+var rows: Array[HBoxContainer] = []
+var row_labels: Array[Label] = []
+var row_values: Array[Label] = []
 var selected: int = 0
-var controls_panel: PanelContainer
-var best_label: Label
+var controls_layer: Control
+var progress_label: Label
+var rider_name: Label
+var rider_blurb: Label
 var _orbit: float = 0.6
 
 
@@ -38,7 +41,6 @@ func _spawn_rider() -> void:
 	rider = Skater.new()
 	rider.rider = Game.rider
 	rider.scripted = true
-	rider.is_player = false
 	add_child(rider)
 	rider.place_at(Transform3D(Basis(Vector3.UP, 0.5), Vector3(-12.0, 0.02, 6.0)))
 
@@ -47,8 +49,11 @@ func _process(delta: float) -> void:
 	_orbit += delta * 0.05
 	var at: Vector3 = rider.global_position + Vector3.UP * 1.0
 	var pos: Vector3 = at + Vector3(sin(_orbit) * 5.5, 1.2, cos(_orbit) * 5.5)
-	cam.global_transform = Transform3D(Basis.looking_at(at - pos + Vector3(-1.2, 0.0, 0.0), Vector3.UP), pos)
+	# the rider sits right of centre, clear of the menu
+	cam.global_transform = Transform3D(Basis.looking_at(at - pos + Vector3(-1.4, 0.0, 0.0), Vector3.UP), pos)
 
+
+# ------------------------------------------------------------------ UI
 
 func _build_ui() -> void:
 	ui = CanvasLayer.new()
@@ -59,152 +64,220 @@ func _build_ui() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(root)
 
-	var margin: MarginContainer = MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 70)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 90)
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(margin)
+	# a soft dark wash behind the left column keeps the text readable over a bright sky
+	var wash: TextureRect = TextureRect.new()
+	var grad: GradientTexture2D = GradientTexture2D.new()
+	var g: Gradient = Gradient.new()
+	g.set_color(0, Color(UiKit.INK, 0.8))
+	g.add_point(0.55, Color(UiKit.INK, 0.5))
+	g.set_color(g.get_point_count() - 1, Color(UiKit.INK, 0.0))
+	grad.gradient = g
+	grad.fill_to = Vector2(1.0, 0.0)
+	grad.width = 256
+	grad.height = 4
+	wash.texture = grad
+	wash.stretch_mode = TextureRect.STRETCH_SCALE
+	wash.anchor_bottom = 1.0
+	wash.offset_right = 900.0
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(wash)
+
 	var col: VBoxContainer = VBoxContainer.new()
-	col.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	col.add_theme_constant_override("separation", 8)
+	col.position = Vector2(72, 64)
+	col.add_theme_constant_override("separation", 0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(col)
-
-	var logo: PanelContainer = UiKit.panel(UiKit.NAVY, 24)
-	var lv: VBoxContainer = VBoxContainer.new()
-	lv.add_theme_constant_override("separation", -8)
-	logo.add_child(lv)
-	lv.add_child(UiKit.label("NOT PRO", 72, UiKit.YELLOW, 12))
-	lv.add_child(UiKit.label("SKATERS", 72, UiKit.WHITE, 12))
-	lv.add_child(UiKit.label("skating for everyone else", 20, UiKit.BLUE, 4))
+	root.add_child(col)
+	var logo: VBoxContainer = VBoxContainer.new()
+	logo.add_theme_constant_override("separation", -34)
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	logo.add_child(UiKit.label("NOT PRO", 108, UiKit.ACCENT, "display"))
+	logo.add_child(UiKit.label("SKATERS", 108, UiKit.PAPER, "display"))
 	col.add_child(logo)
+	col.add_child(UiKit.label("Skating for everyone else", 26, UiKit.MUTED, "body"))
+	var gap: Control = Control.new()
+	gap.custom_minimum_size = Vector2(0, 34)
+	col.add_child(gap)
 
-	var items: Array[String] = ["BIRTHDAY AT THE PARK", "FREE SKATE", "PRACTICE", "", "", "", "", "CONTROLS"]
-	for i in items.size():
-		var p: PanelContainer = UiKit.panel(UiKit.NAVY, 14)
-		p.mouse_filter = Control.MOUSE_FILTER_STOP
-		var l: Label = UiKit.label(items[i], 26, UiKit.WHITE, 5)
-		p.add_child(l)
-		p.mouse_entered.connect(_hover.bind(i))
-		p.gui_input.connect(_click.bind(i))
-		col.add_child(p)
-		menu_panels.append(p)
-		menu_labels.append(l)
+	for i in ITEMS.size():
+		if i == 3:
+			var g2: Control = Control.new()
+			g2.custom_minimum_size = Vector2(0, 18)
+			col.add_child(g2)
+		var row: HBoxContainer = HBoxContainer.new()
+		row.custom_minimum_size = Vector2(460, 0)
+		row.add_theme_constant_override("separation", 12)
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		var big: bool = i < 3
+		var name_l: Label = UiKit.label("", 38 if big else 25, UiKit.PAPER, "bold")
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var val_l: Label = UiKit.label("", 25, UiKit.MUTED, "body")
+		row.add_child(name_l)
+		row.add_child(val_l)
+		row.mouse_entered.connect(_hover.bind(i))
+		row.gui_input.connect(_click.bind(i))
+		col.add_child(row)
+		rows.append(row)
+		row_labels.append(name_l)
+		row_values.append(val_l)
+	var gap3: Control = Control.new()
+	gap3.custom_minimum_size = Vector2(0, 22)
+	col.add_child(gap3)
+	progress_label = UiKit.label("", 21, UiKit.MUTED, "bold")
+	col.add_child(progress_label)
 
-	var bp: PanelContainer = UiKit.panel(UiKit.NAVY, 12)
-	best_label = UiKit.label("", 18, UiKit.YELLOW, 4)
-	bp.add_child(best_label)
-	col.add_child(bp)
-	_refresh_labels()
+	# the rider's card, bottom right
+	var card_panel: PanelContainer = UiKit.panel(0.6, 6)
+	card_panel.anchor_left = 1.0
+	card_panel.anchor_right = 1.0
+	card_panel.anchor_top = 1.0
+	card_panel.anchor_bottom = 1.0
+	card_panel.offset_left = -500.0
+	card_panel.offset_right = -56.0
+	card_panel.offset_top = -196.0
+	card_panel.offset_bottom = -52.0
+	card_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	root.add_child(card_panel)
+	var card: VBoxContainer = VBoxContainer.new()
+	card.add_theme_constant_override("separation", -4)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_panel.add_child(card)
+	var cap: Label = UiKit.caption("Rider", 19, UiKit.ACCENT)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	card.add_child(cap)
+	rider_name = UiKit.label("", 60, UiKit.PAPER, "display")
+	rider_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	card.add_child(rider_name)
+	rider_blurb = UiKit.label("", 23, UiKit.PAPER, "body")
+	rider_blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	rider_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card.add_child(rider_blurb)
 
-	controls_panel = UiKit.panel(UiKit.NAVY, 20)
-	controls_panel.set_anchors_preset(Control.PRESET_CENTER)
-	controls_panel.visible = false
-	var cv: VBoxContainer = VBoxContainer.new()
-	cv.add_theme_constant_override("separation", 6)
-	controls_panel.add_child(cv)
-	cv.add_child(UiKit.label("CONTROLS", 46, UiKit.YELLOW, 8))
-	for line in UiKit.CONTROL_LINES:
-		cv.add_child(UiKit.label(line, 20, UiKit.WHITE, 4))
-	cv.add_child(UiKit.label("ESC  back", 20, UiKit.GREEN, 4))
-	root.add_child(controls_panel)
-
-	var hint: PanelContainer = UiKit.panel(UiKit.NAVY, 12)
+	var hint: Control = UiKit.hints([["UP / DOWN", "choose"], ["ENTER", "go"], ["LEFT / RIGHT", "change"]])
 	hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	hint.position = Vector2(24, -64)
-	hint.add_child(UiKit.label("UP / DOWN choose     ENTER go     LEFT / RIGHT change rider", 16, UiKit.WHITE, 4))
+	hint.position = Vector2(72, -56)
 	root.add_child(hint)
 
+	controls_layer = ColorRect.new()
+	(controls_layer as ColorRect).color = Color(UiKit.INK, 0.72)
+	controls_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var cc: CenterContainer = CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	controls_layer.add_child(cc)
+	var p: PanelContainer = UiKit.panel(0.85, 8, UiKit.ACCENT)
+	var v: VBoxContainer = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	p.add_child(v)
+	v.add_child(UiKit.label("CONTROLS", 44, UiKit.PAPER, "display"))
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 24)
+	grid.add_theme_constant_override("v_separation", 2)
+	for r in UiKit.CONTROLS:
+		grid.add_child(UiKit.label(String(r[0]), 21, UiKit.ACCENT, "bold"))
+		grid.add_child(UiKit.label(String(r[1]), 21, UiKit.PAPER, "body"))
+	v.add_child(grid)
+	v.add_child(UiKit.label("ESC  back", 19, UiKit.MUTED, "bold"))
+	cc.add_child(p)
+	controls_layer.visible = false
+	root.add_child(controls_layer)
+	_refresh()
 
-func _rider_name(key: String) -> String:
-	return "THE " + key.to_upper()
 
-
-func _refresh_labels() -> void:
-	menu_labels[3].text = "RIDER:  %s" % _rider_name(Game.rider)
-	menu_labels[4].text = "STEERING:  %s" % ("SKATER" if Game.steer_mode == "tank" else "SCREEN")
-	menu_labels[5].text = "JUMP:  %s" % ("HOLD, RELEASE" if Game.jump_mode == "hold" else "TAP")
-	menu_labels[6].text = "MUSIC:  %s" % {"cruise": "CRUISE", "hype": "HYPE", "off": "OFF"}[Game.music_choice]
-	for i in menu_panels.size():
+func _refresh() -> void:
+	var names: Dictionary = {"event": "Birthday at the Park", "free": "Free Skate", "practice": "Practice",
+		"rider": "Rider", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls"}
+	var values: Dictionary = {
+		"rider": Game.rider_name(Game.rider),
+		"steer": "Skater" if Game.steer_mode == "tank" else "Screen",
+		"jump": "Hold, release" if Game.jump_mode == "hold" else "Tap",
+		"music": {"cruise": "Cruise", "hype": "Hype", "off": "Off"}[Game.music_choice],
+	}
+	for i in ITEMS.size():
 		var on: bool = i == selected
-		menu_panels[i].add_theme_stylebox_override("panel", UiKit.style(UiKit.BLUE if on else UiKit.NAVY, 14))
-		menu_labels[i].add_theme_color_override("font_color", UiKit.YELLOW if on else UiKit.WHITE)
+		var key: String = ITEMS[i]
+		row_labels[i].text = ("›  " if on else "") + String(names[key]).to_upper()
+		row_labels[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.88))
+		var val: String = String(values.get(key, ""))
+		row_values[i].text = ("‹  %s  ›" % val) if (on and val != "") else val
+		row_values[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.8))
 	var done: int = Game.event_goals("birthday").size()
 	var goals: int = (Events.get_event("birthday")["goals"] as Array).size()
 	var best: int = int(Game.best.get("birthday", {}).get("score", 0))
-	best_label.text = "BIRTHDAY GOALS  %d/%d     BEST  %s" % [done, goals, Hud._commas(best)]
+	progress_label.text = "BIRTHDAY GOALS  %d / %d" % [done, goals] + (("      BEST  " + UiKit.commas(best)) if best > 0 else "")
+	rider_name.text = Game.rider_name(Game.rider).to_upper()
+	rider_blurb.text = String(Game.RIDER_INFO.get(Game.rider, {}).get("blurb", ""))
 
 
 func _hover(i: int) -> void:
-	selected = i
-	_refresh_labels()
+	if selected != i:
+		selected = i
+		_refresh()
 
 
 func _click(event: InputEvent, i: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		selected = i
-		_activate()
+		_activate(1)
 
 
 func _input(event: InputEvent) -> void:
-	if controls_panel.visible:
+	if controls_layer.visible:
 		if event.is_action_pressed("pause") or event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
-			controls_panel.visible = false
+			controls_layer.visible = false
 			get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("move_down") or event.is_action_pressed("ui_down"):
-		selected = (selected + 1) % menu_panels.size()
-		_refresh_labels()
-		Sound.play("ui_ok", -4.0, 0.9)
+		selected = (selected + 1) % ITEMS.size()
+		_refresh()
+		Sound.play("ui_ok", -6.0, 0.9)
 	elif event.is_action_pressed("move_up") or event.is_action_pressed("ui_up"):
-		selected = (selected - 1 + menu_panels.size()) % menu_panels.size()
-		_refresh_labels()
-		Sound.play("ui_ok", -4.0, 0.9)
+		selected = (selected - 1 + ITEMS.size()) % ITEMS.size()
+		_refresh()
+		Sound.play("ui_ok", -6.0, 0.9)
 	elif event.is_action_pressed("move_left") or event.is_action_pressed("ui_left"):
-		_cycle_rider(-1)
+		_change(-1)
 	elif event.is_action_pressed("move_right") or event.is_action_pressed("ui_right"):
-		_cycle_rider(1)
+		_change(1)
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ollie"):
 		# Space is the jump key: it only starts a session, it never flips a setting (use Enter or the mouse)
 		var is_space: bool = event is InputEventKey and (event as InputEventKey).physical_keycode == KEY_SPACE
 		if is_space and selected >= 3:
 			return
-		_activate()
+		_activate(1)
 
 
-func _cycle_rider(step: int) -> void:
-	var i: int = RIDERS.find(Game.rider)
-	Game.rider = RIDERS[posmod(i + step, RIDERS.size())]
-	Game.save()
-	_spawn_rider()
-	_refresh_labels()
-	Sound.play("ui_ok", -4.0, 1.1)
-
-
-func _activate() -> void:
-	Sound.play("ui_ok")
-	match selected:
-		0:
-			get_tree().change_scene_to_file(EVENT_SCENE)
-		1:
-			get_tree().change_scene_to_file(FREE_SCENE)
-		2:
-			get_tree().change_scene_to_file(PRACTICE_SCENE)
-		3:
-			_cycle_rider(1)
-		4:
+## Left / right: a setting steps; on the rider row it swaps the rider.
+func _change(step: int) -> void:
+	match ITEMS[selected]:
+		"rider":
+			var i: int = Game.RIDERS.find(Game.rider)
+			Game.rider = Game.RIDERS[posmod(i + step, Game.RIDERS.size())]
+			Game.save()
+			_spawn_rider()
+		"steer":
 			Game.steer_mode = "tank" if Game.steer_mode == "screen" else "screen"
 			Game.save()
-			_refresh_labels()
-		5:
+		"jump":
 			Game.jump_mode = "tap" if Game.jump_mode == "hold" else "hold"
 			Game.save()
-			_refresh_labels()
-		6:
+		"music":
 			Sound.cycle_music_choice()
-			_refresh_labels()
-		7:
-			controls_panel.visible = true
+		_:
+			return
+	Sound.play("ui_ok", -4.0, 1.1)
+	_refresh()
+
+
+func _activate(step: int) -> void:
+	Sound.play("ui_ok")
+	match ITEMS[selected]:
+		"event":
+			Game.go(EVENT_SCENE)
+		"free":
+			Game.go(FREE_SCENE)
+		"practice":
+			Game.go(PRACTICE_SCENE)
+		"controls":
+			controls_layer.visible = true
+		_:
+			_change(step)

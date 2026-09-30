@@ -9,7 +9,6 @@ extends Node3D
 
 @export var level_path: String = "res://assets/levels/greybox.glb"
 @export var look: String = "grey"          # "grey" (grid materials) or "real" (PBR + baked light)
-const RIDERS: Array[String] = ["dev", "musician", "vlogger", "dad", "actor"]
 const ORDER: Array[String] = ["flat", "seam", "curb", "miniqp", "qp", "vert", "mini", "rail", "rail_side", "kink",
 	"curve", "ledge", "stairs", "funbox", "hip", "kicker", "wall"]
 
@@ -47,16 +46,20 @@ func _ready() -> void:
 
 	hud = Hud.new()
 	add_child(hud)
-	hud.set_timer(0.0, false)
-	hud.level_label.text = "GREYBOX" if look == "grey" else level_path.get_file().get_basename().to_upper()
-	hud.set_hint("1-9 / 0  WARP    TAB  NEXT SPOT    P  RIDER    R  RESET    F3  TUNING")
+	hud.show_speed(look == "grey")
+	hud.set_hints([["1-9", "warp"], ["TAB", "next spot"], ["P", "rider"], ["R", "reset"], ["F3", "tuning"], ["ESC", "pause"]])
+	hud.restart_requested.connect(func() -> void: Game.go(""))
+	hud.quit_requested.connect(func() -> void: Game.go("res://scenes/title.tscn"))
 	tuning = TuningPanel.new()
 	add_child(tuning)
 	score.changed.connect(func() -> void: hud.set_score(score.score))
-	score.banked.connect(func(_p: int, _n: int) -> void:
+	score.banked.connect(func(p: int, _n: int) -> void:
 		hud.set_score(score.score)
+		hud.combo_banked(p)
 		Sound.play("bank"))
-	score.lost.connect(func() -> void: Sound.play("combo_lost"))
+	score.lost.connect(func() -> void:
+		hud.combo_lost()
+		Sound.play("combo_lost"))
 	skater.sfx.connect(_on_sfx)
 
 	var first: String = OS.get_environment("SHOT_START")
@@ -105,7 +108,7 @@ func warp(i: int) -> void:
 		skater.hdg = skater.heading_h()
 	if cam.has_method("snap_behind"):
 		cam.call("snap_behind")
-	hud.announce(nm.to_upper().replace("_", " "), Hud.BLUE, 1.0)
+	hud.announce(nm.replace("_", " "), Hud.PAPER, 1.0)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -116,21 +119,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		warp(k.physical_keycode - KEY_1)
 	elif k.physical_keycode == KEY_0:
 		warp(9)
-	elif k.physical_keycode == KEY_ESCAPE:
-		get_tree().change_scene_to_file("res://scenes/title.tscn")
 	elif k.physical_keycode == KEY_TAB:
 		warp(start_i + (-1 if k.shift_pressed else 1))
 	elif k.physical_keycode == KEY_P:
-		var i: int = (RIDERS.find(skater.rider) + 1) % RIDERS.size()
-		skater.set_rider(RIDERS[i])
-		hud.announce("THE " + RIDERS[i].to_upper(), Hud.BLUE, 1.0)
+		var i: int = (Game.RIDERS.find(skater.rider) + 1) % Game.RIDERS.size()
+		skater.set_rider(Game.RIDERS[i])
+		hud.announce(Game.rider_name(Game.RIDERS[i]), Hud.PAPER, 1.0)
 
 
 func _process(delta: float) -> void:
 	hud.set_speed(skater.velocity.length())
 	hud.set_charge(skater.charge_frac())
 	hud.set_balance(skater.manual_balance, skater.manual_on)
-	hud.set_combo(score.mult, score.combo_text(), score.pending, score.live)
+	hud.set_combo(score.mult, score.names, score.pending, score.live)
 	Sound.set_rolling(skater.velocity.length(), skater.surface, skater.state == Skater.State.GROUND, delta)
 	Sound.set_grinding(skater.state == Skater.State.GRIND, skater.grind_speed, delta)
 	if _shot_t >= 0.0:

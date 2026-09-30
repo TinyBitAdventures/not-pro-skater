@@ -1,68 +1,125 @@
 class_name UiKit
 extends RefCounted
-## The game's UI look in one place: chunky rounded navy panels, bold outlined labels.
+## The game's UI look in one place: Barlow Condensed, warm white text with a soft shadow, one orange accent,
+## translucent dark panels with small radii. Grounded, like a sports broadcast, not a cartoon.
 
-const NAVY: Color = Color(0.17, 0.22, 0.4)
-const NAVY_DK: Color = Color(0.09, 0.11, 0.2)
-const YELLOW: Color = Color(1.0, 0.82, 0.25)
-const BLUE: Color = Color(0.24, 0.6, 1.0)
-const GREEN: Color = Color(0.3, 0.85, 0.5)
-const RED: Color = Color(1.0, 0.35, 0.35)
-const WHITE: Color = Color(0.96, 0.98, 1.0)
+const INK: Color = Color(0.05, 0.06, 0.08)          # panel base (used translucent)
+const PAPER: Color = Color(0.97, 0.96, 0.93)        # text
+const MUTED: Color = Color(0.74, 0.76, 0.8)         # secondary text
+const ACCENT: Color = Color(1.0, 0.6, 0.16)         # the one highlight colour
+const GOOD: Color = Color(0.46, 0.9, 0.56)
+const BAD: Color = Color(1.0, 0.4, 0.34)
+const INFO: Color = Color(0.5, 0.78, 1.0)
 
-static var _font: FontVariation
+const FONT_BODY: FontFile = preload("res://assets/fonts/BarlowCondensed-Medium.ttf")
+const FONT_BOLD: FontFile = preload("res://assets/fonts/BarlowCondensed-Bold.ttf")
+const FONT_DISPLAY: FontFile = preload("res://assets/fonts/BarlowCondensed-ExtraBold.ttf")
+
+## weight: "body", "bold" or "display"
+static func font(weight: String = "bold") -> Font:
+	match weight:
+		"body":
+			return FONT_BODY
+		"display":
+			return FONT_DISPLAY
+	return FONT_BOLD
 
 
-static func font() -> FontVariation:
-	if _font == null:
-		_font = FontVariation.new()
-		_font.base_font = ThemeDB.fallback_font
-		_font.variation_embolden = 0.9
-	return _font
-
-
-static func style(fill: Color, radius: int = 14, border: Color = NAVY_DK, bw: int = 4) -> StyleBoxFlat:
+static func style(alpha: float = 0.55, radius: int = 6, accent: Color = Color(0, 0, 0, 0)) -> StyleBoxFlat:
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
-	sb.bg_color = fill
+	sb.bg_color = Color(INK, alpha)
 	sb.set_corner_radius_all(radius)
-	sb.border_color = border
-	sb.set_border_width_all(bw)
-	sb.content_margin_left = 14
-	sb.content_margin_right = 14
-	sb.content_margin_top = 6
-	sb.content_margin_bottom = 6
-	sb.shadow_color = Color(0, 0, 0, 0.25)
-	sb.shadow_size = 4
-	sb.shadow_offset = Vector2(0, 3)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 10
+	if accent.a > 0.0:                      # a stripe down the left edge
+		sb.border_color = accent
+		sb.border_width_left = 4
 	return sb
 
 
-static func panel(fill: Color = NAVY, radius: int = 14) -> PanelContainer:
+static func panel(alpha: float = 0.55, radius: int = 6, accent: Color = Color(0, 0, 0, 0)) -> PanelContainer:
 	var p: PanelContainer = PanelContainer.new()
-	p.add_theme_stylebox_override("panel", style(fill, radius))
+	p.add_theme_stylebox_override("panel", style(alpha, radius, accent))
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return p
 
 
-static func label(text: String, size: int, color: Color = WHITE, outline: int = 5) -> Label:
+static func label(text: String, size: int, color: Color = PAPER, weight: String = "bold") -> Label:
 	var l: Label = Label.new()
 	l.text = text
-	l.add_theme_font_override("font", font())
+	l.add_theme_font_override("font", font(weight))
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_constant_override("outline_size", outline)
-	l.add_theme_color_override("font_outline_color", NAVY_DK)
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	l.add_theme_constant_override("shadow_offset_x", 0)
+	l.add_theme_constant_override("shadow_offset_y", maxi(1, size / 18))
+	l.add_theme_constant_override("shadow_outline_size", maxi(2, size / 10))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
 
-const CONTROL_LINES: Array[String] = [
-	"W push    S brake    A / D turn        (screen-relative steering: title menu)",
-	"SPACE  hold to crouch, release to jump (longer = higher); at a ramp lip for big air",
-	"J  flip     K  hold to grab     L  grind (press near or toward a rail, ledge or coping)",
-	"IN THE AIR  A / D spin, then J or K for tricks",
-	"W then S (quick taps)  manual     S then W  nose manual     keep the BALANCE meter centred",
-	"M  manual too; at a ramp lip: transfer; just after a ramp landing: revert",
-	"SPACE as you hit a wall  wall plant",
-	"R  reset     ESC  back to the title     F3  tuning",
+## A small caps label that sits above a value ("SCORE", "BEST").
+static func caption(text: String, size: int = 17, color: Color = MUTED) -> Label:
+	var l: Label = label(text.to_upper(), size, color, "bold")
+	return l
+
+
+## A thin bar (meters: pop, balance, speed).
+static func bar(width: float, height: float, fill: Color) -> ProgressBar:
+	var b: ProgressBar = ProgressBar.new()
+	b.custom_minimum_size = Vector2(width, height)
+	b.show_percentage = false
+	var bg: StyleBoxFlat = StyleBoxFlat.new()
+	bg.bg_color = Color(INK, 0.55)
+	bg.set_corner_radius_all(int(height * 0.5))
+	var fg: StyleBoxFlat = StyleBoxFlat.new()
+	fg.bg_color = fill
+	fg.set_corner_radius_all(int(height * 0.5))
+	b.add_theme_stylebox_override("background", bg)
+	b.add_theme_stylebox_override("fill", fg)
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return b
+
+
+## A row of key hints: "SPACE jump   J flip". Keys are bold paper, actions muted.
+static func hints(pairs: Array) -> HBoxContainer:
+	var h: HBoxContainer = HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for i in pairs.size():
+		var p: Array = pairs[i]
+		h.add_child(label(String(p[0]), 18, PAPER, "bold"))
+		var a: Label = label(String(p[1]) + ("      " if i < pairs.size() - 1 else ""), 18, Color(PAPER, 0.78), "body")
+		h.add_child(a)
+	return h
+
+
+static func commas(n: int) -> String:
+	var s: String = str(absi(n))
+	var out: String = ""
+	var c: int = 0
+	for i in range(s.length() - 1, -1, -1):
+		out = s[i] + out
+		c += 1
+		if c % 3 == 0 and i > 0:
+			out = "," + out
+	return ("-" if n < 0 else "") + out
+
+
+## Rows for the controls card: [keys, what they do].
+const CONTROLS: Array = [
+	["W / S", "push / brake"],
+	["A / D", "turn; in the air, spin"],
+	["SPACE", "hold to crouch, release to jump (longer = higher)"],
+	["J", "flip trick (hold a direction for variations)"],
+	["K", "hold to grab (hold a direction for variations)"],
+	["L", "grind: press near or toward a rail, ledge or coping"],
+	["W, S", "quick taps: manual     S, W  nose manual"],
+	["W / S", "in a manual: keep the balance meter centred"],
+	["M", "at a ramp lip: transfer; after a ramp landing: revert"],
+	["SPACE", "as you hit a wall: wall plant"],
+	["R", "reset to the start"],
+	["ESC", "pause"],
 ]

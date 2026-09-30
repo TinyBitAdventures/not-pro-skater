@@ -32,7 +32,7 @@ Two steering styles (pick one in the title menu; saved):
 | Shift / LT | Brake |
 | A / D in the air | Spin (then J or K for tricks) |
 | R | Reset to the start |
-| Esc | Back to the title |
+| Esc | Pause (resume, restart, controls, quit to title) |
 
 Steering, jump style (hold-release or instant tap) and music are in the title menu.
 
@@ -142,6 +142,8 @@ godot --headless --path . --fixed-fps 120 res://scenes/dev_jumptap.tscn    # qui
 RIDER=dev godot --path . res://scenes/dev_rig.tscn --resolution 960x720     # pose tour -> ../shots/rig_*.png
 CHAR=dad godot --path . res://scenes/dev_char.tscn --resolution 1280x720    # character turnaround -> ../shots
 godot --path . res://scenes/dev_perf.tscn --resolution 1600x900             # fps, draw calls, judder (FPS=144 caps; DUMP=1, COST=1)
+godot --headless --path . res://scenes/dev_flow.tscn                        # menus with real input: title, event, pause, quit
+godot --path . res://scenes/dev_ui.tscn --resolution 1600x900               # every UI state -> ../shots/ui_*.png
 ```
 
 Dev scenes never touch your real save (`Game.is_dev_run()`).
@@ -175,7 +177,7 @@ game/
   scripts/npc/      Npc (bystanders: look, cheer)
   scripts/greybox/  GreyboxWorld (base world: warps, rider swap), GreyLook (grid materials), GreyEnv
   scripts/camera/   ChaseCamera
-  scripts/ui/       TitleScreen, Hud, UiKit, TuningPanel (F3)
+  scripts/ui/       TitleScreen, Hud, UiKit (fonts, colours, panels), TuningPanel (F3)
   scripts/autoload/ Controls (input map), Game (settings, saves), Sound
   shaders/          baked_pbr, leaf_sway, grid
 audio/     build_sfx.py build_music.py (numpy placeholders)

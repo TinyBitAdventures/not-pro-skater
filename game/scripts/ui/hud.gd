@@ -1,49 +1,54 @@
 class_name Hud
 extends CanvasLayer
-## Chunky rounded-panel HUD: score, combo chip, trick ticker, level name, timer, SKATE letters,
-## floating banked / bail messages, pause and results panels.
+## In-game HUD, sports-broadcast style: score top left with the event's goal checklist under it, the clock top
+## right, the trick string bottom centre (tricks + points x multiplier, which banks green or bails red), meters
+## for pop and manual balance, title cards for announcements, and the pause and results screens.
 
-const NAVY: Color = Color(0.17, 0.22, 0.4)
-const NAVY_DK: Color = Color(0.09, 0.11, 0.2)
-const YELLOW: Color = Color(1.0, 0.82, 0.25)
-const BLUE: Color = Color(0.24, 0.6, 1.0)
-const GREEN: Color = Color(0.3, 0.85, 0.5)
-const RED: Color = Color(1.0, 0.35, 0.35)
-const WHITE: Color = Color(0.96, 0.98, 1.0)
+const ACCENT: Color = UiKit.ACCENT
+const GOOD: Color = UiKit.GOOD
+const BAD: Color = UiKit.BAD
+const INFO: Color = UiKit.INFO
+const PAPER: Color = UiKit.PAPER
+const MUTED: Color = UiKit.MUTED
+const BALANCE_W: float = 280.0
 
-signal restart_requested
 signal resume_requested
+signal restart_requested
+signal quit_requested
 
 var root: Control
 var score_value: Label
-var chip: PanelContainer
-var chip_label: Label
-var trick_panel: PanelContainer
-var trick_label: Label
-var pending_label: Label
-var level_label: Label
+var title_label: Label
 var goals_panel: PanelContainer
 var goals_box: VBoxContainer
+var clock_box: VBoxContainer
 var timer_label: Label
 var best_label: Label
-var letters: Array[Label] = []
-var speed_bar: ProgressBar
-var charge_panel: PanelContainer
-var balance_panel: PanelContainer
-var balance_marker: ColorRect
-var balance_track: Control
-const BALANCE_W: float = 220.0
+var trick_box: VBoxContainer
+var trick_names: Label
+var trick_points: Label
 var charge_bar: ProgressBar
-var center_label: Label
-var toast_layer: Control
-var hint_label: Label
-var pause_panel: PanelContainer
-var results_panel: PanelContainer
-var results_body: Label
+var balance_box: VBoxContainer
+var balance_marker: ColorRect
+var speed_box: HBoxContainer
+var speed_bar: ProgressBar
+var card: VBoxContainer
+var card_label: Label
+var card_rule: ColorRect
+var hint_box: Control
+var pause_layer: Control
+var pause_items: Array[Label] = []
+var pause_sel: int = 0
+var controls_card: PanelContainer
+var pause_menu: VBoxContainer
+var results_layer: Control
+var results_box: VBoxContainer
 var _shown_score: float = 0.0
 var _target_score: int = 0
-var _chip_bump: float = 0.0
-var _center_t: float = 0.0
+var _card_t: float = 0.0
+var _trick_state: String = ""           # "", "live", "banked", "lost"
+var _trick_t: float = 0.0
+var _last_names: int = 0
 
 
 func _ready() -> void:
@@ -53,369 +58,554 @@ func _ready() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
-	_build_top_left()
-	_build_top_right()
-	_build_bottom()
-	_build_center()
+	_build_score()
+	_build_clock()
+	_build_tricks()
+	_build_meters()
+	_build_card()
+	_build_hints()
 	_build_pause()
 	_build_results()
 
 
 # ------------------------------------------------------------------ builders
 
-func _style(fill: Color, radius: int = 14, border: Color = NAVY_DK, bw: int = 4) -> StyleBoxFlat:
-	return UiKit.style(fill, radius, border, bw)
-
-
-func _panel(fill: Color, radius: int = 14) -> PanelContainer:
-	return UiKit.panel(fill, radius)
-
-
-func _label(text: String, size: int, color: Color = WHITE, outline: int = 5) -> Label:
-	return UiKit.label(text, size, color, outline)
-
-
-func _build_top_left() -> void:
+func _build_score() -> void:
 	var col: VBoxContainer = VBoxContainer.new()
-	col.position = Vector2(24, 20)
-	col.add_theme_constant_override("separation", 8)
+	col.position = Vector2(36, 26)
+	col.add_theme_constant_override("separation", 0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(col)
-
-	var sp: PanelContainer = _panel(NAVY)
-	var h: HBoxContainer = HBoxContainer.new()
-	h.add_theme_constant_override("separation", 10)
-	sp.add_child(h)
-	h.add_child(_label("SCORE:", 26))
-	score_value = _label("0", 34, YELLOW)
-	score_value.custom_minimum_size = Vector2(150, 0)
-	h.add_child(score_value)
-	col.add_child(sp)
-
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip = _panel(BLUE, 12)
-	chip.custom_minimum_size = Vector2(84, 0)
-	chip_label = _label("X1", 44, YELLOW, 7)
-	chip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	chip.add_child(chip_label)
-	row.add_child(chip)
-	trick_panel = _panel(NAVY, 12)
-	var tv: VBoxContainer = VBoxContainer.new()
-	tv.add_theme_constant_override("separation", -2)
-	trick_label = _label("", 24, WHITE)
-	trick_label.custom_minimum_size = Vector2(300, 0)
-	pending_label = _label("", 20, YELLOW)
-	tv.add_child(trick_label)
-	tv.add_child(pending_label)
-	trick_panel.add_child(tv)
-	row.add_child(trick_panel)
-	col.add_child(row)
-
-	var lp: PanelContainer = _panel(NAVY, 12)
-	level_label = _label("LVL 01 - COMMUNITY PARK", 20)
-	lp.add_child(level_label)
-	col.add_child(lp)
-	goals_panel = _panel(NAVY, 12)
+	col.add_child(UiKit.caption("Score"))
+	score_value = UiKit.label("0", 58, PAPER, "display")
+	col.add_child(score_value)
+	var gap: Control = Control.new()
+	gap.custom_minimum_size = Vector2(0, 10)
+	col.add_child(gap)
+	goals_panel = UiKit.panel(0.5, 6, ACCENT)
+	goals_panel.custom_minimum_size = Vector2(340, 0)
+	var gv: VBoxContainer = VBoxContainer.new()
+	gv.add_theme_constant_override("separation", 3)
+	goals_panel.add_child(gv)
+	title_label = UiKit.label("", 21, ACCENT, "bold")
+	gv.add_child(title_label)
 	goals_box = VBoxContainer.new()
 	goals_box.add_theme_constant_override("separation", 2)
-	goals_panel.add_child(goals_box)
+	gv.add_child(goals_box)
 	goals_panel.visible = false
 	col.add_child(goals_panel)
-	chip.modulate.a = 0.0
-	trick_panel.modulate.a = 0.0
 
 
-func _build_top_right() -> void:
-	var col: VBoxContainer = VBoxContainer.new()
-	col.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	col.position = Vector2(-220, 20)
-	col.custom_minimum_size = Vector2(196, 0)
-	col.add_theme_constant_override("separation", 8)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(col)
-	var tp: PanelContainer = _panel(NAVY)
-	timer_label = _label("2:00", 40, WHITE, 6)
-	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tp.add_child(timer_label)
-	col.add_child(tp)
-	var bp: PanelContainer = _panel(NAVY, 12)
-	best_label = _label("BEST 0", 20, YELLOW)
-	best_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bp.add_child(best_label)
-	col.add_child(bp)
-	var lp: PanelContainer = _panel(NAVY, 12)
-	var lh: HBoxContainer = HBoxContainer.new()
-	lh.add_theme_constant_override("separation", 6)
-	lp.add_child(lh)
-	for ch in "SKATE":
-		var l: Label = _label(ch, 26, Color(0.5, 0.55, 0.7))
-		lh.add_child(l)
-		letters.append(l)
-	col.add_child(lp)
+func _build_clock() -> void:
+	clock_box = VBoxContainer.new()
+	clock_box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	clock_box.position = Vector2(-236, 26)
+	clock_box.custom_minimum_size = Vector2(200, 0)
+	clock_box.add_theme_constant_override("separation", 0)
+	clock_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(clock_box)
+	var cap: Label = UiKit.caption("Time")
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	clock_box.add_child(cap)
+	timer_label = UiKit.label("2:00", 58, PAPER, "display")
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	clock_box.add_child(timer_label)
+	best_label = UiKit.label("", 19, MUTED, "bold")
+	best_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	clock_box.add_child(best_label)
+	clock_box.visible = false
 
 
-func _build_bottom() -> void:
-	var bp: PanelContainer = _panel(NAVY, 12)
-	bp.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	bp.position = Vector2(24, -64)
-	hint_label = _label("WASD ROLL   SPACE OLLIE   J FLIP   K GRAB   L GRIND   M MANUAL   SHIFT BRAKE   Q/E CAMERA", 16, WHITE, 4)
-	bp.add_child(hint_label)
-	root.add_child(bp)
-	hint_label.set_meta("panel", bp)
-	var sp: PanelContainer = _panel(NAVY, 12)
-	sp.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	sp.position = Vector2(-236, -64)
-	var sh: HBoxContainer = HBoxContainer.new()
-	sh.add_theme_constant_override("separation", 8)
-	sp.add_child(sh)
-	sh.add_child(_label("SPEED", 16, WHITE, 4))
-	speed_bar = ProgressBar.new()
-	speed_bar.custom_minimum_size = Vector2(120, 16)
-	speed_bar.show_percentage = false
-	speed_bar.max_value = 16.0
-	var bg: StyleBoxFlat = _style(NAVY_DK, 8, NAVY_DK, 0)
-	bg.content_margin_top = 0
-	bg.content_margin_bottom = 0
-	var fg: StyleBoxFlat = _style(YELLOW, 8, YELLOW, 0)
-	fg.shadow_size = 0
-	speed_bar.add_theme_stylebox_override("background", bg)
-	speed_bar.add_theme_stylebox_override("fill", fg)
-	sh.add_child(speed_bar)
-	root.add_child(sp)
-	charge_panel = _panel(NAVY, 12)
-	charge_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	charge_panel.position = Vector2(-90, -120)
-	var ch: HBoxContainer = HBoxContainer.new()
-	ch.add_theme_constant_override("separation", 8)
-	charge_panel.add_child(ch)
-	ch.add_child(_label("POP", 18, YELLOW, 4))
-	charge_bar = ProgressBar.new()
-	charge_bar.custom_minimum_size = Vector2(150, 16)
-	charge_bar.show_percentage = false
+func _build_tricks() -> void:
+	trick_box = VBoxContainer.new()
+	trick_box.anchor_left = 0.5
+	trick_box.anchor_right = 0.5
+	trick_box.anchor_top = 1.0
+	trick_box.anchor_bottom = 1.0
+	trick_box.offset_left = -480.0
+	trick_box.offset_right = 480.0
+	trick_box.offset_top = -196.0
+	trick_box.offset_bottom = -96.0
+	trick_box.alignment = BoxContainer.ALIGNMENT_END
+	trick_box.add_theme_constant_override("separation", -4)
+	trick_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(trick_box)
+	trick_names = UiKit.label("", 30, PAPER, "bold")
+	trick_names.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	trick_names.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	trick_box.add_child(trick_names)
+	trick_points = UiKit.label("", 44, ACCENT, "display")
+	trick_points.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	trick_box.add_child(trick_points)
+	trick_box.modulate.a = 0.0
+
+
+func _build_meters() -> void:
+	charge_bar = UiKit.bar(180.0, 6.0, ACCENT)
 	charge_bar.max_value = 1.0
-	var cbg: StyleBoxFlat = _style(NAVY_DK, 8, NAVY_DK, 0)
-	cbg.content_margin_top = 0
-	cbg.content_margin_bottom = 0
-	var cfg: StyleBoxFlat = _style(GREEN, 8, GREEN, 0)
-	cfg.shadow_size = 0
-	charge_bar.add_theme_stylebox_override("background", cbg)
-	charge_bar.add_theme_stylebox_override("fill", cfg)
-	ch.add_child(charge_bar)
-	charge_panel.visible = false
-	root.add_child(charge_panel)
+	charge_bar.anchor_left = 0.5
+	charge_bar.anchor_right = 0.5
+	charge_bar.anchor_top = 1.0
+	charge_bar.anchor_bottom = 1.0
+	charge_bar.offset_left = -90.0
+	charge_bar.offset_right = 90.0
+	charge_bar.offset_top = -70.0
+	charge_bar.offset_bottom = -64.0
+	charge_bar.visible = false
+	root.add_child(charge_bar)
 
 	# manual balance: the marker drifts toward an end; up / down bring it back
-	balance_panel = _panel(NAVY, 12)
-	balance_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	balance_panel.position = Vector2(-150, -175)
-	var bh: HBoxContainer = HBoxContainer.new()
-	bh.add_theme_constant_override("separation", 8)
-	balance_panel.add_child(bh)
-	bh.add_child(_label("BALANCE", 16, YELLOW, 4))
-	balance_track = Control.new()
-	balance_track.custom_minimum_size = Vector2(BALANCE_W, 18)
-	var trk: ColorRect = ColorRect.new()
-	trk.color = NAVY_DK
-	trk.size = Vector2(BALANCE_W, 18)
-	balance_track.add_child(trk)
-	var mid: ColorRect = ColorRect.new()
-	mid.color = Color(1, 1, 1, 0.35)
-	mid.size = Vector2(2, 18)
-	mid.position = Vector2(BALANCE_W * 0.5 - 1.0, 0)
-	balance_track.add_child(mid)
+	balance_box = VBoxContainer.new()
+	balance_box.anchor_left = 0.5
+	balance_box.anchor_right = 0.5
+	balance_box.anchor_top = 1.0
+	balance_box.anchor_bottom = 1.0
+	balance_box.offset_left = -BALANCE_W * 0.5
+	balance_box.offset_right = BALANCE_W * 0.5
+	balance_box.offset_top = -250.0
+	balance_box.offset_bottom = -210.0
+	balance_box.add_theme_constant_override("separation", 4)
+	balance_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var cap: Label = UiKit.caption("Balance", 15)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	balance_box.add_child(cap)
+	var track: Control = Control.new()
+	track.custom_minimum_size = Vector2(BALANCE_W, 10)
+	var bg: Panel = Panel.new()
+	var sb: StyleBoxFlat = UiKit.style(0.6, 5)
+	bg.add_theme_stylebox_override("panel", sb)
+	bg.size = Vector2(BALANCE_W, 10)
+	track.add_child(bg)
+	var sweet: ColorRect = ColorRect.new()
+	sweet.color = Color(GOOD, 0.35)
+	sweet.size = Vector2(BALANCE_W * 0.3, 10)
+	sweet.position = Vector2(BALANCE_W * 0.35, 0)
+	track.add_child(sweet)
 	balance_marker = ColorRect.new()
-	balance_marker.size = Vector2(10, 18)
-	balance_marker.color = GREEN
-	balance_track.add_child(balance_marker)
-	bh.add_child(balance_track)
-	balance_panel.visible = false
-	root.add_child(balance_panel)
+	balance_marker.size = Vector2(6, 18)
+	balance_marker.position.y = -4
+	balance_marker.color = PAPER
+	track.add_child(balance_marker)
+	balance_box.add_child(track)
+	balance_box.visible = false
+	root.add_child(balance_box)
+
+	speed_box = HBoxContainer.new()
+	speed_box.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	speed_box.position = Vector2(-240, -52)
+	speed_box.add_theme_constant_override("separation", 10)
+	speed_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	speed_box.add_child(UiKit.caption("Speed", 15))
+	speed_bar = UiKit.bar(140.0, 6.0, INFO)
+	speed_bar.max_value = 16.0
+	speed_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	speed_box.add_child(speed_bar)
+	speed_box.visible = false
+	root.add_child(speed_box)
 
 
-func _build_center() -> void:
-	center_label = _label("", 72, YELLOW, 10)
-	# the full width of the screen, text centred and wrapped: long lines never run off the edge
-	center_label.anchor_left = 0.0
-	center_label.anchor_right = 1.0
-	center_label.offset_left = 380.0             # clear of the score and goal panels on the left
-	center_label.offset_right = -40.0
-	center_label.anchor_top = 0.27              # below the score and goal panels, above the rider
-	center_label.anchor_bottom = 0.27
-	center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	center_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(center_label)
-	toast_layer = Control.new()
-	toast_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	toast_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(toast_layer)
+func _build_card() -> void:
+	card = VBoxContainer.new()
+	card.anchor_left = 0.5
+	card.anchor_right = 0.5
+	card.anchor_top = 0.2
+	card.anchor_bottom = 0.2
+	card.offset_left = -560.0
+	card.offset_right = 560.0
+	card.add_theme_constant_override("separation", 6)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(card)
+	card_label = UiKit.label("", 64, PAPER, "display")
+	card_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	card_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card.add_child(card_label)
+	var rule_row: CenterContainer = CenterContainer.new()
+	rule_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_rule = ColorRect.new()
+	card_rule.custom_minimum_size = Vector2(120, 4)
+	card_rule.color = ACCENT
+	rule_row.add_child(card_rule)
+	card.add_child(rule_row)
+	card.modulate.a = 0.0
+
+
+func _build_hints() -> void:
+	hint_box = UiKit.panel(0.5, 6)
+	hint_box.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	hint_box.position = Vector2(30, -60)
+	hint_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(hint_box)
 
 
 func _build_pause() -> void:
-	pause_panel = _panel(NAVY, 20)
-	pause_panel.set_anchors_preset(Control.PRESET_CENTER)
-	pause_panel.visible = false
+	pause_layer = _dim_layer()
+	var c: CenterContainer = CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_layer.add_child(c)
 	var v: VBoxContainer = VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
-	pause_panel.add_child(v)
-	v.add_child(_label("PAUSED", 46, YELLOW, 8))
-	var lines: Array[String] = UiKit.CONTROL_LINES.duplicate()
-	lines.append("")
-	lines.append("ESC  resume      ENTER  restart session")
-	for line in lines:
-		v.add_child(_label(line, 20, WHITE, 4))
-	root.add_child(pause_panel)
+	v.add_theme_constant_override("separation", 4)
+	v.custom_minimum_size = Vector2(420, 0)
+	c.add_child(v)
+	pause_menu = v
+	var ttl: Label = UiKit.label("PAUSED", 72, PAPER, "display")
+	ttl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ttl)
+	var rule: ColorRect = ColorRect.new()
+	rule.custom_minimum_size = Vector2(90, 4)
+	rule.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	rule.color = ACCENT
+	v.add_child(rule)
+	var gap: Control = Control.new()
+	gap.custom_minimum_size = Vector2(0, 18)
+	v.add_child(gap)
+	for i in 4:
+		var l: Label = UiKit.label(["RESUME", "RESTART", "CONTROLS", "QUIT TO TITLE"][i], 36, PAPER, "bold")
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.mouse_filter = Control.MOUSE_FILTER_STOP
+		l.mouse_entered.connect(func() -> void: _pause_select(i))
+		l.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+				_pause_select(i)
+				_pause_activate())
+		v.add_child(l)
+		pause_items.append(l)
+	controls_card = _controls_card()
+	controls_card.visible = false
+	c.add_child(controls_card)
+	pause_layer.visible = false
+
+
+func _controls_card() -> PanelContainer:
+	var p: PanelContainer = UiKit.panel(0.85, 8, ACCENT)
+	var v: VBoxContainer = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	p.add_child(v)
+	v.add_child(UiKit.label("CONTROLS", 44, PAPER, "display"))
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 24)
+	grid.add_theme_constant_override("v_separation", 2)
+	for row in UiKit.CONTROLS:
+		grid.add_child(UiKit.label(String(row[0]), 21, ACCENT, "bold"))
+		grid.add_child(UiKit.label(String(row[1]), 21, PAPER, "body"))
+	v.add_child(grid)
+	var back: Label = UiKit.label("ESC  back", 19, MUTED, "bold")
+	v.add_child(back)
+	return p
 
 
 func _build_results() -> void:
-	results_panel = _panel(NAVY, 22)
-	results_panel.set_anchors_preset(Control.PRESET_CENTER)
-	results_panel.visible = false
-	var v: VBoxContainer = VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	results_panel.add_child(v)
-	v.add_child(_label("SESSION OVER", 50, YELLOW, 8))
-	results_body = _label("", 26, WHITE, 5)
-	v.add_child(results_body)
-	v.add_child(_label("ENTER  skate again", 22, GREEN, 5))
-	root.add_child(results_panel)
+	results_layer = _dim_layer()
+	var c: CenterContainer = CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	results_layer.add_child(c)
+	results_box = VBoxContainer.new()
+	results_box.add_theme_constant_override("separation", 4)
+	results_box.custom_minimum_size = Vector2(560, 0)
+	c.add_child(results_box)
+	results_layer.visible = false
 
 
-# ------------------------------------------------------------------ updates
+func _dim_layer() -> Control:
+	var d: ColorRect = ColorRect.new()
+	d.set_anchors_preset(Control.PRESET_FULL_RECT)
+	d.color = Color(UiKit.INK, 0.72)
+	root.add_child(d)
+	return d
+
+
+# ------------------------------------------------------------------ per frame
 
 func _process(delta: float) -> void:
 	_shown_score = lerpf(_shown_score, float(_target_score), 1.0 - exp(-9.0 * delta))
 	if absf(_shown_score - _target_score) < 1.0:
 		_shown_score = float(_target_score)
-	score_value.text = _commas(int(round(_shown_score)))
-	_chip_bump = maxf(0.0, _chip_bump - delta * 5.0)
-	var s: float = 1.0 + _chip_bump * 0.35
-	chip.pivot_offset = chip.size * 0.5
-	chip.scale = Vector2(s, s)
-	if _center_t > 0.0:
-		_center_t -= delta
-		center_label.modulate.a = clampf(_center_t / 0.5, 0.0, 1.0)
-		if _center_t <= 0.0:
-			center_label.text = ""
+	score_value.text = UiKit.commas(int(round(_shown_score)))
+	# title card: fade in fast, hold, fade out
+	if _card_t > 0.0:
+		_card_t -= delta
+		card.modulate.a = clampf(_card_t / 0.45, 0.0, 1.0) * minf(1.0, card.modulate.a + delta * 8.0)
+		card_rule.custom_minimum_size.x = lerpf(card_rule.custom_minimum_size.x, 160.0, 1.0 - exp(-8.0 * delta))
+	# trick string: a bank shows green, a bail red, then it fades
+	match _trick_state:
+		"live":
+			trick_box.modulate.a = minf(1.0, trick_box.modulate.a + delta * 10.0)
+			trick_points.scale = trick_points.scale.lerp(Vector2.ONE, 1.0 - exp(-14.0 * delta))
+		"banked", "lost":
+			_trick_t -= delta
+			trick_box.modulate.a = clampf(_trick_t / 0.4, 0.0, 1.0)
+			trick_points.scale = trick_points.scale.lerp(Vector2.ONE, 1.0 - exp(-10.0 * delta))
+			if _trick_t <= 0.0:
+				_trick_state = ""
+
+
+# ------------------------------------------------------------------ updates
+
+func set_title(text: String) -> void:
+	title_label.text = text.to_upper()
 
 
 func set_score(v: int) -> void:
 	_target_score = v
 
 
-func set_combo(mult: int, names_text: String, pending: int, live: bool) -> void:
-	var was_visible: bool = chip.modulate.a > 0.5
-	var t: float = 1.0 if live else 0.0
-	chip.modulate.a = lerpf(chip.modulate.a, t, 0.35)
-	trick_panel.modulate.a = lerpf(trick_panel.modulate.a, t, 0.35)
-	if live:
-		var new_text: String = "X%d" % mult
-		if chip_label.text != new_text:
-			_chip_bump = 1.0
-		chip_label.text = new_text
-		trick_label.text = names_text.to_upper()
-		pending_label.text = "%s x %d" % [_commas(pending), mult]
-	elif was_visible and chip.modulate.a < 0.5:
-		trick_label.text = ""
+## The live combo: the trick names so far, pending points and the multiplier.
+func set_combo(mult: int, names: Array[String], pending: int, live: bool) -> void:
+	if not live:
+		return
+	if _trick_state != "live":
+		_trick_state = "live"
+		trick_names.add_theme_color_override("font_color", PAPER)
+		trick_points.add_theme_color_override("font_color", ACCENT)
+	var shown: Array[String] = names.slice(maxi(0, names.size() - 5))
+	trick_names.text = ("... + " if names.size() > 5 else "") + " + ".join(shown)
+	trick_points.text = "%s  x %d" % [UiKit.commas(pending), mult]
+	trick_points.pivot_offset = trick_points.size * 0.5
+	if names.size() != _last_names:
+		trick_points.scale = Vector2(1.18, 1.18)     # a small pop for every new trick
+		_last_names = names.size()
+
+
+func combo_banked(points: int) -> void:
+	_trick_state = "banked"
+	_trick_t = 1.6
+	_last_names = 0
+	trick_points.text = "+" + UiKit.commas(points)
+	trick_points.add_theme_color_override("font_color", GOOD)
+	trick_points.pivot_offset = trick_points.size * 0.5
+	trick_points.scale = Vector2(1.3, 1.3)
+
+
+func combo_lost() -> void:
+	_trick_state = "lost"
+	_trick_t = 1.3
+	_last_names = 0
+	trick_names.add_theme_color_override("font_color", Color(BAD, 0.9))
+	trick_points.text = "BAIL"
+	trick_points.add_theme_color_override("font_color", BAD)
+
+
+func show_timer(v: bool) -> void:
+	clock_box.visible = v
 
 
 func set_timer(seconds: float, running: bool) -> void:
 	var s: int = maxi(0, int(ceil(seconds)))
 	timer_label.text = "%d:%02d" % [s / 60, s % 60]
-	timer_label.add_theme_color_override("font_color", RED if (running and seconds < 10.0) else WHITE)
+	timer_label.add_theme_color_override("font_color", BAD if (running and seconds < 10.0) else PAPER)
+
+
+func set_best(v: int) -> void:
+	best_label.text = ("BEST  " + UiKit.commas(v)) if v > 0 else ""
+
+
+func show_speed(v: bool) -> void:
+	speed_box.visible = v
 
 
 func set_speed(v: float) -> void:
 	speed_bar.value = v
 
 
+func set_charge(v: float) -> void:
+	charge_bar.visible = v > 0.02
+	charge_bar.value = v
+
+
 ## Manual balance, -1..1 (0 = perfect). Hidden when not in a manual.
 func set_balance(v: float, active: bool) -> void:
-	balance_panel.visible = active
+	balance_box.visible = active
 	if not active:
 		return
 	var c: float = clampf(v, -1.0, 1.0)
-	balance_marker.position.x = (c * 0.5 + 0.5) * (BALANCE_W - 10.0)
-	balance_marker.color = GREEN.lerp(RED, clampf((absf(c) - 0.4) / 0.5, 0.0, 1.0))
+	balance_marker.position.x = (c * 0.5 + 0.5) * (BALANCE_W - 6.0)
+	balance_marker.color = PAPER.lerp(BAD, clampf((absf(c) - 0.4) / 0.5, 0.0, 1.0))
 
 
 ## The event's goal list: [{"text": String, "done": bool}, ...]. Empty hides it.
 func set_goals(items: Array) -> void:
 	goals_panel.visible = not items.is_empty()
-	for c in goals_box.get_children():
+	_fill_goals(goals_box, items)
+
+
+static func _fill_goals(box_parent: VBoxContainer, items: Array) -> void:
+	for c in box_parent.get_children():
 		c.queue_free()
 	for g in items:
 		var done: bool = g.get("done", false)
-		var l: Label = _label(("[x] " if done else "[  ] ") + String(g["text"]), 17, GREEN if done else WHITE, 4)
-		if done:
-			l.modulate.a = 0.75
-		goals_box.add_child(l)
+		var row: HBoxContainer = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var box: Panel = Panel.new()
+		box.custom_minimum_size = Vector2(14, 14)
+		box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var sb: StyleBoxFlat = StyleBoxFlat.new()
+		sb.set_corner_radius_all(7)
+		sb.bg_color = GOOD if done else Color(0, 0, 0, 0)
+		sb.border_color = GOOD if done else Color(PAPER, 0.7)
+		sb.set_border_width_all(2)
+		box.add_theme_stylebox_override("panel", sb)
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(box)
+		var l: Label = UiKit.label(String(g["text"]), 20, Color(PAPER, 0.55) if done else PAPER, "body")
+		row.add_child(l)
+		box_parent.add_child(row)
 
 
-func set_charge(v: float) -> void:
-	charge_panel.visible = v > 0.02
-	charge_bar.value = v
-
-
-func set_best(v: int) -> void:
-	best_label.text = "BEST %s" % _commas(v)
-
-
-func set_letters(have: Array) -> void:
-	for i in letters.size():
-		letters[i].add_theme_color_override("font_color", YELLOW if have[i] else Color(0.5, 0.55, 0.7))
-
-
-func announce(text: String, color: Color = YELLOW, seconds: float = 1.6) -> void:
-	center_label.text = text
-	# long lines shrink to fit the screen
+## A title card in the upper middle of the screen.
+func announce(text: String, color: Color = PAPER, seconds: float = 1.6) -> void:
+	card_label.text = text.to_upper()
 	var w: float = get_viewport().get_visible_rect().size.x if is_inside_tree() else 1600.0
-	center_label.add_theme_font_size_override("font_size", int(clampf((w - 420.0) * 1.6 / maxf(text.length(), 1.0), 30.0, 72.0)))
-	center_label.add_theme_color_override("font_color", color)
-	center_label.modulate.a = 1.0
-	_center_t = seconds + 0.5
+	card_label.add_theme_font_size_override("font_size", int(clampf(minf(w, 1120.0) * 1.9 / maxf(text.length(), 1.0), 34.0, 64.0)))
+	card_label.add_theme_color_override("font_color", color)
+	card_rule.color = ACCENT if color == PAPER else color
+	card_rule.custom_minimum_size.x = 40.0
+	card.modulate.a = 0.0
+	_card_t = seconds + 0.45
 
 
-func toast(text: String, color: Color, from: Vector2) -> void:
-	var l: Label = _label(text, 38, color, 8)
-	l.position = from
-	toast_layer.add_child(l)
+## Key hints along the bottom left: [["SPACE", "jump"], ...].
+func set_hints(pairs: Array) -> void:
+	for c in hint_box.get_children():
+		c.queue_free()
+	hint_box.add_child(UiKit.hints(pairs))
+	hint_box.reset_size()
+	hint_box.modulate.a = 1.0
+
+
+func hide_hints() -> void:
 	var tw: Tween = create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(l, "position:y", from.y - 90.0, 1.1).set_ease(Tween.EASE_OUT)
-	tw.tween_property(l, "modulate:a", 0.0, 1.1).set_delay(0.5)
-	tw.chain().tween_callback(l.queue_free)
+	tw.tween_property(hint_box, "modulate:a", 0.0, 1.0)
 
 
-func show_pause(v: bool) -> void:
-	pause_panel.visible = v
+# ------------------------------------------------------------------ pause
+
+func is_paused() -> bool:
+	return pause_layer.visible
 
 
-func show_results(text: String) -> void:
-	results_body.text = text
-	results_panel.visible = true
+func open_pause() -> void:
+	pause_layer.visible = true
+	_show_controls(false)
+	_pause_select(0)
+	get_tree().paused = true
+	Sound.set_paused(true)
 
 
-func set_hint(text: String) -> void:
-	hint_label.text = text
-	var bp: Control = hint_label.get_meta("panel")
-	bp.modulate.a = 1.0
+func close_pause() -> void:
+	pause_layer.visible = false
+	get_tree().paused = false
+	Sound.set_paused(false)
 
 
-func hide_hint() -> void:
-	var bp: Control = hint_label.get_meta("panel")
-	var tw: Tween = create_tween()
-	tw.tween_property(bp, "modulate:a", 0.0, 1.0)
+func _show_controls(v: bool) -> void:
+	controls_card.visible = v
+	pause_menu.visible = not v
+
+
+func _pause_select(i: int) -> void:
+	pause_sel = posmod(i, pause_items.size())
+	for j in pause_items.size():
+		var on: bool = j == pause_sel
+		pause_items[j].add_theme_color_override("font_color", ACCENT if on else Color(PAPER, 0.8))
+		pause_items[j].text = pause_items[j].text.trim_prefix("›  ").trim_suffix("  ‹").strip_edges()
+		if on:
+			pause_items[j].text = "›  " + pause_items[j].text + "  ‹"
+
+
+func _pause_activate() -> void:
+	match pause_sel:
+		0:
+			close_pause()
+			resume_requested.emit()
+		1:
+			close_pause()
+			restart_requested.emit()
+		2:
+			_show_controls(true)
+		3:
+			close_pause()
+			quit_requested.emit()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if results_layer.visible:
+		if event.is_action_pressed("ui_accept") or event.is_action_pressed("respawn"):
+			get_viewport().set_input_as_handled()
+			restart_requested.emit()
+		elif event.is_action_pressed("pause"):
+			get_viewport().set_input_as_handled()
+			quit_requested.emit()
+		return
+	if event.is_action_pressed("pause"):
+		get_viewport().set_input_as_handled()
+		if not pause_layer.visible:
+			open_pause()
+		elif controls_card.visible:
+			_show_controls(false)
+		else:
+			close_pause()
+			resume_requested.emit()
+		return
+	if not pause_layer.visible:
+		return
+	get_viewport().set_input_as_handled()
+	if controls_card.visible:
+		if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
+			_show_controls(false)
+		return
+	if event.is_action_pressed("move_down") or event.is_action_pressed("ui_down"):
+		_pause_select(pause_sel + 1)
+		Sound.play("ui_ok", -6.0, 0.9)
+	elif event.is_action_pressed("move_up") or event.is_action_pressed("ui_up"):
+		_pause_select(pause_sel - 1)
+		Sound.play("ui_ok", -6.0, 0.9)
+	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ollie"):
+		Sound.play("ui_ok")
+		_pause_activate()
+
+
+# ------------------------------------------------------------------ results
+
+## results: {"title", "score", "best_combo", "new_best": bool, "goals": [{"text","done"}]}
+func show_results(r: Dictionary) -> void:
+	for c in results_box.get_children():
+		c.queue_free()
+	results_box.add_child(UiKit.caption(String(r.get("title", "")), 22, ACCENT))
+	results_box.add_child(UiKit.label("SESSION OVER", 64, PAPER, "display"))
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 48)
+	for pair in [["Score", int(r.get("score", 0))], ["Best combo", int(r.get("best_combo", 0))]]:
+		var v: VBoxContainer = VBoxContainer.new()
+		v.add_theme_constant_override("separation", -4)
+		v.add_child(UiKit.caption(String(pair[0])))
+		v.add_child(UiKit.label(UiKit.commas(int(pair[1])), 52, PAPER, "display"))
+		row.add_child(v)
+	if r.get("new_best", false):
+		var nb: Label = UiKit.label("NEW BEST", 30, ACCENT, "display")
+		nb.size_flags_vertical = Control.SIZE_SHRINK_END
+		row.add_child(nb)
+	results_box.add_child(row)
+	var gap: Control = Control.new()
+	gap.custom_minimum_size = Vector2(0, 10)
+	results_box.add_child(gap)
+	var done: int = 0
+	var goals: Array = r.get("goals", [])
+	for g in goals:
+		done += int(g.get("done", false))
+	results_box.add_child(UiKit.caption("Goals  %d / %d" % [done, goals.size()]))
+	var list: VBoxContainer = VBoxContainer.new()
+	list.add_theme_constant_override("separation", 2)
+	results_box.add_child(list)
+	_fill_goals(list, goals)
+	var gap2: Control = Control.new()
+	gap2.custom_minimum_size = Vector2(0, 14)
+	results_box.add_child(gap2)
+	results_box.add_child(UiKit.hints([["ENTER", "skate again"], ["ESC", "title"]]))
+	results_layer.visible = true
+	results_layer.modulate.a = 0.0
+	create_tween().tween_property(results_layer, "modulate:a", 1.0, 0.5)
 
 
 static func _commas(n: int) -> String:
-	var s: String = str(absi(n))
-	var out: String = ""
-	var c: int = 0
-	for i in range(s.length() - 1, -1, -1):
-		out = s[i] + out
-		c += 1
-		if c % 3 == 0 and i > 0:
-			out = "," + out
-	return ("-" if n < 0 else "") + out
+	return UiKit.commas(n)

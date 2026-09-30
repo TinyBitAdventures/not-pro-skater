@@ -48,6 +48,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_make_bus("Music", -9.0)
 	_make_bus("SFX", -4.5)
+	var lp: AudioEffectLowPassFilter = AudioEffectLowPassFilter.new()
+	lp.cutoff_hz = 700.0
+	var mb: int = AudioServer.get_bus_index("Music")
+	if AudioServer.get_bus_effect_count(mb) == 0:
+		AudioServer.add_bus_effect(mb, lp)
+		AudioServer.set_bus_effect_enabled(mb, 0, false)
 	for n in SFX_NAMES:
 		var s: AudioStream = load("res://assets/audio/sfx/%s.wav" % n)
 		_streams[n] = s
@@ -93,6 +99,14 @@ func _make_bus(bus_name: String, db: float) -> void:
 	AudioServer.set_bus_send(i, "Master")
 
 
+## Pause menu: effects go quiet (the rolling loops would hold their last volume) and the music sounds muffled.
+func set_paused(v: bool) -> void:
+	AudioServer.set_bus_mute(AudioServer.get_bus_index("SFX"), v)
+	var mb: int = AudioServer.get_bus_index("Music")
+	if AudioServer.get_bus_effect_count(mb) > 0:
+		AudioServer.set_bus_effect_enabled(mb, 0, v)
+
+
 func apply_settings() -> void:
 	AudioServer.set_bus_volume_db(0, linear_to_db(clampf(Game.master_volume, 0.0001, 1.0)))
 	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), not music_on)
@@ -124,6 +138,7 @@ func play(sfx_name: String, vol_db: float = 0.0, pitch: float = 1.0) -> void:
 	if s == null:
 		return
 	var p: AudioStreamPlayer = _pool[_pool_i]
+	p.bus = "Master" if get_tree().paused else "SFX"     # menu clicks while the SFX bus is muted for pause
 	_pool_i = (_pool_i + 1) % _pool.size()
 	p.stream = s
 	p.volume_db = vol_db + float(LEVEL_DB.get(sfx_name, 0.0))

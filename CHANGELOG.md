@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Polish: a grounded UI
+- **New look for every screen** (`UiKit`): Barlow Condensed (SIL OFL), warm white text with a soft shadow, one orange accent, translucent dark panels. The cartoon navy-and-yellow panels are gone.
+- **HUD**: score top left with the event's goal checklist (ticks fill green), clock and best top right (the best score was never shown before), the **trick string** bottom centre like a skate game should have it (tricks joined with +, points x multiplier, a little pop per trick, green +total on a bank, red BAIL on a bail), slim pop and balance meters, title cards with an accent rule instead of the banner that overlapped the goals, key hints on a panel that fades once you roll.
+- **Pause menu** (ESC): Resume, Restart, Controls, Quit to title; the game freezes, effects go quiet and the music sounds muffled behind a low-pass filter. ESC used to drop you straight to the title.
+- **Results card**: score, best combo, NEW BEST, goals ticked, Enter to skate again or ESC for the title.
+- **Title screen** restyled: the logo, the menu with settings changed by left / right, and a card for the chosen rider with a one-line blurb for each archetype.
+- Scene changes fade through black (`Game.go`).
+- Tests: `scenes/dev_flow.tscn` drives the menus with real input events (title, event, pause, restart, resume, quit); `scenes/dev_ui.tscn` screenshots every UI state.
+
 ### Polish: smoother and lighter
 - **Even motion at any frame rate:** physics runs at 120 Hz, and the rider and camera used to read the raw physics position, so on a 144 Hz screen (or a wobbly browser frame rate) some frames moved two ticks and some none. They now draw between the last two physics positions (`Skater.render_position()`): judder measured 0.33 before, 0.006 after.
 - **Draw calls 591 -> 260** on Birthday at the Park: Blender merges the live-lit scenery (house trim and glass, guard rails, bunting, trees, one-off props) into one object per 30 m map cell (`realism.join_live`); props placed more than once stay shared and Godot draws each kind as one MultiMesh; the board is one mesh instead of fifteen parts; eyes, brows and lashes no longer cast shadows; the sun uses two blended shadow splits over 55 m instead of four over 70 m.
