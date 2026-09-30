@@ -36,6 +36,12 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	env.fog_light_color = Color(0.7, 0.78, 0.9)
 	env.fog_density = 0.0015
 	env.fog_sky_affect = 0.0
+	if OS.get_environment("FOG") != "old":
+		# haze takes the sky's colour in each direction and glows warm toward the low sun
+		env.fog_aerial_perspective = 0.6
+		env.fog_sun_scatter = 0.25
+		env.fog_light_color = Color(0.74, 0.8, 0.9)
+		env.fog_density = float(OS.get_environment("FOG")) if OS.get_environment("FOG") != "" else 0.0022
 	# a gentle grade: a touch more contrast and colour than the physical render, like a camera's picture profile
 	var grade: String = OS.get_environment("GRADE")
 	if grade != "off":
