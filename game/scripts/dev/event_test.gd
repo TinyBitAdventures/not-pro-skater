@@ -55,13 +55,22 @@ func _run() -> void:
 				await _frames(3)
 				report.append("%s (deliver): carried=%s dropped_on_bail=%s delivered=%s" % [gid, carried, dropped, r.done.has(gid)])
 			"show_kids":
+				# a trick that ends in a bail shows nobody; a landed one shows the kids near it
 				var n: int = (ev.get("kids", []) as Array).size()
+				_put(sk, (lv.markers["kid_1"] as Transform3D).origin + Vector3(2, 0, 0))
+				await _frames(2)
+				sk.score.add_trick("Kickflip", 300)
+				sk.score.bail()
+				await _frames(2)
+				var bailed_counted: bool = r._kids_shown.size() > 0
 				for i in n:
 					_put(sk, (lv.markers["kid_%d" % (i + 1)] as Transform3D).origin + Vector3(2, 0, 0))
 					await _frames(2)
 					sk.score.add_trick("Kickflip", 300)
+					sk.score.bank()
 					await _frames(2)
-				report.append("%s (show %d): %s" % [gid, n, r.done.has(gid)])
+				report.append("%s (show %d): bailed trick counted %s, landed %s" % [gid, n, bailed_counted, r.done.has(gid)])
+
 			"trick_on":
 				var rails: Array = g.get("rails", [g.get("rail", "")])
 				var found: bool = false
@@ -122,17 +131,25 @@ func _run() -> void:
 				await _frames(2)
 				report.append("%s (combo): %s" % [gid, r.done.has(gid)])
 			"zone_combo":
-				# outside the zone a big combo doesn't count; inside it does
-				_put(sk, (lv.markers["zone_" + String(g["zone"])] as Transform3D).origin + Vector3(float(g.get("radius", 8.0)) + 6.0, 0, 0))
+				# it's where the tricks are done that counts, not where the combo banks: done outside and rolled in
+				# doesn't count, done inside and rolled out does
+				var zc: Vector3 = (lv.markers["zone_" + String(g["zone"])] as Transform3D).origin
+				var away: Vector3 = zc + Vector3(float(g.get("radius", 8.0)) + 6.0, 0, 0)
+				_put(sk, away)
 				await _frames(2)
-				sk.score.banked.emit(int(g["points"]) + 100, 4)
+				sk.score.add_trick("Kickflip", int(g["points"]) + 100)
+				_put(sk, zc + Vector3(1.0, 0, 0))
+				await _frames(2)
+				sk.score.bank()
 				await _frames(2)
 				var outside: bool = r.done.has(gid)
-				_put(sk, (lv.markers["zone_" + String(g["zone"])] as Transform3D).origin + Vector3(1.0, 0, 0))
+				sk.score.add_trick("Heelflip", int(g["points"]) + 100)
+				_put(sk, away)
 				await _frames(2)
-				sk.score.banked.emit(int(g["points"]) + 100, 4)
+				sk.score.bank()
 				await _frames(2)
-				report.append("%s (zone combo): counted outside %s, inside %s" % [gid, outside, r.done.has(gid)])
+				report.append("%s (zone combo): done outside counted %s, done inside counted %s" % [gid, outside, r.done.has(gid)])
+
 			"score":
 				sk.score.score = int(g["points"]) + 100
 				await _frames(2)
@@ -140,6 +157,7 @@ func _run() -> void:
 	for line in report:
 		print("[event] ", line)
 	var all_done: bool = r.done.size() == (ev["goals"] as Array).size() and not report.any(func(l: String) -> bool:
-		return l.contains("counted outside true") or l.contains("counted while rolling true"))
+		return l.contains("done outside counted true") or l.contains("counted while rolling true") \
+			or l.contains("bailed trick counted true"))
 	print("[event] %s all goals: %s" % [id, all_done])
 	get_tree().quit(0 if all_done else 1)

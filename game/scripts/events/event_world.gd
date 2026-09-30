@@ -31,6 +31,8 @@ func _ready() -> void:
 	runner.setup(event_id, level, skater, score)
 	runner.changed.connect(_refresh_goals)
 	runner.goal_done.connect(_on_goal)
+	score.awarded.connect(func(award_name: String, points: int) -> void:
+		hud.announce("%s  +%s" % [award_name.to_upper(), hud.amount(points)], Hud.GOOD, 1.6))
 	var word: String = runner.letters_word()
 	var colors: Array = []
 	for l in word:
@@ -84,7 +86,8 @@ func _process(delta: float) -> void:
 
 func _finish() -> void:
 	finished = true
-	score.bank()
+	score.bank()                  # a combo landed before the buzzer still counts (and can finish a goal)
+	runner.active = false         # nothing after the buzzer completes or saves
 	var new_best: bool = Game.record(String(ev["id"]), score.score, score.best_combo)
 	Sound.play("time_up")
 	Sound.fade_music(0.8)
@@ -101,4 +104,7 @@ func _finish() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if finished:
 		return                    # the results screen handles its own keys
-	super._unhandled_input(event)
+	# only P (swap rider) from the free-skate keys: warping (1-9, 0, TAB) would carry an item or skip checkpoints
+	var k: InputEventKey = event as InputEventKey
+	if k != null and k.physical_keycode == KEY_P:
+		super._unhandled_input(event)

@@ -47,6 +47,11 @@ const MARK_SPEED: float = 1.2          # standing (near enough) still on a mark 
 var _run_shown: int = -1
 const GATE_RADIUS: float = 3.2
 
+var active: bool = true                # false once the session is over: nothing more completes or saves
+var _kids_pending: Dictionary = {}     # kids a trick was shown to in the live combo: they count when it lands
+var _zone_hit: Dictionary = {}         # zone_combo goal id -> a trick of the live combo was done in its zone
+var _zone_in: Dictionary = {}          # zone_combo goal id -> the rider was in the zone last frame (for the HUD note)
+
 
 func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKeeper) -> void:
 	ev = Events.get_event(event_id)
@@ -57,6 +62,7 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 	money = float(ev.get("money", 0.0))
 	score.banked.connect(_on_banked)
 	score.trick_added.connect(_on_trick)
+	score.lost.connect(_on_lost)
 	skater.bailed.connect(_on_bailed)
 	_dress(ev.get("dressing", {}))
 	for gd in ev.get("guests", []):
@@ -152,7 +158,7 @@ func _letter_progress(all: String) -> String:
 
 
 func _complete(id: String) -> void:
-	if done.has(id):
+	if not active or done.has(id):
 		return
 	done[id] = true
 	var text: String = ""
@@ -174,7 +180,7 @@ func _process(dt: float) -> void:
 	for l in _letters.keys():
 		var b: Node3D = _letters[l]
 		b.position.y = b.get_meta("y0") + sin(_t * 2.0 + b.get_meta("phase")) * 0.12
-		if skater.state != Skater.State.BAIL and (rider + Vector3.UP * 0.9).distance_to(b.global_position) < LETTER_RADIUS:
+		if active and skater.state != Skater.State.BAIL and (rider + Vector3.UP * 0.9).distance_to(b.global_position) < LETTER_RADIUS:
 			_got_letters += l
 			letter_got.emit(l, b.global_position)
 			b.queue_free()
@@ -184,11 +190,19 @@ func _process(dt: float) -> void:
 			for g in ev["goals"]:
 				if g["kind"] == "letters" and _letter_progress(String(g["letters"])).find("_") < 0:
 					_complete(g["id"])
+	_thermo_tick()
+	if not active:
+		return
+	for g in ev["goals"]:                    # the "(in the zone!)" note follows the rider in and out
+		if g["kind"] == "zone_combo":
+			var inside: bool = in_zone(g)
+			if inside != _zone_in.get(g["id"], false):
+				_zone_in[g["id"]] = inside
+				changed.emit()
 	_cake_tick()
 	_laps_tick(rider)
 	_run_tick(rider, dt)
 	_marks_tick(rider)
-	_thermo_tick()
 	for g in ev["goals"]:
 		var id: String = g["id"]
 		if done.has(id):
@@ -254,31 +268,50 @@ func _on_bailed(_reason: String) -> void:
 		goal_done.emit("", drop_text)
 
 
+## A trick (added to the live combo): the kids and guests near it cheer, and it counts toward showing them and
+## toward a zone combo once the combo lands (a trick that ends in a bail shows nobody anything).
 func _on_trick(_name: String, _points: int) -> void:
+	if not active:
+		return
 	var p: Vector3 = skater.rider_position()
 	for gst in _guests:
 		if Vector2(p.x - gst.global_position.x, p.z - gst.global_position.z).length() < KID_RADIUS:
 			gst.cheer(2.0)
 	for i in _kids.size():
 		var k: Npc = _kids[i]
-		if _kids_shown.has(i):
+		if _kids_shown.has(i) or _kids_pending.has(i):
 			continue
 		if Vector2(p.x - k.global_position.x, p.z - k.global_position.z).length() < KID_RADIUS:
-			_kids_shown[i] = true
+			_kids_pending[i] = true
 			k.cheer(3.0)
-			changed.emit()
-			if _kids_shown.size() >= _kids.size():
-				for g in ev["goals"]:
-					if g["kind"] == "show_kids":
-						_complete(g["id"])
+	for g in ev["goals"]:
+		if g["kind"] == "zone_combo" and in_zone(g):
+			_zone_hit[g["id"]] = true
 
 
 func _on_banked(points: int, _n: int) -> void:
+	if not active:
+		return
+	if not _kids_pending.is_empty():
+		for i in _kids_pending:
+			_kids_shown[i] = true
+		_kids_pending.clear()
+		changed.emit()
+		if _kids_shown.size() >= _kids.size():
+			for g in ev["goals"]:
+				if g["kind"] == "show_kids":
+					_complete(g["id"])
 	for g in ev["goals"]:
 		if g["kind"] == "combo" and points >= int(g["points"]):
 			_complete(g["id"])
-		elif g["kind"] == "zone_combo" and points >= int(g["points"]) and in_zone(g):
+		elif g["kind"] == "zone_combo" and points >= int(g["points"]) and _zone_hit.has(g["id"]):
 			_complete(g["id"])
+	_zone_hit.clear()
+
+
+func _on_lost() -> void:
+	_kids_pending.clear()
+	_zone_hit.clear()
 
 
 ## Whether the rider is inside a zone_combo goal's zone (marker zone_<zone>, `radius` metres, flat distance).
@@ -575,7 +608,7 @@ func _laps_tick(rider: Vector3) -> void:
 		if _lap_started:
 			laps_done += 1
 			if score != null:
-				score.add_trick("Sponsored Lap", int(goal.get("lap_points", 500)))
+				score.award("Sponsored Lap", int(goal.get("lap_points", 500)))
 			Sound.play("skate_done")
 			if laps_done >= int(goal.get("laps", 3)):
 				_complete(goal["id"])
@@ -620,7 +653,7 @@ func _run_tick(rider: Vector3, dt: float) -> void:
 		Sound.play("go")
 	elif _next_gate == last:
 		if not done.has(goal["id"]) and score != null:
-			score.add_trick("One Take", int(goal.get("points", 1500)))
+			score.award("One Take", int(goal.get("points", 1500)))
 		Sound.play("skate_done")
 		_complete(goal["id"])
 		_run_t = -1.0

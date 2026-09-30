@@ -7,6 +7,7 @@ signal changed
 signal banked(points: int, combo_len: int)
 signal lost
 signal trick_added(trick_name: String, points: int)
+signal awarded(award_name: String, points: int)   # points paid straight into the score (an event's lap, its one take)
 
 const WINDOW: float = 1.25
 const HOLD_CAP_SECONDS: float = 4.0   # one combo pays at most this many seconds of each hold (manual/grab/grind)
@@ -62,6 +63,14 @@ func add_trick(trick_name: String, points: int) -> void:
 	trick_count += 1
 	live = true
 	_window = 0.0
+	changed.emit()
+
+
+## Points for something that isn't a trick (a sponsored lap, a clean take): banked at once, outside any combo, so
+## they aren't multiplied, halved as a repeat or lost in a bail.
+func award(award_name: String, points: int) -> void:
+	score += points
+	awarded.emit(award_name, points)
 	changed.emit()
 
 
