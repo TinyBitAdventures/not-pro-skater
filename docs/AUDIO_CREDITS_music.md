@@ -1,4 +1,4 @@
-# Not Pro Skaters: music credits
+# Not Pro Skater: music credits
 
 Composition, arrangement, mix and master: Claude (Anthropic, Claude Opus 5.5), for Austin Ginder, with Wavelength 0.5.0-dev (a headless music engine). Every file was rendered offline from a generated job: the generators are `~/Documents/wavelength-songs/not-pro-skaters-<slug>/make-job.py` (one folder per piece), the shared palette, delivery and measuring scripts are in `~/Documents/wavelength-songs/not-pro-skaters/tools/`. Nothing was recorded and no audio loop or sample pack was imported; the only samples are the MuseScore General SoundFont drum hits. **Nobody has listened to these files yet**: every statement about them below is a measurement.
 

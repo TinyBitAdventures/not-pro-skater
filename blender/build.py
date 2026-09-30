@@ -1,5 +1,5 @@
 """
-Not Pro Skaters asset builder: levels, the board and runtime items. Characters are built separately
+Not Pro Skater asset builder: levels, the board and runtime items. Characters are built separately
 (blender/character.py, which needs the MPFB extension).
 
     blender --background --factory-startup --python blender/build.py -- [neighborhood] [greybox] [board] [items]

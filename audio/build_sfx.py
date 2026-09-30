@@ -1,5 +1,5 @@
 """
-Skate Park sound effects, synthesised with numpy/scipy. No samples, no licences.
+Not Pro Skater placeholder sound effects, synthesised with numpy/scipy. No samples, no licences.
 
     ~/Code/star-circuit/audio/.venv/bin/python audio/build_sfx.py [name ...]
 

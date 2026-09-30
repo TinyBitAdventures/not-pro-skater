@@ -1,6 +1,6 @@
-# Rebuild plan: Not Pro Skaters
+# Rebuild plan: Not Pro Skater
 
-Working title **Not Pro Skaters**. A skate game about people who skate for the love of it: a developer, a musician, a vlogger, a dad, an actor. The characters are archetypes *inspired by* real non-pro skaters, with the intent to ask for permission to use the real people if the game takes off. The events are community events, not contests: birthday parties, fundraisers, park openings, cleanup days and block parties.
+Title **Not Pro Skater** (working title Not Pro Skaters until 2026-09-30). A skate game about people who skate for the love of it: a developer, a musician, a vlogger, a dad, an actor. The characters are archetypes *inspired by* real non-pro skaters, with the intent to ask for permission to use the real people if the game takes off. The events are community events, not contests: birthday parties, fundraisers, park openings, cleanup days and block parties.
 
 Decisions (2026-09-29):
 

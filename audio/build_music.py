@@ -1,5 +1,5 @@
 """
-Skate Park background music: a bright 112 BPM loop (C major, four-chord pop-punk feel) built from
+Not Pro Skater placeholder background music: a bright 112 BPM loop (C major, four-chord pop-punk feel) built from
 synthesised drums, bass, guitar-ish plucks and a square lead. Placeholder-quality but licence-free.
 
     ~/Code/star-circuit/audio/.venv/bin/python audio/build_music.py

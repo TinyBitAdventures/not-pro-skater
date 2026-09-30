@@ -1,5 +1,5 @@
 """
-Shared Blender helpers for the Skate Park asset builders.
+Shared Blender helpers for the Not Pro Skater asset builders.
 
 Conventions
 - Blender +Z is up. glTF export converts to Godot's Y-up, so Blender +Y becomes Godot -Z.
@@ -380,7 +380,7 @@ def write_rails(glb_path):
     out = os.path.splitext(glb_path)[0] + ".rails.json"
     with open(out, "w") as f:
         json.dump(data, f, indent=1)
-    print(f"[skate-park] exported {out} ({len(curves)} rails)")
+    print(f"[not-pro-skater] exported {out} ({len(curves)} rails)")
     return curves
 
 
@@ -431,4 +431,4 @@ def export(path, selection=None, images=False):
         export_lights=False,
         export_image_format="AUTO" if images else "NONE",
     )
-    print(f"[skate-park] exported {path}")
+    print(f"[not-pro-skater] exported {path}")

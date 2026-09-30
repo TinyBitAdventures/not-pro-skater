@@ -1,4 +1,4 @@
-# Not Pro Skaters
+# Not Pro Skater
 
 A skateboarding game for everyone who skates but never went pro. Five archetype riders (The Dev, The Musician, The Vlogger, The Dad, The Actor) skate community events instead of contests: a kid's birthday in the park first, fundraisers and block parties next. Link ramps, rails and manuals into combos, finish the event's goals, and crash like a real body when you get it wrong (a ragdoll with muscles that braces and reaches out to catch the fall, a loose board, get up, walk back).
 
@@ -50,7 +50,7 @@ Steering, jump style (hold-release or instant tap) and music are in the title me
 
 Combos: every trick adds points and, if it is new to the combo, one to the multiplier. Land cleanly and keep going within about a second; stop and the combo is banked. Bail and you lose it.
 
-## The game (Not Pro Skaters)
+## The game (Not Pro Skater)
 
 ```bash
 cd game && godot --path .          # title: Birthday at the Park, Free Skate, Practice, rider select

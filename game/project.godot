@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Not Pro Skaters"
+config/name="Not Pro Skater"
 config/description="A skateboarding game about everyone else: community events, real parks, real crashes."
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")

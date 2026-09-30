@@ -171,7 +171,7 @@ def main():
             f.setframerate(SR)
             f.writeframes(pcm.tobytes())
         out = os.path.join(OUT, "park_ambience.ogg")
-        subprocess.run(["oggenc", "-q", "1", "--quiet", "-t", "Park ambience", "-a", "Not Pro Skaters",
+        subprocess.run(["oggenc", "-q", "1", "--quiet", "-t", "Park ambience", "-a", "Not Pro Skater",
                         "-o", out, wav], check=True)
     print("[ambience] wrote", out, os.path.getsize(out), "bytes")
 

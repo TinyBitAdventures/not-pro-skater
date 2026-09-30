@@ -1,4 +1,4 @@
-# Skate Park SFX: credits and licence classes
+# Not Pro Skater SFX: credits and licence classes
 
 Rendered with Wavelength 0.5.0-dev (headless host) at 44.1 kHz, then sliced, folded to mono, faded, peak-normalised and dithered to 16 bit
 (see `recipes/scripts/`). The job for every sound is in `recipes/jobs/<recipe>.job.json`. Plugin renders are not bit-reproducible, so the WAVs

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Renamed: Not Pro Skater
+- The game is **Not Pro Skater** (was the working title Not Pro Skaters): title screen logo, window and browser tab title (`config/name`), docs. The repo folder is `~/Code/not-pro-skater`. Saves move to `user://not_pro_skater.cfg`; the old `not_pro_skaters.cfg` is still read when there is no new one.
+
 ### Playtest fixes: crashes, letters, quit
 - **Crashes look like a person falling, not a rag doll:** the ragdoll has muscles now. Each part pulls toward the pose it had when it went down (neck and back firmest), the arms reach down toward where the body is falling to catch it, and the legs let go of the riding crouch; once the body lies still the muscles relax and the back and legs ease straight. Before, it went completely limp: face-plants with the arms tucked under the chest, the head thrown back against a wall. `LIMP=1` turns the muscles off for comparison.
 - Fixed: a one-frame pop at every get-up after a crash (the rider flashed upright on the board), from the skeleton showing its stale riding pose the frame the ragdoll stopped.

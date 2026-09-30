@@ -115,7 +115,7 @@ func _build_ui() -> void:
 	logo.add_theme_constant_override("separation", -34)
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	logo.add_child(UiKit.label("NOT PRO", 108, UiKit.ACCENT, "display"))
-	logo.add_child(UiKit.label("SKATERS", 108, UiKit.PAPER, "display"))
+	logo.add_child(UiKit.label("SKATER", 108, UiKit.PAPER, "display"))
 	col.add_child(logo)
 	col.add_child(UiKit.label("Skating for everyone else", 26, UiKit.MUTED, "body"))
 	var gap: Control = Control.new()

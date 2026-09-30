@@ -1,4 +1,4 @@
-"""Spec table for the Skate Park SFX set. Recipes come from the research folder (read-only)."""
+"""Spec table for the Not Pro Skater SFX set. Recipes come from the research folder (read-only)."""
 import os
 HOME = os.path.expanduser("~")
 RES = os.path.join(HOME, "Documents/wavelength-songs/skate-park/research/recipes")

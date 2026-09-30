@@ -1,5 +1,5 @@
 """
-Characters for Not Pro Skaters, built with MPFB (MakeHuman for Blender) from CC0 MakeHuman assets.
+Characters for Not Pro Skater, built with MPFB (MakeHuman for Blender) from CC0 MakeHuman assets.
 
 Grounded stylized: real proportions and PBR clothing, nudged toward a slightly bigger head and hands.
 Each archetype is a recipe (body settings, stylizing targets, skin, hair, clothes); build() makes the human,

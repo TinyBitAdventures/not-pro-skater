@@ -1,7 +1,8 @@
 extends Node
 ## Settings and saved bests. Dev scenes (anything launched from scenes/dev_*) never touch the real save.
 
-const SAVE_PATH: String = "user://not_pro_skaters.cfg"
+const SAVE_PATH: String = "user://not_pro_skater.cfg"
+const OLD_SAVE_PATH: String = "user://not_pro_skaters.cfg"     # before the rename to Not Pro Skater (2026-09-30)
 
 var best: Dictionary = {}          # level id -> {"score": int, "combo": int}
 var steer_mode: String = "tank"    # "tank" = skater steering (A/D turn, W push), "screen" = stick points where you go
@@ -99,7 +100,7 @@ func load_save() -> void:
 	if is_dev_run():
 		return
 	var cfg: ConfigFile = ConfigFile.new()
-	if cfg.load(SAVE_PATH) != OK:
+	if cfg.load(SAVE_PATH) != OK and cfg.load(OLD_SAVE_PATH) != OK:
 		return
 	best = cfg.get_value("progress", "best", {})
 	goals = cfg.get_value("progress", "goals", {})
