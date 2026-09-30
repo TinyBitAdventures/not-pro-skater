@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Level 2: Maple Grove Elementary and the Skate-a-thon (first pass)
+- **Maple Grove Elementary** (`blender/school.py`, `scenes/school.tscn`): a real-scale primary school on a Saturday morning under a mid-morning sky. A two-storey brick school with its name over the doors; front steps with three handrails and an access ramp with its own rail; a covered walkway on columns; planter ledges and benches on the entrance plaza; the school sign by the street (its cap is a ledge); a car park with painted bays, grindable wheel stops, a curb island with trees and lamps, a speed bump and parked cars; a 1.1 m loading dock with a ramp up and a ledge edge; a basketball court with the PTA's portable ramps (two quarter pipes, a funbox, a flat bar, a kicker); the old fenced playground behind the school. Same street and houses as Neighborhood Park.
+- **Skate-a-thon** (`scenes/skateathon.tscn`, title menu): the score is money raised for a new playground ($0.10 a point: HUD, trick string, best and results read in dollars), and a fundraising thermometer on the plaza fills as it comes in. Goals: ride 3 sponsored laps through the gates (START / FINISH arch, cone gates, a NEXT marker; each lap is a trick), grind a front-steps handrail, bring the bake-sale cake from the car park, collect D-O-N-A-T-E, impress the principal, raise $2,500. 2:30 sessions.
+- New goal kind `laps`; `trick_on` takes a list of rails and any grind; the deliver goal's drop message is per event; the event test drives any event's goals by kind (`EVENT=skateathon`).
+- A principal (MPFB bystander) and PTA parents and kids around the plaza, car park and court.
+- `terrain.configure()` and `realism.set_sky()` make the lawn layout and the sky per level; the Neighborhood street and house builders take parameters.
+
 ### Fix: half pipe airs are the shot
 - Off a quarter or half pipe the camera used to park where the air began and watch the lip, so the air read as a pause. The vert shot now sits closer and a little higher (2.9 m out, 1.8 m to the side), rises with the rider, slides along the coping with any drift, looks at the rider instead of the lip, and pushes in (12 degrees of zoom) as the rider leaves the lip; big airs off kickers get the same push-in by height. It still holds out front until the rider is back down the wall, then swings behind.
 

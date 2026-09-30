@@ -22,6 +22,8 @@ signal quit_requested
 
 var root: Control
 var score_value: Label
+var score_caption: Label
+var money: float = 0.0                   # a fundraiser: the score is dollars raised, this many a point
 var title_label: Label
 var goals_panel: PanelContainer
 var goals_box: VBoxContainer
@@ -94,7 +96,8 @@ func _build_score() -> void:
 	col.add_theme_constant_override("separation", 0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(col)
-	col.add_child(UiKit.caption("Score"))
+	score_caption = UiKit.caption("Score")
+	col.add_child(score_caption)
 	score_value = UiKit.label("0", 58, PAPER, "display")
 	col.add_child(score_value)
 	var gap: Control = Control.new()
@@ -350,7 +353,7 @@ func _process(delta: float) -> void:
 	_shown_score = lerpf(_shown_score, float(_target_score), 1.0 - exp(-9.0 * delta))
 	if absf(_shown_score - _target_score) < 1.0:
 		_shown_score = float(_target_score)
-	score_value.text = UiKit.commas(int(round(_shown_score)))
+	score_value.text = amount(int(round(_shown_score)))
 	# title card: fade in fast, hold, fade out
 	if _card_t > 0.0:
 		_card_t -= delta
@@ -375,6 +378,19 @@ func set_title(text: String) -> void:
 	title_label.text = text.to_upper()
 
 
+## Fundraiser mode: the score reads as money raised.
+func set_money(per_point: float) -> void:
+	money = per_point
+	score_caption.text = "RAISED" if money > 0.0 else "SCORE"
+
+
+## Points as the HUD shows them: "12,340", or "$1,234" in a fundraiser.
+func amount(points: int) -> String:
+	if money > 0.0:
+		return "$" + UiKit.commas(int(round(points * money)))
+	return UiKit.commas(points)
+
+
 func set_score(v: int) -> void:
 	_target_score = v
 
@@ -389,7 +405,7 @@ func set_combo(mult: int, names: Array[String], pending: int, live: bool) -> voi
 		trick_points.add_theme_color_override("font_color", ACCENT)
 	var shown: Array[String] = names.slice(maxi(0, names.size() - 5))
 	trick_names.text = ("... + " if names.size() > 5 else "") + " + ".join(shown)
-	trick_points.text = "%s  x %d" % [UiKit.commas(pending), mult]
+	trick_points.text = "%s  x %d" % [amount(pending), mult]
 	trick_points.pivot_offset = trick_points.size * 0.5
 	if names.size() != _last_names:
 		trick_points.scale = Vector2(1.18, 1.18)     # a small pop for every new trick
@@ -400,7 +416,7 @@ func combo_banked(points: int) -> void:
 	_trick_state = "banked"
 	_trick_t = 1.6
 	_last_names = 0
-	trick_points.text = "+" + UiKit.commas(points)
+	trick_points.text = "+" + amount(points)
 	trick_points.add_theme_color_override("font_color", GOOD)
 	trick_points.pivot_offset = trick_points.size * 0.5
 	trick_points.scale = Vector2(1.3, 1.3)
@@ -426,7 +442,7 @@ func set_timer(seconds: float, running: bool) -> void:
 
 
 func set_best(v: int) -> void:
-	best_label.text = ("BEST  " + UiKit.commas(v)) if v > 0 else ""
+	best_label.text = ("BEST  " + amount(v)) if v > 0 else ""
 
 
 func show_speed(v: bool) -> void:
@@ -727,11 +743,11 @@ func show_results(r: Dictionary) -> void:
 	results_box.add_child(UiKit.label("SESSION OVER", 64, PAPER, "display"))
 	var row: HBoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 48)
-	for pair in [["Score", int(r.get("score", 0))], ["Best combo", int(r.get("best_combo", 0))]]:
+	for pair in [["Raised" if money > 0.0 else "Score", int(r.get("score", 0))], ["Best combo", int(r.get("best_combo", 0))]]:
 		var v: VBoxContainer = VBoxContainer.new()
 		v.add_theme_constant_override("separation", -4)
 		v.add_child(UiKit.caption(String(pair[0])))
-		v.add_child(UiKit.label(UiKit.commas(int(pair[1])), 52, PAPER, "display"))
+		v.add_child(UiKit.label(amount(int(pair[1])), 52, PAPER, "display"))
 		row.add_child(v)
 	if r.get("new_best", false):
 		var nb: Label = UiKit.label("NEW BEST", 30, ACCENT, "display")

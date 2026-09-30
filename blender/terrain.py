@@ -41,6 +41,12 @@ MOUNDS = [(-46.0, 27.0, 9.0, 1.9), (40.0, 33.0, 11.0, 2.5), (-50.0, -8.0, 6.5, 1
           (8.0, 30.0, 6.0, 0.9)]
 
 
+def configure(hard, mounds):
+    """Another level's layout: the rectangles the lawn meets flat, and its mounds. (Defaults: Neighborhood Park.)"""
+    HARD[:] = list(hard)
+    MOUNDS[:] = list(mounds)
+
+
 def _rect_dist(x, y, r):
     dx = max(r[0] - x, 0.0, x - r[1])
     dy = max(r[2] - y, 0.0, y - r[3])

@@ -7,7 +7,9 @@ const EVENT_SCENE: String = "res://scenes/birthday.tscn"
 const FREE_SCENE: String = "res://scenes/neighborhood.tscn"
 const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
 const SPOT: Vector3 = Vector3(-18.0, 0.02, 4.0)      # where the rider stands: by the mini ramp, in the late sun
-const ITEMS: Array[String] = ["event", "free", "practice", "rider", "steer", "jump", "music", "controls"]
+const ITEMS: Array[String] = ["event", "event2", "free", "practice", "rider", "steer", "jump", "music", "controls"]
+const EVENT2_SCENE: String = "res://scenes/skateathon.tscn"
+const PLAY_ITEMS: int = 4                # the big entries (things to play) before the settings
 
 var items: Array[String] = []         # ITEMS, plus Quit on desktop
 var level: Level
@@ -123,7 +125,7 @@ func _build_ui() -> void:
 	col.add_child(gap)
 
 	for i in items.size():
-		if i == 3 or items[i] == "quit":
+		if i == PLAY_ITEMS or items[i] == "quit":
 			var g2: Control = Control.new()
 			g2.custom_minimum_size = Vector2(0, 18)
 			col.add_child(g2)
@@ -131,7 +133,7 @@ func _build_ui() -> void:
 		row.custom_minimum_size = Vector2(460, 0)
 		row.add_theme_constant_override("separation", 12)
 		row.mouse_filter = Control.MOUSE_FILTER_STOP
-		var big: bool = i < 3
+		var big: bool = i < PLAY_ITEMS
 		var name_l: Label = UiKit.label("", 38 if big else 25, UiKit.PAPER, "bold")
 		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var val_l: Label = UiKit.label("", 25, UiKit.MUTED, "body")
@@ -212,7 +214,7 @@ func _build_hints() -> void:
 
 
 func _refresh() -> void:
-	var names: Dictionary = {"event": "Birthday at the Park", "free": "Free Skate", "practice": "Practice",
+	var names: Dictionary = {"event": "Birthday at the Park", "event2": "Skate-a-thon", "free": "Free Skate", "practice": "Practice",
 		"rider": "Rider", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls", "quit": "Quit"}
 	var values: Dictionary = {
 		"rider": Game.rider_name(Game.rider),
@@ -228,10 +230,16 @@ func _refresh() -> void:
 		var val: String = String(values.get(key, ""))
 		row_values[i].text = ("‹  %s  ›" % val) if (on and val != "") else val
 		row_values[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.8))
-	var done: int = Game.event_goals("birthday").size()
-	var goals: int = (Events.get_event("birthday")["goals"] as Array).size()
-	var best: int = int(Game.best.get("birthday", {}).get("score", 0))
-	progress_label.text = "BIRTHDAY GOALS  %d / %d" % [done, goals] + (("      BEST  " + UiKit.commas(best)) if best > 0 else "")
+	var lines: Array[String] = []
+	for eid in ["birthday", "skateathon"]:
+		var e: Dictionary = Events.get_event(eid)
+		var done: int = Game.event_goals(eid).size()
+		var best: int = int(Game.best.get(eid, {}).get("score", 0))
+		var money: float = float(e.get("money", 0.0))
+		var best_text: String = ("$" + UiKit.commas(int(best * money))) if money > 0.0 else UiKit.commas(best)
+		lines.append("%s  %d / %d GOALS" % [String(e["title"]), done, (e["goals"] as Array).size()]
+			+ (("    BEST  " + best_text) if best > 0 else ""))
+	progress_label.text = "\n".join(lines)
 	rider_name.text = Game.rider_name(Game.rider).to_upper()
 	rider_blurb.text = String(Game.RIDER_INFO.get(Game.rider, {}).get("blurb", ""))
 
@@ -274,7 +282,7 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ollie"):
 		# Space is the jump key: it only starts a session, it never flips a setting (use Enter or the mouse)
 		var is_space: bool = event is InputEventKey and (event as InputEventKey).physical_keycode == KEY_SPACE
-		if is_space and selected >= 3:
+		if is_space and selected >= PLAY_ITEMS:
 			return
 		_activate(1)
 
@@ -306,6 +314,8 @@ func _activate(step: int) -> void:
 	match items[selected]:
 		"event":
 			Game.go(EVENT_SCENE)
+		"event2":
+			Game.go(EVENT2_SCENE)
 		"free":
 			Game.go(FREE_SCENE)
 		"practice":

@@ -9,11 +9,17 @@ extends RefCounted
 ##   show_kids  land a trick near each kid (markers Event_kid_<n>)
 ##   combo      bank one combo worth at least `points`
 ##   score      reach `points` in a session
+##   laps       ride through the gates (markers Event_gate_<n>) in order and back to the first, `laps` times;
+##              each lap adds `lap_points` as a trick
+##
+## `money` (optional): the score is money raised, this many dollars a point (a fundraiser); the HUD, results
+## and goal texts show dollars.
+## trick_on takes `rail` (one id) or `rails` (any of them); `trick` "" means any grind.
 ##
 ## "dressing" decorates the level for the event (Godot coordinates): balloon bunches tied to anchors, a banner on
 ## two poles, presents, and party hats for the kids.
 
-const ALL: Array[String] = ["birthday"]
+const ALL: Array[String] = ["birthday", "skateathon"]
 
 
 static func get_event(id: String) -> Dictionary:
@@ -49,6 +55,41 @@ static func get_event(id: String) -> Dictionary:
 					{"id": "kids", "kind": "show_kids", "text": "Show the kids a trick"},
 					{"id": "combo", "kind": "combo", "text": "Party trick: a 10,000 combo", "points": 10000},
 					{"id": "score", "kind": "score", "text": "Score 25,000", "points": 25000},
+				],
+			}
+		"skateathon":
+			return {
+				"id": "skateathon",
+				"title": "SKATE-A-THON",
+				"blurb": "Maple Grove Elementary needs a new playground. Every trick raises money.",
+				"level": "res://assets/levels/school.gltf",
+				"session": 150.0,
+				"money": 0.1,
+				"kids": ["principal"],
+				"guests": [
+					{"char": "guest_mom", "pos": Vector3(9.6, 0.0, -2.4), "yaw": 20.0},
+					{"char": "kid_sam", "pos": Vector3(7.0, 0.0, -2.8), "yaw": -10.0},
+					{"char": "kid_maya", "pos": Vector3(21.5, 0.0, 2.6), "yaw": 0.0},
+					{"char": "guest_grandpa", "pos": Vector3(-31.5, 0.0, -8.5), "yaw": -90.0},
+				],
+				"dressing": {
+					"banner": {"text": "MAPLE GROVE SKATE-A-THON", "a": Vector3(-12.9, 0.0, 13.8), "b": Vector3(-7.1, 0.0, 13.8),
+						"height": 2.6},
+					"balloons": [Vector3(-15.2, 1.14, -4.8), Vector3(-4.8, 1.14, -4.8), Vector3(10.0, 0.8, -1.0),
+						Vector3(6.0, 0.8, -1.0)],
+					"thermometer": {"pos": Vector3(-1.0, 0.0, -3.2), "yaw": 10.0, "goal": 2500.0},
+					"gifts": Vector3(11.2, 0.0, -2.2),
+				},
+				"goals": [
+					{"id": "laps", "kind": "laps", "text": "Ride 3 sponsored laps of the school", "laps": 3,
+						"lap_points": 800},
+					{"id": "handrail", "kind": "trick_on", "text": "Grind a front-steps handrail",
+						"rails": ["steps_rail_l", "steps_rail_c", "steps_rail_r"], "trick": ""},
+					{"id": "cake", "kind": "deliver", "text": "Bring the bake-sale cake from the car park",
+						"from": "cake_pickup", "to": "cake_drop", "drop_text": "CAKE DROPPED!  BACK TO THE CAR"},
+					{"id": "donate", "kind": "letters", "text": "Collect D-O-N-A-T-E", "letters": "DONATE"},
+					{"id": "principal", "kind": "show_kids", "text": "Impress the principal"},
+					{"id": "raise", "kind": "score", "text": "Raise $2,500", "points": 25000},
 				],
 			}
 	return {}

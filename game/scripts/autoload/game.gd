@@ -32,6 +32,8 @@ const PREVIEW_SCENES: Dictionary = {
 	"greybox": "res://scenes/greybox.tscn",
 	"birthday": "res://scenes/birthday.tscn",
 	"park": "res://scenes/neighborhood.tscn",
+	"skateathon": "res://scenes/skateathon.tscn",
+	"school": "res://scenes/school.tscn",
 }
 
 

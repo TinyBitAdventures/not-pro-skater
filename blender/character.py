@@ -130,6 +130,16 @@ ARCHETYPES = {
         "hair": "short03", "clothes": ["namuhekam_male_polo_shirt", "toigo_wool_pants", "shoes02"],
         "tint": {"namuhekam_male_polo_shirt": "#b89c6e"},
     },
+    # the skate-a-thon (school): the principal (not playable)
+    "principal": {
+        "title": "Principal Okafor", "npc": True,
+        "macro": {"gender": 0.0, "age": 0.72, "muscle": 0.45, "weight": 0.55, "proportions": 0.55,
+                  "height": 0.55, "cupsize": 0.5, "firmness": 0.5,
+                  "race": {"asian": 0.05, "caucasian": 0.15, "african": 0.8}},
+        "stylize": {"head-scale-vert-incr": 0.2, "head-scale-horiz-incr": 0.15},
+        "skin": "middleage_african_female", "eyes": "brown", "eyebrows": "eyebrow009", "eyelashes": "eyelashes03",
+        "hair": "toigo_inverted_bob", "clothes": ["female_elegantsuit01", "toigo_ankle_boots_female"],
+    },
     "actor": {
         "title": "The Actor",
         "macro": {"gender": 1.0, "age": 0.62, "muscle": 0.4, "weight": 0.66, "proportions": 0.5,

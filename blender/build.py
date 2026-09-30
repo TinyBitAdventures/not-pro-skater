@@ -34,6 +34,14 @@ def build_neighborhood():
     lib.export(out, images=True)
 
 
+def build_school():
+    import school
+    lib.reset_scene()
+    out = os.path.join(GAME, "levels", "school.gltf")
+    school.build(out, bake=os.environ.get("NOBAKE", "") == "", samples=int(os.environ.get("SAMPLES", "128")))
+    lib.export(out, images=True)
+
+
 def build_items():
     """Runtime items the events move around (the birthday cake)."""
     import park_props
@@ -59,6 +67,8 @@ if __name__ == "__main__":
         build_greybox()
     if "board" in targets:
         build_board()
+    if "school" in targets:
+        build_school()
     if "items" in targets:
         build_items()
     if "neighborhood" in targets:

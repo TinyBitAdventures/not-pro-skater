@@ -26,6 +26,13 @@ ART = os.path.normpath(os.path.join(HERE, "..", "art"))
 # the sky (and so the sun and the light) for the bakes: SKY=<polyhaven id> overrides it for comparisons
 SKY = os.environ.get("SKY", "qwantani_late_afternoon_puresky")      # late afternoon: long shadows, warm light
 HDRI = os.path.join(ART, "hdri", SKY + "_2k.hdr")
+
+
+def set_sky(name):
+    """Bake a level under another Poly Haven sky (art/hdri/<name>_2k.hdr; the game loads <name>_1k.hdr)."""
+    global SKY, HDRI
+    SKY = name
+    HDRI = os.path.join(ART, "hdri", name + "_2k.hdr")
 RANGE = 2.0
 SKY_CLAMP = 30.0          # HDRI radiance above this is the sun disc: left out of the sky bake
 
@@ -41,6 +48,7 @@ SETS = {
     "metal": ("Metal032", 0.6, (1.0, 1.0, 1.0), 1.0, False),
     "paint_red": ("PaintedMetal004", 0.8, (1.0, 1.0, 1.0), 0.0, False),
     "galvanized": ("Metal032", 0.5, (0.78, 0.8, 0.82), 1.0, False),
+    "court": ("Concrete046", 2.5, (0.44, 0.58, 0.52), 0.0, True),            # a painted sage-green games court
     "side_paint": ("Concrete046", 2.5, (0.27, 0.34, 0.43), 0.0, True),      # painted side sheets: slate over a neutral base
     "steel_plate": ("Concrete044D", 1.0, (0.5, 0.5, 0.52), 0.0, True),       # worn steel at the ramp's foot (baked; Metal032 reads blue)
     "bark": ("Bark012", 1.0, (1.0, 1.0, 1.0), 0.0, False),
@@ -66,7 +74,7 @@ KIT = {
     "Path": "asphalt", "PathB": "asphalt", "Road": "asphalt",
     "Grass": "grass", "GrassB": "grass",
     "Metal": "metal", "MetalDk": "metal", "Coping": "metal", "Galv": "galvanized", "Steel": "steel_plate",
-    "SidePaint": "side_paint", "Timber": "wood_side",
+    "SidePaint": "side_paint", "Timber": "wood_side", "Court": "court",
     "Red": "paint_red", "Yellow": "paint_red", "Orange": "paint_red", "Blue": "paint_red",
     "Siding": "siding", "SidingBlue": "siding_blue", "SidingSage": "siding_sage", "Roof": "roof", "Brick": "brick",
     "Paving": "paving", "Dirt": "dirt", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
@@ -309,8 +317,9 @@ def join_live(cell=30.0, prefix="Live"):
     return out
 
 
-def sun_from_hdri(path=HDRI):
+def sun_from_hdri(path=None):
     """Direction to the brightest pixel (Blender axes) and the irradiance the sun disc delivers."""
+    path = path or HDRI
     import numpy as np
     img = bpy.data.images.load(path, check_existing=True)
     w, h = img.size

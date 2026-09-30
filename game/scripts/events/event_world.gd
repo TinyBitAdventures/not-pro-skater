@@ -22,6 +22,7 @@ func _ready() -> void:
 		warp(start_names.find(OS.get_environment("SHOT_START")))     # screenshot mode
 	(cam as ChaseCamera).snap_behind()
 	hud.set_title(ev["title"])
+	hud.set_money(float(ev.get("money", 0.0)))
 	hud.show_timer(true)
 	hud.show_speed(false)
 	hud.set_best(int(Game.best.get(String(ev["id"]), {}).get("score", 0)))

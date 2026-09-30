@@ -30,6 +30,15 @@ var _cake: Node3D
 var _cake_state: String = "waiting"    # waiting / carried / delivered
 var _t: float = 0.0
 var _bunches: Array[Node3D] = []
+var money: float = 0.0                 # dollars per point (a fundraiser), 0 = plain points
+var gates: Array[Transform3D] = []     # the lap route (markers gate_1..n)
+var laps_done: int = 0
+var _next_gate: int = 0
+var _lap_started: bool = false
+var _gate_nodes: Array[Node3D] = []
+var _next_marker: Label3D
+var _thermo: Dictionary = {}           # the fundraising thermometer's parts
+const GATE_RADIUS: float = 3.2
 
 
 func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKeeper) -> void:
@@ -38,6 +47,7 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 	skater = p_skater
 	score = p_score
 	saved = Game.event_goals(ev["id"])
+	money = float(ev.get("money", 0.0))
 	score.banked.connect(_on_banked)
 	score.trick_added.connect(_on_trick)
 	skater.bailed.connect(_on_bailed)
@@ -55,6 +65,8 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 				for l in String(g["letters"]):
 					if level.markers.has("letter_" + l):
 						_letters[l] = _balloon(l, (level.markers["letter_" + l] as Transform3D).origin)
+			"laps":
+				_build_gates()
 			"deliver":
 				_cake = CAKE_SCENE.instantiate()
 				add_child(_cake)
@@ -90,6 +102,8 @@ func goal_list() -> Array:
 			"deliver":
 				if _cake_state == "carried" and not done.has(id):
 					text += "  (carrying!)"
+			"laps":
+				text += "  %d/%d" % [mini(laps_done, int(g["laps"])), int(g["laps"])]
 		out.append({"text": text, "done": done.has(id) or saved.has(id)})
 	return out
 
@@ -147,14 +161,18 @@ func _process(dt: float) -> void:
 				if g["kind"] == "letters" and _letter_progress(String(g["letters"])).find("_") < 0:
 					_complete(g["id"])
 	_cake_tick()
+	_laps_tick(rider)
+	_thermo_tick()
 	for g in ev["goals"]:
 		var id: String = g["id"]
 		if done.has(id):
 			continue
 		match String(g["kind"]):
 			"trick_on":
-				if skater.state == Skater.State.GRIND and skater.grind_line != null \
-						and skater.grind_line.id == String(g["rail"]) and skater.grind_kind == String(g["trick"]):
+				var rails: Array = g.get("rails", [g.get("rail", "")])
+				var trick: String = String(g.get("trick", ""))
+				if skater.state == Skater.State.GRIND and skater.grind_line != null and skater.lip_kind == "" \
+						and rails.has(skater.grind_line.id) and (trick == "" or skater.grind_kind == trick):
 					_complete(id)
 			"score":
 				if score.score >= int(g["points"]):
@@ -201,7 +219,11 @@ func _on_bailed(_reason: String) -> void:
 		if skater.visual != null:
 			skater.visual.carry_item = null
 		changed.emit()
-		goal_done.emit("", "CAKE DROPPED!  BACK TO THE STREET")
+		var drop_text: String = "CAKE DROPPED!  BACK TO THE STREET"
+		for g in ev["goals"]:
+			if g["kind"] == "deliver":
+				drop_text = String(g.get("drop_text", drop_text))
+		goal_done.emit("", drop_text)
 
 
 func _on_trick(_name: String, _points: int) -> void:
@@ -233,10 +255,12 @@ const PARTY_COLORS: Array[Color] = [Color(0.92, 0.2, 0.25), Color(0.2, 0.5, 0.95
 	Color(0.25, 0.75, 0.4), Color(0.85, 0.35, 0.8), Color(1.0, 0.55, 0.2), Color(0.97, 0.97, 0.95)]
 
 
-## The event's decorations: balloon bunches, a banner, presents.
+## The event's decorations: balloon bunches, a banner, presents, a fundraising thermometer.
 func _dress(d: Dictionary) -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 42
+	if d.has("thermometer"):
+		_thermometer(d["thermometer"])
 	for at in d.get("balloons", []):
 		_bunch(at, rng)
 	if d.has("banner"):
@@ -418,3 +442,173 @@ func _balloon(letter: String, at: Vector3) -> Node3D:
 	l.position = Vector3(0, 0.02, 0)
 	root.add_child(l)
 	return root
+
+
+# ------------------------------------------------------------------ laps
+
+## Gates along the lap route: the first is the start / finish arch, the rest are pairs of cones with flags.
+func _build_gates() -> void:
+	var i: int = 1
+	while level.markers.has("gate_%d" % i):
+		gates.append(level.markers["gate_%d" % i])
+		i += 1
+	var cone_mat: StandardMaterial3D = StandardMaterial3D.new()
+	cone_mat.albedo_color = Color(1.0, 0.45, 0.1)
+	cone_mat.roughness = 0.6
+	for gi in gates.size():
+		var xf: Transform3D = gates[gi]
+		var side: Vector3 = xf.basis.x.normalized()
+		var root: Node3D = Node3D.new()
+		add_child(root)
+		_gate_nodes.append(root)
+		if gi == 0:
+			_banner({"text": "START / FINISH", "a": xf.origin - side * 2.9, "b": xf.origin + side * 2.9, "height": 2.5})
+		for s in [-1.0, 1.0]:
+			var c: CylinderMesh = CylinderMesh.new()
+			c.top_radius = 0.03
+			c.bottom_radius = 0.17
+			c.height = 0.7
+			c.material = cone_mat
+			var mi: MeshInstance3D = MeshInstance3D.new()
+			mi.mesh = c
+			root.add_child(mi)
+			mi.global_position = xf.origin + side * s * 2.6 + Vector3.UP * 0.35
+	_next_marker = Label3D.new()
+	_next_marker.text = "NEXT"
+	_next_marker.font = UiKit.FONT_DISPLAY
+	_next_marker.font_size = 96
+	_next_marker.pixel_size = 0.006
+	_next_marker.modulate = UiKit.ACCENT
+	_next_marker.outline_size = 12
+	_next_marker.outline_modulate = Color(0, 0, 0, 0.6)
+	_next_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_next_marker.no_depth_test = true
+	_next_marker.fixed_size = false
+	add_child(_next_marker)
+
+
+## Ride through the gates in order; back through the first after the last is a lap (a sponsored lap: points).
+func _laps_tick(rider: Vector3) -> void:
+	if gates.is_empty():
+		return
+	var goal: Dictionary = {}
+	for g in ev["goals"]:
+		if g["kind"] == "laps":
+			goal = g
+	var gxf: Transform3D = gates[_next_gate]
+	_next_marker.global_position = gxf.origin + Vector3.UP * (3.1 + sin(_t * 3.0) * 0.12)
+	_next_marker.text = ("START" if not _lap_started else ("FINISH" if _next_gate == 0 else "NEXT"))
+	if skater.state == Skater.State.BAIL:
+		return
+	if Vector2(rider.x - gxf.origin.x, rider.z - gxf.origin.z).length() > GATE_RADIUS:
+		return
+	if _next_gate == 0:
+		if _lap_started:
+			laps_done += 1
+			if score != null:
+				score.add_trick("Sponsored Lap", int(goal.get("lap_points", 500)))
+			Sound.play("skate_done")
+			if laps_done >= int(goal.get("laps", 3)):
+				_complete(goal["id"])
+		_lap_started = true
+	else:
+		Sound.play("pickup", -6.0, 1.2)
+	_next_gate = (_next_gate + 1) % gates.size()
+	changed.emit()
+
+
+# ------------------------------------------------------------------ the fundraising thermometer
+
+## A sign on two legs with a red thermometer that fills as the money comes in, and the total under it.
+func _thermometer(td: Dictionary) -> void:
+	var root: Node3D = Node3D.new()
+	add_child(root)
+	root.global_transform = Transform3D(Basis(Vector3.UP, deg_to_rad(float(td.get("yaw", 0.0)))), td["pos"])
+	var white: StandardMaterial3D = StandardMaterial3D.new()
+	white.albedo_color = Color(0.96, 0.95, 0.92)
+	white.roughness = 0.8
+	var wood: StandardMaterial3D = StandardMaterial3D.new()
+	wood.albedo_color = Color(0.42, 0.3, 0.2)
+	var red: StandardMaterial3D = StandardMaterial3D.new()
+	red.albedo_color = Color(0.85, 0.12, 0.12)
+	red.roughness = 0.35
+	var glass: StandardMaterial3D = StandardMaterial3D.new()
+	glass.albedo_color = Color(0.9, 0.92, 0.95)
+	glass.roughness = 0.2
+	var parts: Array = [
+		[BoxMesh.new(), Vector3(1.3, 2.7, 0.06), Vector3(0, 1.75, 0), white],
+		[BoxMesh.new(), Vector3(0.08, 3.2, 0.08), Vector3(-0.55, 1.6, -0.06), wood],
+		[BoxMesh.new(), Vector3(0.08, 3.2, 0.08), Vector3(0.55, 1.6, -0.06), wood],
+	]
+	for p in parts:
+		var bm: BoxMesh = p[0]
+		bm.size = p[1]
+		bm.material = p[3]
+		var mi: MeshInstance3D = MeshInstance3D.new()
+		mi.mesh = bm
+		mi.position = p[2]
+		root.add_child(mi)
+	var tube: CylinderMesh = CylinderMesh.new()
+	tube.top_radius = 0.07
+	tube.bottom_radius = 0.07
+	tube.height = 1.8
+	tube.material = glass
+	var tube_mi: MeshInstance3D = MeshInstance3D.new()
+	tube_mi.mesh = tube
+	tube_mi.position = Vector3(0, 1.85, 0.06)
+	root.add_child(tube_mi)
+	var bulb: SphereMesh = SphereMesh.new()
+	bulb.radius = 0.14
+	bulb.height = 0.28
+	bulb.material = red
+	var bulb_mi: MeshInstance3D = MeshInstance3D.new()
+	bulb_mi.mesh = bulb
+	bulb_mi.position = Vector3(0, 0.82, 0.08)
+	root.add_child(bulb_mi)
+	var fill: CylinderMesh = CylinderMesh.new()
+	fill.top_radius = 0.075
+	fill.bottom_radius = 0.075
+	fill.height = 1.0
+	fill.material = red
+	var fill_mi: MeshInstance3D = MeshInstance3D.new()
+	fill_mi.mesh = fill
+	root.add_child(fill_mi)
+	var title: Label3D = _sign_text("PLAYGROUND FUND", 70, Color(0.13, 0.19, 0.29))
+	title.position = Vector3(0, 2.95, 0.035)
+	root.add_child(title)
+	var amount: Label3D = _sign_text("", 60, Color(0.85, 0.12, 0.12))
+	amount.position = Vector3(0, 0.45, 0.035)
+	root.add_child(amount)
+	for k in 5:                                               # tick marks with amounts
+		var tick: Label3D = _sign_text("$%s" % UiKit.commas(int(float(td["goal"]) * (k + 1) / 5.0)), 34, Color(0.25, 0.28, 0.33))
+		tick.position = Vector3(0.36, 1.0 + 1.7 * (k + 1) / 5.0, 0.035)
+		root.add_child(tick)
+	_thermo = {"fill": fill_mi, "amount": amount, "goal": float(td["goal"]), "shown": 0.0}
+	_thermo_tick()
+
+
+func _sign_text(text: String, size: int, color: Color) -> Label3D:
+	var l: Label3D = Label3D.new()
+	l.text = text
+	l.font = UiKit.FONT_DISPLAY
+	l.font_size = size
+	l.pixel_size = 0.0022
+	l.modulate = color
+	l.outline_size = 0
+	l.double_sided = false
+	l.shaded = true
+	return l
+
+
+func _thermo_tick() -> void:
+	if _thermo.is_empty() or score == null:
+		return
+	var raised: float = float(score.score) * money
+	_thermo["shown"] = lerpf(float(_thermo["shown"]), raised, 0.08)
+	var k: float = clampf(float(_thermo["shown"]) / float(_thermo["goal"]), 0.0, 1.0)
+	var h: float = maxf(0.02, 1.7 * k)
+	var fill_mi: MeshInstance3D = _thermo["fill"]
+	fill_mi.scale = Vector3(1.0, h, 1.0)
+	fill_mi.position = Vector3(0, 0.95 + h * 0.5, 0.06)
+	(_thermo["amount"] as Label3D).text = "$%s RAISED" % UiKit.commas(int(round(float(_thermo["shown"]))))
+

@@ -176,7 +176,7 @@ def plant_trees():
         trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=i)
 
 
-def neighbourhood_houses():
+def neighbourhood_houses(north=True):
     """Seven houses across the street (garages, yards, fences or shrubs, mailboxes) and five behind the park."""
     sidings = ["Siding", "SidingBlue", "SidingCream", "SidingSage", "SidingGrey", "Siding", "SidingBlue"]
     roofs = ["Roof", "RoofDark", "RoofBrown"]
@@ -193,7 +193,7 @@ def neighbourhood_houses():
                 sx = x - w / 2 + 0.8 + k * (w - 1.6) / 3
                 if abs(sx - x) > 1.2:                    # keep the front walk clear
                     props.place("shrub_03", sx, -43.9, i * 31.0 + k * 77.0, scale=0.8, collide=False)
-    for i, x in enumerate(range(-45, 50, 18)):
+    for i, x in enumerate(range(-45, 50, 18) if north else []):
         r = empty(lib.uname("House"), (float(x), 55.0, 0.0), math.pi, None)
         houses.house(r, w=11.0, d=9.0, h=5.6, siding=sidings[(i + 3) % len(sidings)], seed=20 + i,
                      roof=roofs[(i + 1) % 3], chimney=i % 2 == 0)
@@ -207,7 +207,7 @@ def paint(name, hex_color, rough=0.85):
     return m
 
 
-def street_details():
+def street_details(crosswalk_x=-14.0):
     """A dashed centre line, a crosswalk where the park path meets the street, and power poles with sagging
     wires along the far sidewalk."""
     z = ROAD_Z + 0.004
@@ -215,11 +215,11 @@ def street_details():
     white = paint("LineWhite", "#e6e3da")
     x = -58.0
     while x < 58.0:
-        if not -17.0 < x < -11.0:
+        if not crosswalk_x - 3.0 < x < crosswalk_x + 3.0:
             box(lib.uname("Line"), (3.0, 0.12, 0.008), (x + 1.5, -36.5, z), yellow)
         x += 9.0
     for k in range(7):
-        box(lib.uname("Crosswalk"), (3.2, 0.5, 0.008), (-14.0, -39.6 + k * 1.05, z), white)
+        box(lib.uname("Crosswalk"), (3.2, 0.5, 0.008), (crosswalk_x, -39.6 + k * 1.05, z), white)
     wire = paint("Wire", "#1b1b1c", 0.6)
     tops = []
     for px in (-58.0, -29.0, 0.0, 29.0, 58.0):
