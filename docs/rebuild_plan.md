@@ -23,6 +23,7 @@ The core rule for the controller: **the code decides where the skater goes; phys
 | 4. Characters | **All five archetypes built** (MPFB + MakeHuman CC0, skinned, `RiderRig` IK posing, real board, 1K textures). Next: eye/hair material polish, per-character clothing colours, facial variety |
 | 5. First level + event | **Neighborhood Park + Birthday at the Park playable** (goals, kids, guests, cake, balloons, swaying trees, title screen, web build ~78 MB). The old cartoon park and its tests are retired |
 | 6. Polish | **Second pass done:** late-afternoon light (long shadows, backlit leaves), rolling lawns with grass tufts, hills and a horizon with instanced trees, built-looking ramps (plywood sheets, screws, steel foot plates, painted sides, galvanized rails), scuffed concrete, real eye colours and softer skin, lip tricks, smooth rail/coping entries, new techno soundtrack. Playtest fixes (2026-09-30): grind balance meter, warp back before the level's edge, whole street benches, no balloon-shadow flicker; ragdoll muscles (crashes brace and catch), P-A-R-T-Y badges on the HUD, Quit on the title. **Next:** gamepad feel pass, perf on low-end hardware |
+| 9. Polish (v0.2.0) | **Started 2026-09-30:** audits of every level (a physics sweep for stuck / fall-through / snap spots, a visual tour, a code review, a UI review) feed the backlog in Phase 9; then fixes, one verified commit each |
 | 8. The full game (v0.1.0) | **Released 2026-09-30** (tag `v0.1.0`, GitHub release with macOS / Windows / Linux builds, https://tinybitadventures.com/games/not-pro-skater/). Six events playable: Hilltop Tech + Launch Day, the Warehouse District + Record Release, Downtown + Rush Hour, Big Moon Studios + Between Takes, each verified by its event test, a rail audit of every grind line (19, 22, 13, 23), a physics ride of its route where it has one (the one-take run, the marks), screenshots and a draw-call check (290 to 340, against ~400 for the first two). New goal kinds `zone_combo`, `timed_run`, `marks`. The title menu cycles all six events and Free Skate levels. Web: levels 3 to 6 are resource packs fetched on first play. SFX with known licences only; macOS / Windows / Linux presets. See Phase 8 |
 | 7. Second level + event | **Maple Grove Elementary + the Skate-a-thon playable** (title menu, `?scene=skateathon`): the school grounds as planned (plaza steps with three handrails and a ramp rail, the sign ledge, covered walkway, car park with wheel stops, curb island and speed bump, the loading dock, the court with the PTA's ramps, the fenced playground), mid-morning sky; money scoring, the fundraising thermometer, lap gates, the principal. Levels export as glTF with shared textures; web build 77 MB with both levels (no shadow meshes, 256 px eyes / brows / lashes). Verified by the event test, a physics lap ride of the gate route and a rail audit of every grind line |
 
@@ -222,6 +223,36 @@ Release checklist for v0.1.0:
 - Release: tag `v0.1.0`, GitHub release with the desktop builds, then the Tiny Bit Adventures first-release steps and `bin/release.sh not-pro-skater 0.1.0` (see `/dev-not-pro-skater`).
 
 Later (after v0.1.0): each character's combos drive their own stems (the "city is the song" idea: grinds add bass, flips add drums, grabs add the lead), per-event soundtracks, gamepad feel pass, wallrides, board customisation, replays.
+
+---
+
+## Phase 9: Polish (v0.2.0)
+
+No new levels or events: make the six there are look and play right. Graphics (defects first: floating or clipping props, black faces, flicker, seams; then mood and dressing per level), bugs (goals, sessions, saves, bails that never end) and gameplay solidity (nowhere to get stuck, fall through or snap; routes that ride clean).
+
+How: four audits find the problems, each with coordinates and the object responsible: `scenes/dev_sweep.tscn` (pushes and ollies the skater from a grid of points across a level and reports stuck spots, falls, jumps and the colliders involved), a screenshot tour of every level, a code review of the events, sessions, skater and bails, and a UI review of every event's HUD, intro and results. The backlog below is ranked from them; each fix is verified by the test that found it plus the usual suites.
+
+Backlog, most important first (done items are in the changelog under Unreleased):
+
+**Gameplay (skater physics, from the sweep):**
+1. Riding off a raised edge (docks, the civic plaza, the stage, porch steps) rolls over it and dives down the face instead of flying off: the capsule's edge contact becomes the floor for 3-6 ticks. Launch at convex edges.
+2. In the air, speed into a wall is stored and flung out at the wall's end (11-14 m/s); it also drops the camera into the floor. Remove the into-wall part after each air slide.
+3. A vert air taken 58-78 degrees off the fall line always bails on the way down: turn toward the fall line.
+4. The 0.35 m floor snap sticks the rider to the ground off ledges up to 0.4 m: a short snap on flat ground.
+5. Camera: collide from the rider's chest, never below it; a sphere cast so it doesn't graze walls.
+
+**Gameplay (code review):** R during a lip stall freezes the next grind; R and the edge warp don't drop the carried item or ruin the take; the hold-to-jump charge survives a crash; R during a wall plant hijacks the next jump; linked rail ends are never followed.
+
+**Levels (colliders, from the sweep):** houses, fences and mailboxes have no collider (neighborhood, school); tree trunks on every level; the campus amphitheatre is hollow (end walls wound inward); power poles on the sidewalk; the school dumpster and playground; stage amps, riser and stairs (warehouse), speakers (campus); the van's open doors; backlot braces, hitching posts and tent poles; props collide with their whole bounding box (lamps), and scaled props are scaled twice.
+
+**Graphics (from the visual tour):**
+1. Every street lamp is a wall lantern standing on the ground, knee high: a lamp post helper (and the party bunting tied to the posts).
+2. Level edges: the far street is buried (white wedges on the grass), a seam at the lawn's edge; every level ends in the same suburban meadow (downtown, the warehouse and the backlot need a city, industrial or studio edge).
+3. The backlot's sets are untextured flat colours (Stucco, WestPaint, Brownstone, TrailerWhite not in `realism.KIT`), a few in other levels too.
+4. Shaded walls are blotchy (one 1024 px world lightmap, no denoise, half the atlas on hidden roof faces).
+5. Small ones: the school sign clipped by window sills; a lamp in the school's crosswalk; leaf litter reads as green paper; the Start_stunt camera inside the tent; warehouse crates buried in the bank; the floating monitor and café counter; the sound stages look like villas; the far towers are blank slabs; the plaza paving is a busy checker.
+
+**UI (from the UI review), still open:** a minimum UI scale in small windows; an objective pointer to the next target; delivery targets marked in the world; the pause screen showing the goals.
 
 ---
 
