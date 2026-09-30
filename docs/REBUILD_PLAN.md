@@ -22,7 +22,7 @@ The core rule for the controller: **the code decides where the skater goes; phys
 | 3. Realistic look | **In use** on Neighborhood Park (two bake groups). The look-test scene is retired. Still to do: material variety and wear, sky/exposure per event, performance numbers on real hardware |
 | 4. Characters | **All five archetypes built** (MPFB + MakeHuman CC0, skinned, `RiderRig` IK posing, real board, 1K textures). Next: eye/hair material polish, per-character clothing colours, facial variety |
 | 5. First level + event | **Neighborhood Park + Birthday at the Park playable** (goals, kids, guests, cake, balloons, swaying trees, title screen, web build ~78 MB). The old cartoon park and its tests are retired |
-| 6. Polish | **Next:** smoothness and performance, UI restyle, pause menu, trick popups, visual polish (light, props, characters), ambience |
+| 6. Polish | **First pass done:** interpolated motion (even at any refresh rate), draw calls 591 -> 283, a new UI (HUD with trick string, pause menu, results, title), distinct outfits and proper hair, concrete joints and surface variation, houses and a street, wall fill for shaded façades, party dressing, cake carried in both hands, deck graphics, grind sparks, ambience, results jingles, camera fixes on ramps. **Next:** gamepad button hints, a second event (a fundraiser), performance numbers on real low-end hardware and phones-as-browsers |
 
 Decisions made while building (they override the text below where it differs):
 
