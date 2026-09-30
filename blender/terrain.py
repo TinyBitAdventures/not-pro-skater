@@ -103,7 +103,7 @@ def _in_street_band(y, margin=0.0):
     return -43.0 - margin <= y <= -30.0 + margin
 
 
-def backdrop(extent=420.0, step=12.0):
+def backdrop(extent=420.0, step=12.0, tree_fn=None):
     far_grass = mat("FarGrass", "#6a8a44")
     # terrain: a grid outside the square only (the park's own ground covers the inside)
     n = int(2 * extent / step)
@@ -137,18 +137,17 @@ def backdrop(extent=420.0, step=12.0):
         lib.box("Far_Road", (hi - lo, 8.0, 0.1), ((lo + hi) / 2, -36.5, ROAD_Z - 0.05), road)
         for y0, y1 in ((-32.5, -30.0), (-43.0, -40.5)):
             lib.box("Far_Walk", (hi - lo, y1 - y0, -ROAD_Z), ((lo + hi) / 2, (y0 + y1) / 2, ROAD_Z / 2), walk)
-    _far_trees(extent)
+    _far_trees(extent, tree_fn)
 
 
-def _far_trees(extent):
-    """Simple trees (a trunk and a few crown blobs) scattered in clumps past the edge: at this distance and
-    through the haze they read as the tree lines around a suburban park."""
+def _far_trees(extent, tree_fn=None):
+    """Trees in clumps past the edge. With tree_fn (trees.tree), three leaf-card tree variants are built once and
+    every other tree is a linked copy (FarTree_*): the glb stores each variant once and Godot draws all copies of
+    a variant as one MultiMesh. Without it, simple blobs (a fallback for builds without the leaf texture)."""
     rnd = random.Random(7)
-    greens = [mat("FarLeaf", "#3f5a2a"), mat("FarLeafB", "#4c6a30"), mat("FarLeafC", "#35502a")]
-    bark = mat("FarBark", "#4a3b2e")
-    placed = 0
+    spots = []
     tries = 0
-    while placed < 320 and tries < 6000:
+    while len(spots) < 240 and tries < 8000:
         tries += 1
         x = rnd.uniform(-240.0, 240.0)
         y = rnd.uniform(-240.0, 240.0)
@@ -159,16 +158,19 @@ def _far_trees(extent):
         wood = math.sin(0.045 * x + 1.3) * math.sin(0.05 * y + 0.4) + 0.5 * math.sin(0.11 * x - 0.07 * y)
         if wood < 0.1 or rnd.random() > 1.0 - d / 420.0:
             continue
-        z = LAWN_Z + _far_rise(x, y)
-        h = rnd.uniform(7.0, 13.0)
-        r = h * rnd.uniform(0.28, 0.36)
-        lib.cyl_z(lib.uname("Far_Trunk"), (x, y, z - 0.3), h * 0.55, r * 0.12, bark, seg=5, smooth=False)
-        g = greens[rnd.randrange(len(greens))]
-        for k in range(3):
-            ox, oy = rnd.uniform(-0.35, 0.35) * r, rnd.uniform(-0.35, 0.35) * r
-            lib.ico(lib.uname("Far_Crown"), (x + ox, y + oy, z + h * (0.55 + 0.14 * k)), r * (1.0 - 0.18 * k), g,
-                    sub=1, squash=(1.0, 1.0, 0.85))
-        placed += 1
+        spots.append((x, y, LAWN_Z + _far_rise(x, y)))
+    if tree_fn is None:
+        return
+    variants = [tree_fn(f"FarTree_v{k}", (0.0, 0.0, 0.0), 8.0 + k * 1.2, 3.0 + k * 0.3, 300 + k) for k in range(3)]
+    for i, (x, y, z) in enumerate(spots):
+        src = variants[i % len(variants)]
+        ob = src if i < len(variants) else bpy.data.objects.new(f"FarTree_{i}", src.data)
+        if ob is not src:
+            bpy.context.scene.collection.objects.link(ob)
+        s = rnd.uniform(0.8, 1.3)
+        ob.location = (x, y, z - 0.2)
+        ob.rotation_euler = (0.0, 0.0, rnd.uniform(0.0, math.tau))
+        ob.scale = (s, s, s * rnd.uniform(0.9, 1.15))
 
 
 def edge_trees(tree_fn):

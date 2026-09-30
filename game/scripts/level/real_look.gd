@@ -52,7 +52,7 @@ static func apply(root: Node, lightmaps: Dictionary, info: Dictionary) -> void:
 					lm.shader = LEAVES
 					lm.set_shader_parameter("albedo_tex", src.albedo_texture)
 					cache["leaves"] = lm
-				inst.set_surface_override_material(s, cache["leaves"])
+				mesh.surface_set_material(s, cache["leaves"])    # on the mesh: instanced copies (MultiMesh) share it
 				continue
 			var has_uv2: bool = (mesh.surface_get_format(s) & Mesh.ARRAY_FORMAT_TEX_UV2) != 0
 			var lightmap: Texture2D = lightmaps.get(_group_of(inst), lightmaps.get("", null))

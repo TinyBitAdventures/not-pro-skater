@@ -171,6 +171,10 @@ func _instance_repeats(scene: Node3D) -> void:
 		var mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
 		mmi.name = "Repeat_" + String((copies[0] as Node).name).rstrip("0123456789._")
 		mmi.multimesh = mm
+		if String(mmi.name).begins_with("Repeat_FarTree"):
+			# spread over the whole map: its bounds would put every copy in every shadow pass (and they stand far
+			# past the shadows' range anyway)
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mmi)
 		for c in copies:
 			(c as Node).queue_free()
