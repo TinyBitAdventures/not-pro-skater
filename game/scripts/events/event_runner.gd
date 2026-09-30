@@ -385,6 +385,7 @@ func _balloon(letter: String, at: Vector3) -> Node3D:
 	root.add_child(string_mi)
 	var l: Label3D = Label3D.new()
 	l.text = letter
+	l.font = UiKit.FONT_DISPLAY
 	l.font_size = 128
 	l.pixel_size = 0.004
 	l.outline_size = 18
