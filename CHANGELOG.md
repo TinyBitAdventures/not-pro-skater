@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Polish: feel and sound
+- **Landings have weight:** the camera dips on a spring when you land (bigger air, deeper dip) and settles with a small rebound; a bail presses it too. The random camera shake is gone.
+- **The park sounds alive:** a seamless ambience loop synthesised in `audio/build_ambience.py` (gusting wind, leaves rustling in the gusts, distant traffic with a car passing, five birds with their own calls placed around the stereo field). It plays under the park, the birthday and the title (quieter), and goes quiet with the effects when paused. 330 KB.
+
 ### Polish: the neighbourhood
 - **Concrete looks poured, not tiled:** saw-cut expansion joints on a 2 m grid across the plaza and cross cuts along the sidewalks (world-space, in `baked_pbr.gdshader`, laid out by `<level>.look.json` which `neighborhood.py` writes), and large-scale variation on every baked surface so textures never repeat exactly (grass drifts to dry yellow in patches, concrete and asphalt stain).
 - **Houses with character** (`blender/houses.py`): three roof colours and five sidings, chimneys, porches over the doors, window sills and shutters, attached garages with driveways, front walks, picket fences or rows of shrubs, mailboxes. Seven houses across the street at 17 m spacing so every garage fits.

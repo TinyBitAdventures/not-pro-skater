@@ -38,6 +38,7 @@ var _pool: Array[AudioStreamPlayer] = []
 var _streams: Dictionary = {}
 var _loops: Dictionary = {}          # name -> AudioStreamPlayer
 var _music: AudioStreamPlayer
+var _ambience: AudioStreamPlayer
 var _music_track: String = ""
 var _jingle: AudioStreamPlayer
 var _sting: AudioStreamPlayer
@@ -75,6 +76,10 @@ func _ready() -> void:
 		add_child(p)
 		p.play()
 		_loops[n] = p
+	_ambience = AudioStreamPlayer.new()
+	_ambience.bus = "SFX"
+	_ambience.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+	add_child(_ambience)
 	_music = AudioStreamPlayer.new()
 	_music.bus = "Music"
 	_music.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
@@ -97,6 +102,22 @@ func _make_bus(bus_name: String, db: float) -> void:
 	AudioServer.set_bus_name(i, bus_name)
 	AudioServer.set_bus_volume_db(i, db)
 	AudioServer.set_bus_send(i, "Master")
+
+
+## Background sound of the place (wind, birds, distant traffic): a quiet loop under everything. "" stops it.
+func play_ambience(ambience_name: String, vol_db: float = -12.0) -> void:
+	if ambience_name == "":
+		_ambience.stop()
+		return
+	var path: String = "res://assets/audio/ambience/%s.ogg" % ambience_name
+	if not ResourceLoader.exists(path):
+		return
+	var s: AudioStreamOggVorbis = load(path)
+	s.loop = true
+	if _ambience.stream != s or not _ambience.playing:
+		_ambience.stream = s
+		_ambience.play()
+	_ambience.volume_db = vol_db
 
 
 ## Pause menu: effects go quiet (the rolling loops would hold their last volume) and the music sounds muffled.

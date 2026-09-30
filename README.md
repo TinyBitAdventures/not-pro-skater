@@ -180,7 +180,7 @@ game/
   scripts/ui/       TitleScreen, Hud, UiKit (fonts, colours, panels), TuningPanel (F3)
   scripts/autoload/ Controls (input map), Game (settings, saves), Sound
   shaders/          baked_pbr, leaf_sway, grid
-audio/     build_sfx.py build_music.py (numpy placeholders)
+audio/     build_sfx.py build_music.py (numpy placeholders), build_ambience.py (park ambience loop), wavelength/
 ```
 
 ## Roadmap

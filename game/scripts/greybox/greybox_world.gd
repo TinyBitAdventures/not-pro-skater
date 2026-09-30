@@ -61,6 +61,7 @@ func _ready() -> void:
 		hud.combo_lost()
 		Sound.play("combo_lost"))
 	skater.sfx.connect(_on_sfx)
+	Sound.play_ambience("park_ambience" if look == "real" else "")
 
 	var first: String = OS.get_environment("SHOT_START")
 	warp(start_names.find(first) if first != "" and start_names.has(first) else 0)

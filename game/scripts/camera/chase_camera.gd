@@ -7,6 +7,7 @@ extends Camera3D
 ## - Vert air: it moves out in front of the wall at about coping height and frames the lip low in the shot with
 ##   the skater rising above it; after the landing it swings round behind again.
 ## - Looks a little ahead along the velocity; the field of view opens up with speed and kicks on a pop.
+## - Landings press it down on a spring (bigger air, deeper dip) and it settles back with a small rebound.
 ## - A ray from the skater pulls it in front of any wall behind.
 
 const WORLD_MASK: int = 1
@@ -19,7 +20,8 @@ var fov_base: float = 68.0
 var fov_fast: float = 80.0
 var yaw_rate: float = 4.5          # how quickly it swings behind the travel direction (1/s)
 var follow_rate: float = 10.0      # how tightly the position follows (1/s)
-var shake: float = 0.0
+var _dip: float = 0.0              # landing spring: vertical offset (m) and its velocity
+var _dip_v: float = 0.0
 
 var _yaw: float = 0.0
 var _pos: Vector3 = Vector3.ZERO
@@ -50,8 +52,10 @@ func attach(sk: Skater) -> void:
 		if kind == "ollie":
 			_fov_kick = 5.0)
 	sk.landed.connect(func(air: float) -> void:
-		if air > 1.0:
-			shake = maxf(shake, clampf((air - 1.0) * 0.35, 0.0, 0.3)))
+		if air > 0.35:
+			_dip_v -= clampf(air * 0.9, 0.25, 1.6))
+	sk.bailed.connect(func(_r: String) -> void:
+		_dip_v -= 0.8)
 	snap_behind()
 
 
@@ -163,7 +167,10 @@ func _process(dt: float) -> void:
 	_fov_kick = move_toward(_fov_kick, 0.0, dt * 12.0)
 	var want_fov: float = fov_base + (fov_fast - fov_base) * clampf((spd - 6.0) / 12.0, 0.0, 1.0) + _fov_kick
 	fov = lerpf(fov, want_fov, 1.0 - exp(-5.0 * dt))
-	shake = maxf(0.0, shake - dt * 1.5)
+	# slightly underdamped spring back to rest
+	var k: float = 90.0
+	_dip_v += (-k * _dip - 2.0 * sqrt(k) * 0.75 * _dip_v) * dt
+	_dip += _dip_v * dt
 	_apply()
 
 
@@ -172,10 +179,5 @@ func _apply() -> void:
 	if dir.length() < 0.01:
 		return
 	var up: Vector3 = Vector3.UP if absf(dir.normalized().y) < 0.98 else Vector3.FORWARD
-	global_transform = Transform3D(Basis.looking_at(dir, up), _pos)
-	if shake > 0.0:
-		h_offset = randf_range(-1.0, 1.0) * shake
-		v_offset = randf_range(-1.0, 1.0) * shake
-	else:
-		h_offset = 0.0
-		v_offset = 0.0
+	var dip: Vector3 = Vector3.UP * _dip
+	global_transform = Transform3D(Basis.looking_at(dir - dip * 0.4, up), _pos + dip)

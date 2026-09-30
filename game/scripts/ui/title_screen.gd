@@ -33,6 +33,7 @@ func _ready() -> void:
 	_spawn_rider()
 	_build_ui()
 	Sound.play_music("boardwalk_morning")
+	Sound.play_ambience("park_ambience", -16.0)
 
 
 func _spawn_rider() -> void:
