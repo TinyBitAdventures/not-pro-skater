@@ -23,6 +23,7 @@ The core rule for the controller: **the code decides where the skater goes; phys
 | 4. Characters | **All five archetypes built** (MPFB + MakeHuman CC0, skinned, `RiderRig` IK posing, real board, 1K textures). Next: eye/hair material polish, per-character clothing colours, facial variety |
 | 5. First level + event | **Neighborhood Park + Birthday at the Park playable** (goals, kids, guests, cake, balloons, swaying trees, title screen, web build ~78 MB). The old cartoon park and its tests are retired |
 | 6. Polish | **Second pass done:** late-afternoon light (long shadows, backlit leaves), rolling lawns with grass tufts, hills and a horizon with instanced trees, built-looking ramps (plywood sheets, screws, steel foot plates, painted sides, galvanized rails), scuffed concrete, real eye colours and softer skin, lip tricks, smooth rail/coping entries, new techno soundtrack. Playtest fixes (2026-09-30): grind balance meter, warp back before the level's edge, whole street benches, no balloon-shadow flicker; ragdoll muscles (crashes brace and catch), P-A-R-T-Y badges on the HUD, Quit on the title. **Next:** gamepad feel pass, perf on low-end hardware |
+| 8. The full game (v0.1.0) | **Planned** (2026-09-30): four more levels and events (the Dev, the Musician, the Vlogger, the Actor), levels loaded on demand on the web, SFX with known licences only, desktop builds, first release. See Phase 8 |
 | 7. Second level + event | **Maple Grove Elementary + the Skate-a-thon playable** (title menu, `?scene=skateathon`): the school grounds as planned (plaza steps with three handrails and a ramp rail, the sign ledge, covered walkway, car park with wheel stops, curb island and speed bump, the loading dock, the court with the PTA's ramps, the fenced playground), mid-morning sky; money scoring, the fundraising thermometer, lap gates, the principal. Levels export as glTF with shared textures; web build 77 MB with both levels (no shadow meshes, 256 px eyes / brows / lashes). Verified by the event test, a physics lap ride of the gate route and a rail audit of every grind line |
 
 Decisions made while building (they override the text below where it differs):
@@ -196,17 +197,31 @@ Criteria: how it looks in a web build, PCK size, rebuild time, whether it can ru
   - raise $2,500
 - **Pipeline first:** levels share their textures (one copy of each CC0 set and prop texture for every level) so a second level fits the web build.
 
-## Later: the rest of the cast and events
+## Phase 8: The full game (v0.1.0)
 
-| Archetype | Home event | Music |
-|---|---|---|
-| The Dev | Company picnic / conference hall | Lo-fi, synthwave |
-| The Musician | Record release party, tour stop loading dock | Hip-hop, funk |
-| The Vlogger | Rush-hour city run, "one-take intro" goals | Upbeat electronic |
-| The Dad | Kid's birthday, backyard miniramp session | Classic rock / pop punk |
-| The Actor | Film set between takes | Orchestral hybrid |
+Every rider gets a home event, each on its own real-scale level built the same way as the first two (Blender script, CC0 PBR, Cycles bake, rails as curves, markers for the event): six events in all, then the first release. The Dad's home event is Birthday at the Park; the Skate-a-thon is the fundraiser everyone rides.
 
-Each character's combos drive their own stems (the "city is the song" idea): grinds add bass, flips add drums, grabs add the lead. The music engine is Wavelength.
+| Rider | Event | Level | Letters | Goals (6 each, plus a score or money target) | Music |
+|---|---|---|---|---|---|
+| The Dad | Birthday at the Park (done) | Neighborhood Park | P-A-R-T-Y | cake, party bench, show the kids, combo, score | techno (current) |
+| everyone | Skate-a-thon (done) | Maple Grove Elementary | D-O-N-A-T-E | laps, handrail, bake-sale cake, principal, raise $2,500 | techno (current) |
+| The Dev | Launch Day | Hilltop Tech campus: glass atrium steps and handrails, long granite planter ledges, a fountain ledge, a sunken amphitheatre with stair sets, the parking garage exit ramp, bike racks, the company picnic on the lawn with a food truck | S-H-I-P-I-T | carry the pizzas from the food truck to the picnic, grind the long planter ledge, show the team (coworkers watch), a demo combo on the amphitheatre stage, score | lo-fi / synthwave |
+| The Musician | Record Release | Warehouse district: the venue's loading dock and the tour van, an alley with banks and a gap, a parking lot stage with the crowd, dumpsters, curbs, a railed ramp down to the lot | E-N-C-O-R-E | carry the merch box from the van to the table, grind the dock ledge, hype the fans, a combo in front of the stage, score | hip-hop / funk |
+| The Vlogger | Rush Hour | Downtown: a closed street for a market morning, hubba ledges, a bank to wall, benches and planters, the subway entrance with a big rail, crosswalks and a plaza | V-L-O-G | the one-take run (A to B through checkpoints against the clock), get the coffee order to the office lobby, film the intro (a combo inside the camera's zone), grind the subway rail, score | upbeat electronic |
+| The Actor | Between Takes | Studio backlot: a western street set, a New York street set, a big quarter pipe set piece, dolly tracks (long rails), a green screen wall with a bank, trailers | A-C-T-I-O-N | hit your marks (stop on the chalk marks), bring the script pages to the director's chair, grind the dolly track, impress the director, score | orchestral hybrid |
+
+New goal kinds as needed: `timed_run` (checkpoints against the clock), `marks` (stop inside marks), `zone_combo` (a combo inside an area). New music per event is a stretch goal (the current soundtrack plays until then).
+
+Release checklist for v0.1.0:
+- Title menu: all six events with goal progress and best scores; free skate on every level; every rider selectable.
+- Each level: rail audit passes, lap or route test where the event has one, event test drives every goal, a screenshot pass, perf (draw calls in the same range as the first two levels).
+- Web: the first download stays under 80 MB. Levels beyond the first two load on demand as their own resource packs (fetched when the event starts). Playwright check on every event.
+- Audio: the six SFX whose community patch terms are unknown (`docs/audio_credits.md`) are replaced by their builtin-only versions, so everything shipped has known terms.
+- Desktop builds: macOS, Windows and Linux export presets and templates; each build launches and plays.
+- Docs: readme, changelog `## v0.1.0`, art and audio credits complete.
+- Release: tag `v0.1.0`, GitHub release with the desktop builds, then the Tiny Bit Adventures first-release steps and `bin/release.sh not-pro-skater 0.1.0` (see `/dev-not-pro-skater`).
+
+Later (after v0.1.0): each character's combos drive their own stems (the "city is the song" idea: grinds add bass, flips add drums, grabs add the lead), per-event soundtracks, gamepad feel pass, wallrides, board customisation, replays.
 
 ---
 
