@@ -127,6 +127,7 @@ func _fetch_pack(level_gltf: String) -> bool:
 	var url: String = base + pack + ".pck?v=" + String(ProjectSettings.get_setting("application/config/version", "0"))
 	var http: HTTPRequest = HTTPRequest.new()
 	http.use_threads = false
+	http.timeout = 90.0                              # a stalled connection fails to the title instead of hanging
 	http.download_chunk_size = 4 * 1024 * 1024      # read per frame: the default 64 KB caps a 15 MB pack at ~4 MB/s
 	add_child(http)
 	var result: Array = []
@@ -191,6 +192,18 @@ func load_save() -> void:
 	if not Events.ALL.has(event_choice):
 		event_choice = "birthday"
 	level_choice = cfg.get_value("settings", "level_choice", "park")
+	# a corrupt or future save must not leave a value the menus can't show (a missing rider can't even load)
+	if not RIDERS.has(rider):
+		rider = "dev"
+	if not ["cruise", "hype", "off"].has(music_choice):
+		music_choice = "cruise"
+	if not ["tank", "screen"].has(steer_mode):
+		steer_mode = "tank"
+	if not ["hold", "tap"].has(jump_mode):
+		jump_mode = "hold"
+	if not Events.LEVELS.any(func(lv: Dictionary) -> bool: return lv["id"] == level_choice):
+		level_choice = "park"
+	master_volume = clampf(float(master_volume), 0.0, 1.0)
 
 
 func save() -> void:

@@ -5,6 +5,16 @@
 ### Fixes
 - The floating NEXT marker no longer repeats a gate's own banner: it hides over the start and finish gates of the Skate-a-thon laps and the Rush Hour one-take run (both said START twice).
 - Rush Hour's MARKET MORNING banner hung right behind the START gate, hidden by it; it spans Market Street further up now.
+- **Event goals count what you actually did:**
+  - Sponsored laps and the one-take bonus are paid straight into the score. They used to join the combo in progress, where they sat unbanked while you rolled, were halved as repeats (three laps paid 1,400 points instead of 2,400) and were lost in a bail. They show as their own "+$80" note now.
+  - A combo in a zone (the Launch Day demo, the front of the Record Release stage, the Rush Hour intro) counts if its tricks were done in the zone. It used to be judged 1.25 s after landing, wherever you had rolled to by then.
+  - Showing the kids, the team, the fans or the crew needs the trick landed: one that ends in a bail no longer counts.
+  - The "(in the zone!)" note follows you in and out of the zone.
+  - Nothing completes or saves after the buzzer (a letter or a mark reached while coasting to a stop used to be saved without showing on the results).
+  - The number keys and TAB no longer warp you around an event (you could carry the cake most of the way, or skip one-take checkpoints). P still swaps the rider.
+- **Menus and results with a gamepad:** one push of the stick moves one row (it used to race to the bottom of the title menu and cycle the rider four times); A accepts and B goes back in every menu, as the hints say. The results screen ignores presses for its first second, so a jump pressed as the buzzer goes no longer skips it.
+- The title menu rounds a fundraiser's best the same way as the HUD ($1,867, not $1,866).
+- A save with an unknown rider, music, steering, jump mode or level falls back to the defaults instead of breaking the title menu. A level download on the web gives up after 90 s without data and goes back to the title instead of waiting forever.
 
 ## v0.1.0 (2026-09-30)
 
