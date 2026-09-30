@@ -76,7 +76,7 @@ ARCHETYPES = {
         "eyes": "blue",
         "eyebrows": "eyebrow003",
         "eyelashes": "eyelashes01",
-        "hair": "short03",
+        "hair": "short01",                      # a neat crew cut (short03's fringe hid an eye)
         "clothes": ["namuhekam_male_polo_shirt", "toigo_wool_pants", "shoes02"],
         "tint": {"namuhekam_male_polo_shirt": "#4d7a52", "toigo_wool_pants": "#a8946c"},      # polo and khakis
     },
