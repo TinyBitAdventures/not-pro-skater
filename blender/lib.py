@@ -402,7 +402,7 @@ def shrink_images():
         n = img.name.lower()
         detail = any(k in n for k in ("normal", "rough", "_arm", "_nor", "metal", "opacity", "displace"))
         cap = DETAIL_MAX if detail else COLOR_MAX
-        if "_diff_" in n or "_diff." in n:
+        if n.endswith("_diff") or "_diff_" in n or "_diff." in n:
             cap = min(cap, PROP_COLOR_MAX)       # Poly Haven props: small on screen, 512 is plenty
         w, h = img.size
         if max(w, h) > cap:
