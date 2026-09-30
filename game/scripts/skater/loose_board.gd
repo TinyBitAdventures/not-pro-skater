@@ -18,6 +18,7 @@ var scrape_drag: float = 3.0         # per second, sliding on the deck or its si
 var side_grip: float = 14.0          # how fast sideways slip dies while the wheels are down
 var wheels_down: bool = false
 var rider_key: String = "dev"           # whose deck graphic
+var _put: Variant = null                # a transform to move to at the next physics step (put_at)
 
 
 func setup(xf: Transform3D, vel: Vector3, spin: Vector3) -> void:
@@ -59,7 +60,19 @@ func setup(xf: Transform3D, vel: Vector3, spin: Vector3) -> void:
 	angular_velocity = spin
 
 
+## Move the board (stopped) at the next physics step: setting a rigid body's transform from outside is undone by
+## the physics server.
+func put_at(xf: Transform3D) -> void:
+	_put = xf
+
+
 func _integrate_forces(st: PhysicsDirectBodyState3D) -> void:
+	if _put != null:
+		st.transform = _put
+		st.linear_velocity = Vector3.ZERO
+		st.angular_velocity = Vector3.ZERO
+		_put = null
+		return
 	var b: Basis = st.transform.basis
 	var up: Vector3 = b.y
 	var ground_n: Vector3 = Vector3.ZERO

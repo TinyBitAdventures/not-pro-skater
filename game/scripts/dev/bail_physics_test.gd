@@ -144,6 +144,64 @@ func _run() -> void:
 		await _spawn("wall", Vector3(0, 0.9, -5.2), Vector3(0, 1.0, -5.5), 64.0)
 		var r5: Dictionary = await _watch_run("runout_trip", 12.0)
 		print("[bail] runout_trip: %s" % r5)
+	if which in ["edge", "all"]:
+		# a 12 m/s crash 4 m inside the level's edge, heading out: the board flies past the ground and used to fall
+		# for ever, the rider chasing it until the bail's 12 s safety cap. It must turn up beside the rider.
+		await _spawn("flat", Vector3.ZERO, Vector3.ZERO, 0.0)
+		sk.bounds = level.bounds
+		var b: Rect2 = level.bounds
+		var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(Vector3(b.end.x - 4.0, 30.0, b.get_center().y),
+			Vector3(b.end.x - 4.0, -30.0, b.get_center().y), 1)
+		var hit: Dictionary = get_viewport().world_3d.direct_space_state.intersect_ray(q)
+		sk.place_at(Transform3D(Basis.looking_at(Vector3.RIGHT, Vector3.UP), (hit["position"] as Vector3) + Vector3.UP * 0.02))
+		for i in 6:
+			await get_tree().physics_frame
+		sk.velocity = Vector3.RIGHT * 12.0
+		sk._impact_v = sk.velocity
+		sk._start_bail("crash")
+		var t: float = 0.0
+		var board_out: float = 0.0
+		while sk.state == Skater.State.BAIL and t < 13.0:
+			await get_tree().physics_frame
+			t += 1.0 / Engine.physics_ticks_per_second
+			var rig: RiderRig = sk.visual as RiderRig
+			if rig != null and rig.loose != null:
+				board_out = maxf(board_out, rig.loose.global_position.x - b.end.x)
+			if OS.get_environment("EDGE_DEBUG") != "" and rig != null and int(t * 120.0) % 60 == 0:
+				print("[edge] t %.1f phase %s board %s walk %s pelvis %s bounds end %s" % [t, rig.phys_phase,
+					rig.loose.global_position.snappedf(0.1) if rig.loose != null else "-", rig._walk_pos.snappedf(0.1),
+					rig.ragdoll.pelvis_position().snappedf(0.1) if rig.ragdoll != null else "-", b.end])
+		var ok: bool = t < 9.0 and b.grow(0.5).has_point(Vector2(sk.global_position.x, sk.global_position.z))
+		print("[bail] edge: %s  back on after %.2f s (the cap is 12), board at most %.1f m past the edge, rider ended %s" % [
+			"PASS" if ok else "FAIL", t, board_out, sk.global_position.snappedf(0.1)])
+	if which in ["edge_board", "all"]:
+		# a slow crash near the edge whose board goes over it (put there by hand: the body stays on the ground)
+		await _spawn("flat", Vector3.ZERO, Vector3.ZERO, 0.0)
+		sk.bounds = level.bounds
+		var b2: Rect2 = level.bounds
+		var q2: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(Vector3(b2.end.x - 6.0, 30.0, b2.get_center().y),
+			Vector3(b2.end.x - 6.0, -30.0, b2.get_center().y), 1)
+		var hit2: Dictionary = get_viewport().world_3d.direct_space_state.intersect_ray(q2)
+		sk.place_at(Transform3D(Basis.looking_at(Vector3.RIGHT, Vector3.UP), (hit2["position"] as Vector3) + Vector3.UP * 0.02))
+		for i in 6:
+			await get_tree().physics_frame
+		sk.velocity = Vector3.RIGHT * 4.0
+		sk._impact_v = sk.velocity
+		sk._start_bail("crash")
+		for i in 12:
+			await get_tree().physics_frame
+		var rig2: RiderRig = sk.visual as RiderRig
+		rig2.loose.put_at(Transform3D(Basis.IDENTITY, Vector3(b2.end.x + 3.0, 0.5, b2.get_center().y)))
+		var t2: float = 0.0
+		var lowest: float = 0.0
+		while sk.state == Skater.State.BAIL and t2 < 13.0:
+			await get_tree().physics_frame
+			t2 += 1.0 / Engine.physics_ticks_per_second
+			if rig2.loose != null:
+				lowest = minf(lowest, rig2.loose.global_position.y)
+		var ok2: bool = t2 < 9.0 and b2.has_point(Vector2(sk.global_position.x, sk.global_position.z)) and lowest > -6.0
+		print("[bail] edge_board: %s  back on after %.2f s, the board fell to y %.1f, rider ended %s" % [
+			"PASS" if ok2 else "FAIL", t2, lowest, sk.global_position.snappedf(0.1)])
 	get_tree().quit()
 
 

@@ -136,8 +136,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif k.physical_keycode == KEY_TAB:
 		warp(start_i + (-1 if k.shift_pressed else 1))
 	elif k.physical_keycode == KEY_P:
+		if skater.state == Skater.State.BAIL:
+			return                # mid-crash the new rider would start the fall over at the world's origin
+		var carried: Node3D = skater.visual.get("carry_item") if skater.visual != null else null
 		var i: int = (Game.RIDERS.find(skater.rider) + 1) % Game.RIDERS.size()
 		skater.set_rider(Game.RIDERS[i])
+		if carried != null and skater.visual != null:
+			skater.visual.set("carry_item", carried)     # the new rider holds the cake (the pizzas, ...) too
 		hud.announce(Game.rider_name(Game.RIDERS[i]), Hud.PAPER, 1.0)
 
 

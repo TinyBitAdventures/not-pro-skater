@@ -23,6 +23,7 @@ const CAPSULE_TO_CONTACT: float = 0.02
 const SETTLE_SPEED: float = 0.45
 const RELAXED_TONE: float = 0.35         # ragdoll muscle strength once the body is lying still
 const WALK_TURN: float = 5.0             # rad/s: turning round toward the board before walking to it
+const WALK_GIVE_UP: float = 10.0         # s into the walk back: the rider is just put back on the board
 const FINGER_CURL: Dictionary = {        # degrees at each knuckle, base to tip: a relaxed hand
 	"index": [14.0, 22.0, 12.0], "middle": [18.0, 26.0, 14.0], "ring": [22.0, 28.0, 16.0], "pinky": [26.0, 30.0, 16.0],
 	"thumb": [6.0, 10.0, 12.0],
@@ -691,6 +692,8 @@ func _physics_process(dt: float) -> void:
 
 func _physical(sk: Skater, dt: float) -> void:
 	_phase_t += dt
+	if loose != null and phys_phase != "":
+		_keep_board_in(sk)
 	match phys_phase:
 		"":
 			_spawn_loose(sk)
@@ -712,6 +715,14 @@ func _physical(sk: Skater, dt: float) -> void:
 				_start_ragdoll(sk)          # tripped: into the ragdoll from the running pose
 		"fall":
 			sk.bail_focus = ragdoll.pelvis_position() - Vector3.UP * 0.6
+			if _body_lost(sk):
+				# thrown over the level's edge (or down a hole): like riding off the edge, the screen blinks and
+				# the rider is back on the board on the last safe spot, instead of falling for ever and getting up
+				# in mid-air
+				_end_physical()
+				sk.finish_physical_bail(Transform3D(Basis.IDENTITY, sk.bail_origin))
+				sk._warp_back()
+				return
 			if _apart_t > 0.0:
 				_apart_t -= dt
 				if _apart_t <= 0.0 and loose != null:
@@ -808,6 +819,35 @@ func _begin_getup(sk: Skater) -> void:
 	_phase_t = 0.0
 
 
+## A board that flies over the level's edge (nothing under it: it would fall for ever, and the rider would chase
+## it until the bail's safety cap) or drops far below where the rider went down turns up on the ground beside
+## the rider instead.
+func _keep_board_in(sk: Skater) -> void:
+	var p: Vector3 = loose.global_position
+	var out: bool = p.y < sk.bail_origin.y - 4.0
+	var b: Rect2 = sk.bounds
+	if b.has_area():
+		out = out or minf(minf(p.x - b.position.x, b.end.x - p.x), minf(p.z - b.position.y, b.end.y - p.z)) < 0.5
+	if not out:
+		return
+	var near: Vector3 = _walk_pos if phys_phase == "getup" or phys_phase == "walk" else sk.bail_focus
+	if b.has_area():                       # and well inside the edge, toward the middle of the level
+		near.x = clampf(near.x, b.position.x + 3.0, b.end.x - 3.0)
+		near.z = clampf(near.z, b.position.y + 3.0, b.end.y - 3.0)
+	var inward: Vector3 = Vector3(b.get_center().x - near.x, 0.0, b.get_center().y - near.z) if b.has_area() else Vector3.FORWARD
+	inward = inward.normalized() if inward.length() > 0.1 else Vector3.FORWARD
+	var at: Vector3 = _ground_under(near + inward * 1.2 + Vector3.UP * 0.5) + Vector3.UP * 0.12
+	loose.put_at(Transform3D(Basis.looking_at(inward, Vector3.UP), at))
+
+
+func _body_lost(sk: Skater) -> bool:
+	var p: Vector3 = ragdoll.pelvis_position()
+	if p.y < sk.bail_origin.y - 3.0:
+		return true
+	var b: Rect2 = sk.bounds
+	return b.has_area() and minf(minf(p.x - b.position.x, b.end.x - p.x), minf(p.z - b.position.y, b.end.y - p.z)) < -0.5
+
+
 func _walk(sk: Skater, dt: float) -> void:
 	var target: Vector3 = loose.global_position
 	var to: Vector3 = target - _walk_pos
@@ -853,6 +893,17 @@ func _walk(sk: Skater, dt: float) -> void:
 			_walk_pos = _ground_under(_walk_pos + Vector3.UP * 0.5)
 		_gait_update(dt, _loco_speed, turn_rate if _loco_speed < 0.5 else 0.0)
 		_step_on = 1.0 - clampf(dist / 0.6, 0.0, 1.0)
+		# a board that came to rest up on something (a ledge, a car roof) or down in a hole is taken from where
+		# the rider stands, not stepped up (or down) to; and a walk that goes on too long just ends
+		var up_there: bool = dist < 1.0 and absf(_ground_under(target + Vector3.UP * 0.5).y - _walk_pos.y) > 0.6
+		if up_there or (phys_phase == "walk" and _phase_t > WALK_GIVE_UP):
+			var at: Transform3D = loose.stand_transform()
+			at.origin = _walk_pos
+			if dist > 0.1:
+				at.basis = Basis.looking_at(to / dist, Vector3.UP)
+			_end_physical()
+			sk.finish_physical_bail(at)
+			return
 		if dist < 0.06:
 			var stand: Transform3D = loose.stand_transform()
 			stand.origin = _ground_under(stand.origin + Vector3.UP * 0.5)
