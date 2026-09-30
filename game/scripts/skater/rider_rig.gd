@@ -22,6 +22,7 @@ const HEAD_LOOK: float = 70.0            # head turned from the chest toward the
 const CAPSULE_TO_CONTACT: float = 0.02
 const GETUP_TIME: float = 0.75
 const SETTLE_SPEED: float = 0.45
+const RELAXED_TONE: float = 0.35         # ragdoll muscle strength once the body is lying still
 const WALK_TURN: float = 5.0             # rad/s: turning round toward the board before walking to it
 const CARRY_OFFSET: Vector3 = Vector3(0.36, -0.4, 0.0)   # shoulders' midpoint -> the carried thing (chest is +X)
 const CARRY_HALF_W: float = 0.17
@@ -627,6 +628,11 @@ func sync_from(sk: Skater, dt: float) -> void:
 	_sync_riding(sk, dt)
 
 
+func _physics_process(dt: float) -> void:
+	if phys_phase == "fall" and ragdoll != null:
+		ragdoll.drive(dt)
+
+
 func _physical(sk: Skater, dt: float) -> void:
 	_phase_t += dt
 	match phys_phase:
@@ -654,9 +660,15 @@ func _physical(sk: Skater, dt: float) -> void:
 				_apart_t -= dt
 				if _apart_t <= 0.0 and loose != null:
 					ragdoll.sim.physical_bones_remove_collision_exception(loose.get_rid())
+			# muscles: arms out to catch the fall while the body is still going, then it lies there, relaxed a bit
+			var moving: bool = ragdoll.core_speed() > 1.2 and _phase_t < 1.4
+			ragdoll.reach = move_toward(ragdoll.reach, 1.0 if moving else 0.0, dt / 0.35)
+			ragdoll.tone = move_toward(ragdoll.tone, 1.0 if _phase_t < 0.6 or moving else RELAXED_TONE, dt / 0.6)
+			ragdoll.settle = move_toward(ragdoll.settle, 0.0 if moving else 1.0, dt / 0.8)
 			_still_t = _still_t + dt if ragdoll.core_speed() < SETTLE_SPEED else 0.0
 			if (_phase_t > 0.8 and _still_t > 0.3) or _phase_t > 4.5:
 				_begin_getup(sk)
+				_walk(sk, 0.0)          # pose it now: with the ragdoll off, the skeleton would show its stale riding pose for a frame
 		"getup", "walk":
 			_walk(sk, dt)
 
