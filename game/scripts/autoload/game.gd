@@ -58,11 +58,16 @@ func _ready() -> void:
 	_loading.visible = false
 	layer.add_child(_loading)
 	load_save()
-	# web: index.html?scene=<event id>, park, school, ... or greybox opens that scene straight away
+	# web: index.html?scene=<event id>, park, school, ... or greybox opens that scene straight away; desktop builds
+	# take the same as a user argument: NotProSkater -- --scene=rushhour
+	var q: Variant = ""
 	if OS.has_feature("web"):
-		var q: Variant = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('scene') || ''")
-		if typeof(q) == TYPE_STRING and preview_scene(q) != "":
-			go.call_deferred(preview_scene(q))
+		q = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('scene') || ''")
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--scene="):
+			q = a.trim_prefix("--scene=")
+	if typeof(q) == TYPE_STRING and preview_scene(q) != "":
+		go.call_deferred(preview_scene(q))
 
 
 ## The scene a web preview link (?scene=...) opens: an event id, a Free Skate level id, or a dev scene.

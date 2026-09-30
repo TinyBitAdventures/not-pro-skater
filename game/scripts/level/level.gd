@@ -79,6 +79,7 @@ func load_glb(path: String, look: String = "real") -> void:
 		add_child(grass)
 		add_child(Birds.new())                         # a few flocks wheeling overhead
 	stats = {"bodies": bodies.size(), "grind": grind_lines.size(), "ms": Time.get_ticks_msec() - t0}
+	print_verbose("[level] %s: %d bodies, %d grind lines, %d ms" % [path.get_file(), stats["bodies"], stats["grind"], stats["ms"]])
 
 
 ## The extent of the ground (lawn, paths, concrete) from the collision shapes. Past it there is only scenery.
