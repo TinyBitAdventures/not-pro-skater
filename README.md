@@ -44,9 +44,9 @@ Steering, jump style (hold-release or instant tap) and music are in the title me
 
 **Wall plants:** jump at a wall and press Space as you hit it.
 
-**Grinds:** press L in the air when you are heading for a rail; the air path bends onto rails up to about 1.2 m to the side.
+**Grinds:** press L in the air when you are heading for a rail; the air path bends onto rails up to about 1.2 m to the side. Keep the BALANCE meter in the middle with left / right: the stick is your weight, so push against the lean. Nose and tail slides tip faster than a 50-50, and the longer the grind the harder it gets; past either end you fall off.
 
-**Lip tricks:** at the top of a quarter or half pipe, press L as you reach the coping (in the air, or on the way up the wall: it waits for the coping) to stall on it. The stick picks the trick: none Rock to Fakie, up Nose Stall, down Blunt to Fakie, left Axle Stall, right Disaster. Keep the BALANCE meter centred with left / right and press Space to drop back in (the "to Fakie" ones come back in backwards). Ride along the coping and L is a coping grind instead.
+**Lip tricks:** at the top of a quarter or half pipe, press L as you reach the coping (in the air, or on the way up the wall: it waits for the coping) to stall on it. The stick picks the trick: none Rock to Fakie, up Nose Stall, down Blunt to Fakie, left Axle Stall, right Disaster. Keep the BALANCE meter centred with left / right (push against the lean, like a grind) and press Space to drop back in (the "to Fakie" ones come back in backwards). Ride along the coping and L is a coping grind instead.
 
 Combos: every trick adds points and, if it is new to the combo, one to the multiplier. Land cleanly and keep going within about a second; stop and the combo is banked. Bail and you lose it.
 
@@ -136,7 +136,7 @@ FEEL=all godot --headless --path . --fixed-fps 120 res://scenes/dev_feel.tscn   
 
 Physical crashes (ragdoll + loose board, needs the skinned rider): `BAIL=halfpipe|flat|wall|all godot --headless --path . --fixed-fps 60 res://scenes/dev_bailphys.tscn`.
 
-The feel tests cover coasting momentum, tile seams, rolling over a curb, being stopped by a step, quarter pipe air time, the vert lock, the transfer, grinding a curved and a kinked rail, rail magnetism, and landings at 0 / 20 / 34 / 45 / 65 / 180 degrees, manuals, wall plants, bails, and the camera near walls.
+The feel tests cover coasting momentum, tile seams, rolling over a curb, being stopped by a step, quarter pipe air time, the vert lock, the transfer, grinding a curved and a kinked rail, rail magnetism, grind balance (held, dropped, leaning with the stick), warping back before the level's edge, and landings at 0 / 20 / 34 / 45 / 65 / 180 degrees, manuals, wall plants, bails, and the camera near walls.
 
 ```bash
 godot --headless --path . --fixed-fps 120 res://scenes/dev_event.tscn      # plays every Birthday goal
@@ -146,6 +146,8 @@ CHAR=dad godot --path . res://scenes/dev_char.tscn --resolution 1280x720    # ch
 godot --path . res://scenes/dev_perf.tscn --resolution 1600x900             # fps, draw calls, judder (FPS=144 caps; DUMP=1, COST=1)
 godot --headless --path . res://scenes/dev_flow.tscn                        # menus with real input: title, event, pause, quit
 godot --path . res://scenes/dev_ui.tscn --resolution 1600x900               # every UI state -> ../shots/ui_*.png
+VIEWS="x,y,z>x,y,z;..." STEP=0.0003 godot --path . res://scenes/dev_flicker.tscn --resolution 1280x720   # flicker hunt -> ../shots/probe_*
+python tools/flicker_map.py shots/probe_0                                    # heat map of what flips between the frames (needs numpy + PIL)
 ```
 
 Dev scenes never touch your real save (`Game.is_dev_run()`).

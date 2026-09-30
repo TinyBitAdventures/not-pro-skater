@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Playtest fixes: grind balance, the level's edge
+- **Grinds have a balance meter:** the lean tips away from the middle faster and faster (quicker the longer the grind; nose and tail slides tip faster than a 50-50), and left / right shift the weight back. Coming in across the rail starts you leaning the way you were going. Past either end the rider falls off to that side (a slam, never a run-out). The rider sways with the lean. A clean 50-50 left alone lasts about 1.7 s, a sloppy entry about 1.1 s. Tuning in F3 under Grinding (`grind_wobble`, `grind_control`, ...). Feel tests `grind_hold`, `grind_drop`, `grind_lean`.
+- **Lip stalls balance the same way:** the stick is the rider's weight, so push against the lean (it was the other way round, unlike grinds).
+- **No more falling off the world:** about 2 m before the edge of the level's ground the screen blinks and you are back on the last flat spot at least 6 m inside, stopped and facing away from that edge (a combo in progress is lost). The level's edge comes from its ground colliders (`Level.bounds`). Feel test `edge_warp`.
+- Fixed: a flickering dark patch in the mini ramp's top corner. It was the shadow of the bobbing P balloon: under the low sun it slid about a metre up and down the ramp. The letter balloons cast no shadow now (the party's balloon bunches already did not).
+- Fixed: the street benches were half built. Poly Haven's street seating is a kit laid out piece by piece (one bench with a back, a spare backless seat without its far leg, four curved connector seats floating beside them), and all of it was merged into one prop. Only the bench is kept now (`park_props.EXCLUDE`); rebaked, so the floating pieces' shadows are gone too.
+- Dev: `dev_flicker.tscn` parks the camera at given views and nudges it a millimetre a frame; `tools/flicker_map.py` turns the frames into a heat map of whatever flips between them (z-fighting, shadow shimmer, moving shadows).
+
 ### Graphics: late afternoon light
 - Fallen leaves on the ground under the park's trees.
 - Flocks of birds wheel over the park, flapping and gliding (one MultiMesh, no shadows), and a filmic split-tone grade warms the mid-tones and cools the shade.
