@@ -118,7 +118,7 @@ ARCHETYPES = {
                   "race": {"asian": 0.1, "caucasian": 0.8, "african": 0.1}},
         "stylize": {"head-scale-vert-incr": 0.2, "head-scale-horiz-incr": 0.15},
         "skin": "middleage_caucasian_female", "eyes": "blue", "eyebrows": "eyebrow009", "eyelashes": "eyelashes03",
-        "hair": "rehmanpolanski_hair_bun_brown", "clothes": ["toigo_fisherman_sweater", "toigo_wool_pants", "toigo_flats"],
+        "hair": "braid01", "clothes": ["toigo_fisherman_sweater", "toigo_wool_pants", "toigo_mj_cloth_shoes"],   # CC0 braid (the bun was AGPL3); the flats were 57k triangles
     },
     "guest_grandpa": {
         "title": "Grandpa", "npc": True,
@@ -151,8 +151,9 @@ ARCHETYPES = {
         "eyes": "brown",
         "eyebrows": "eyebrow004",
         "eyelashes": "eyelashes01",
-        "hair": "culturalibre_hair_02",
+        "hair": "culturalibre_hair_05",                      # CC0 (culturalibre_hair_02's file said AGPL3)
         "clothes": ["male_casualsuit03", "shoes03"],
+        "tint": {"culturalibre_hair_05": "#2b2521"},        # near black, as before
     },
 }
 

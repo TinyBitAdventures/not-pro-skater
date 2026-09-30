@@ -43,14 +43,19 @@ Community assets from the MakeHuman asset library, by their authors (licence as 
 
 | Asset | Author | Licence | Worn by |
 |---|---|---|---|
-| toigo_inverted_bob, toigo_ankle_boots_female, toigo_basic_tucked_t-shirt, toigo_fisherman_sweater, toigo_flats, toigo_wool_pants | MRT | CC0 | the principal, The Vlogger, The Dad, guests, kids |
+| toigo_inverted_bob, toigo_ankle_boots_female, toigo_basic_tucked_t-shirt, toigo_fisherman_sweater, toigo_mj_cloth_shoes, toigo_wool_pants | MRT | CC0 | the principal, The Vlogger, The Dad, guests, kids |
 | cortu_cargo_pants, cortu_jeans_shorts | Cortu Johnstone | CC0 | The Vlogger, kids |
 | namuhekam_male_polo_shirt | Namuhekam | CC0 | The Dad, the grandpa |
 | elvs_crude_t-shirt_male | MakeHuman, edited by Elvaerwyn | CC0 | the birthday kid |
-| culturalibre_hair_02 | MakeHuman team | **AGPL3** in its file header (with MakeHuman's note on exported models) | The Actor |
-| rehmanpolanski_hair_bun_brown | Rehman Polanski | **AGPL3** in its file header (with MakeHuman's note on exported models) | the guest mom |
+| culturalibre_hair_05 | culturalibre | CC0 | The Actor |
+| braid01 | MakeHuman team (released as CC0 in September 2020) | CC0 | Leo's mom |
 
-The two AGPL3-headed hairstyles are not covered by the CC0 statement above: check MakeHuman's terms for exported models, or swap them for CC0 hair, before a public release.
+Every character asset that ships is CC0, which sits fine beside the MIT-licensed code. Two hairstyles that
+used to be in the cast were swapped out on 2026-09-30 because their files say AGPL3: culturalibre_hair_02 (The
+Actor) and rehmanpolanski_hair_bun_brown (Leo's mom). MakeHuman made its own assets CC0 by default in 2020, but
+it cannot relicense a third party's upload, and its old CC0 exception covered only exports from the official
+MakeHuman application, not MPFB. When adding clothes or hair, check the `license` line in the asset's `.mhclo`
+and keep to CC0.
 
 Licence: https://www.makehumancommunity.org/content/license_explanation.html
 
