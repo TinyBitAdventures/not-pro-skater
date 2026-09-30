@@ -38,6 +38,13 @@ var _lap_started: bool = false
 var _gate_nodes: Array[Node3D] = []
 var _next_marker: Label3D
 var _thermo: Dictionary = {}           # the fundraising thermometer's parts
+var _run_t: float = -1.0               # timed_run: seconds into the current take (-1: not running)
+var marks: Array[Vector3] = []         # marks: the chalk marks (markers mark_1..n)
+var marks_hit: Dictionary = {}         # mark index -> true
+var _mark_nodes: Array[Node3D] = []
+const MARK_RADIUS: float = 0.9
+const MARK_SPEED: float = 1.2          # standing (near enough) still on a mark counts
+var _run_shown: int = -1
 const GATE_RADIUS: float = 3.2
 
 
@@ -66,9 +73,18 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 					if level.markers.has("letter_" + l):
 						_letters[l] = _balloon(l, (level.markers["letter_" + l] as Transform3D).origin)
 			"laps":
-				_build_gates()
+				_build_gates("gate", "START / FINISH", "")
+			"timed_run":
+				_build_gates("check", "START", "FINISH")
+			"marks":
+				_build_marks()
+			"zone_combo":
+				if level.markers.has("zone_" + String(g["zone"])):
+					_zone_ring((level.markers["zone_" + String(g["zone"])] as Transform3D).origin, float(g.get("radius", 8.0)),
+						String(g.get("label", "")))
 			"deliver":
-				_cake = CAKE_SCENE.instantiate()
+				# the thing to carry: the birthday cake unless the goal names another (item = a scene path)
+				_cake = (load(String(g["item"])) as PackedScene).instantiate() if g.has("item") else CAKE_SCENE.instantiate()
 				add_child(_cake)
 				_cake.global_position = (level.markers[String(g["from"])] as Transform3D).origin
 			"show_kids":
@@ -104,6 +120,14 @@ func goal_list() -> Array:
 					text += "  (carrying!)"
 			"laps":
 				text += "  %d/%d" % [mini(laps_done, int(g["laps"])), int(g["laps"])]
+			"marks":
+				text += "  %d/%d" % [marks_hit.size(), marks.size()]
+			"timed_run":
+				if _run_t >= 0.0:
+					text += "  %d/%d  0:%02d LEFT" % [_next_gate, gates.size() - 1, maxi(0, ceili(float(g["limit"]) - _run_t))]
+			"zone_combo":
+				if not done.has(id) and not saved.has(id) and in_zone(g):
+					text += "  (in the zone!)"
 		out.append({"text": text, "done": done.has(id) or saved.has(id)})
 	return out
 
@@ -162,6 +186,8 @@ func _process(dt: float) -> void:
 					_complete(g["id"])
 	_cake_tick()
 	_laps_tick(rider)
+	_run_tick(rider, dt)
+	_marks_tick(rider)
 	_thermo_tick()
 	for g in ev["goals"]:
 		var id: String = g["id"]
@@ -214,6 +240,8 @@ func _cake_tick() -> void:
 
 
 func _on_bailed(_reason: String) -> void:
+	if _run_t >= 0.0:
+		_ruin_take("BAILED!  THAT TAKE'S RUINED")
 	if _cake_state == "carried":
 		_cake_state = "waiting"          # dropped it: it goes back to the table at the street
 		if skater.visual != null:
@@ -249,6 +277,43 @@ func _on_banked(points: int, _n: int) -> void:
 	for g in ev["goals"]:
 		if g["kind"] == "combo" and points >= int(g["points"]):
 			_complete(g["id"])
+		elif g["kind"] == "zone_combo" and points >= int(g["points"]) and in_zone(g):
+			_complete(g["id"])
+
+
+## Whether the rider is inside a zone_combo goal's zone (marker zone_<zone>, `radius` metres, flat distance).
+func in_zone(g: Dictionary) -> bool:
+	var key: String = "zone_" + String(g["zone"])
+	if not level.markers.has(key):
+		return false
+	var c: Vector3 = (level.markers[key] as Transform3D).origin
+	var p: Vector3 = skater.rider_position()
+	return Vector2(p.x - c.x, p.z - c.z).length() <= float(g.get("radius", 8.0))
+
+
+## A zone on the ground: a soft glowing ring (the event's accent) and a sign on a stand at its edge.
+func _zone_ring(at: Vector3, radius: float, text: String) -> void:
+	var ring: MeshInstance3D = MeshInstance3D.new()
+	var tm: TorusMesh = TorusMesh.new()
+	tm.inner_radius = radius - 0.12
+	tm.outer_radius = radius
+	tm.rings = 96
+	tm.ring_segments = 4
+	ring.mesh = tm
+	ring.scale = Vector3(1.0, 0.04, 1.0)
+	var m: StandardMaterial3D = StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(UiKit.ACCENT, 0.75)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring.material_override = m
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(ring)
+	ring.global_position = at + Vector3.UP * 0.03
+	if text != "":
+		var sign: Label3D = _sign_text(text, 64, UiKit.ACCENT)
+		add_child(sign)
+		sign.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+		sign.global_position = at + Vector3(0.0, 2.6, 0.0)
 
 
 const PARTY_COLORS: Array[Color] = [Color(0.92, 0.2, 0.25), Color(0.2, 0.5, 0.95), Color(1.0, 0.78, 0.15),
@@ -447,10 +512,10 @@ func _balloon(letter: String, at: Vector3) -> Node3D:
 # ------------------------------------------------------------------ laps
 
 ## Gates along the lap route: the first is the start / finish arch, the rest are pairs of cones with flags.
-func _build_gates() -> void:
+func _build_gates(prefix: String, first_banner: String, last_banner: String) -> void:
 	var i: int = 1
-	while level.markers.has("gate_%d" % i):
-		gates.append(level.markers["gate_%d" % i])
+	while level.markers.has("%s_%d" % [prefix, i]):
+		gates.append(level.markers["%s_%d" % [prefix, i]])
 		i += 1
 	var cone_mat: StandardMaterial3D = StandardMaterial3D.new()
 	cone_mat.albedo_color = Color(1.0, 0.45, 0.1)
@@ -461,8 +526,9 @@ func _build_gates() -> void:
 		var root: Node3D = Node3D.new()
 		add_child(root)
 		_gate_nodes.append(root)
-		if gi == 0:
-			_banner({"text": "START / FINISH", "a": xf.origin - side * 2.9, "b": xf.origin + side * 2.9, "height": 2.5})
+		var bt: String = first_banner if gi == 0 else (last_banner if gi == gates.size() - 1 else "")
+		if bt != "":
+			_banner({"text": bt, "a": xf.origin - side * 2.9, "b": xf.origin + side * 2.9, "height": 2.5})
 		for s in [-1.0, 1.0]:
 			var c: CylinderMesh = CylinderMesh.new()
 			c.top_radius = 0.03
@@ -495,6 +561,8 @@ func _laps_tick(rider: Vector3) -> void:
 	for g in ev["goals"]:
 		if g["kind"] == "laps":
 			goal = g
+	if goal.is_empty():
+		return
 	var gxf: Transform3D = gates[_next_gate]
 	_next_marker.global_position = gxf.origin + Vector3.UP * (3.1 + sin(_t * 3.0) * 0.12)
 	_next_marker.text = ("START" if not _lap_started else ("FINISH" if _next_gate == 0 else "NEXT"))
@@ -515,6 +583,111 @@ func _laps_tick(rider: Vector3) -> void:
 		Sound.play("pickup", -6.0, 1.2)
 	_next_gate = (_next_gate + 1) % gates.size()
 	changed.emit()
+
+
+## The one-take run: through the first checkpoint starts the clock, then every checkpoint in order to the last
+## within `limit` seconds. Out of time or a bail ruins the take: back to the start.
+func _run_tick(rider: Vector3, dt: float) -> void:
+	if gates.is_empty():
+		return
+	var goal: Dictionary = {}
+	for g in ev["goals"]:
+		if g["kind"] == "timed_run":
+			goal = g
+	if goal.is_empty():
+		return
+	var last: int = gates.size() - 1
+	var gxf: Transform3D = gates[_next_gate]
+	_next_marker.global_position = gxf.origin + Vector3.UP * (3.1 + sin(_t * 3.0) * 0.12)
+	_next_marker.text = "START" if _run_t < 0.0 else ("FINISH" if _next_gate == last else "NEXT")
+	if _run_t >= 0.0:
+		_run_t += dt
+		var left: int = ceili(float(goal["limit"]) - _run_t)
+		if left != _run_shown:
+			_run_shown = left
+			changed.emit()
+		if _run_t > float(goal["limit"]):
+			_ruin_take("OUT OF TIME!  BACK TO THE START")
+			return
+	if skater.state == Skater.State.BAIL:
+		return
+	if Vector2(rider.x - gxf.origin.x, rider.z - gxf.origin.z).length() > GATE_RADIUS:
+		return
+	if _run_t < 0.0:
+		_run_t = 0.0                                   # rolling: the take starts now
+		Sound.play("go")
+	elif _next_gate == last:
+		if not done.has(goal["id"]) and score != null:
+			score.add_trick("One Take", int(goal.get("points", 1500)))
+		Sound.play("skate_done")
+		_complete(goal["id"])
+		_run_t = -1.0
+		_next_gate = 0
+		changed.emit()
+		return
+	else:
+		Sound.play("pickup", -6.0, 1.2)
+	_next_gate += 1
+	changed.emit()
+
+
+func _ruin_take(text: String) -> void:
+	_run_t = -1.0
+	_run_shown = -1
+	_next_gate = 0
+	goal_done.emit("", text)
+	changed.emit()
+
+
+## Chalk marks on the ground (an X each, like an actor's marks on set), numbered; a hit one turns green.
+func _build_marks() -> void:
+	var i: int = 1
+	while level.markers.has("mark_%d" % i):
+		marks.append((level.markers["mark_%d" % i] as Transform3D).origin)
+		i += 1
+	for mi in marks.size():
+		var root: Node3D = Node3D.new()
+		add_child(root)
+		root.global_position = marks[mi] + Vector3.UP * 0.02
+		var m: StandardMaterial3D = StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(0.95, 0.93, 0.85, 0.9)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		for a in [PI / 4.0, -PI / 4.0]:
+			var bar: MeshInstance3D = MeshInstance3D.new()
+			var bm: BoxMesh = BoxMesh.new()
+			bm.size = Vector3(1.3, 0.004, 0.12)
+			bar.mesh = bm
+			bar.material_override = m
+			bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			bar.rotation.y = a
+			root.add_child(bar)
+		var num: Label3D = _sign_text(str(mi + 1), 72, UiKit.ACCENT)
+		num.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+		root.add_child(num)
+		num.position = Vector3(0.0, 1.9, 0.0)
+		root.set_meta("mat", m)
+		_mark_nodes.append(root)
+
+
+## Stand still on a mark (on the board, slow) to hit it; every mark hit completes the goal.
+func _marks_tick(rider: Vector3) -> void:
+	if marks.is_empty():
+		return
+	for mi in marks.size():
+		var node: Node3D = _mark_nodes[mi]
+		node.scale = Vector3.ONE * (1.0 + 0.06 * sin(_t * 4.0 + mi)) if not marks_hit.has(mi) else Vector3.ONE
+		if marks_hit.has(mi) or skater.state != Skater.State.GROUND:
+			continue
+		var d: Vector2 = Vector2(rider.x - marks[mi].x, rider.z - marks[mi].z)
+		if d.length() < MARK_RADIUS and Vector2(skater.velocity.x, skater.velocity.z).length() < MARK_SPEED:
+			marks_hit[mi] = true
+			(node.get_meta("mat") as StandardMaterial3D).albedo_color = Color(UiKit.GOOD, 0.95)
+			Sound.play("pickup", -4.0, 1.0 + 0.1 * marks_hit.size())
+			changed.emit()
+			for g in ev["goals"]:
+				if g["kind"] == "marks" and marks_hit.size() >= marks.size():
+					_complete(g["id"])
 
 
 # ------------------------------------------------------------------ the fundraising thermometer

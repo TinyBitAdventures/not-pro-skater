@@ -12,5 +12,5 @@ for t in "${targets[@]}"; do
   blender --background --factory-startup --python blender/build.py -- "$t" 2>&1 | grep -E "Error|Traceback|File \"|exported|WARNING: Mesh"
 done
 rm -f game/assets/levels/*.glb.import.tmp
-(cd game && timeout 300 godot --headless --import --path . 2>&1 | grep -E "ERROR|Parse Error")
+(cd game && timeout 1200 godot --headless --import --path . 2>&1 | grep -E "ERROR|Parse Error")
 echo "build done"

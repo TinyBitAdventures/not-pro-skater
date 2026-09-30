@@ -1,0 +1,15 @@
+{
+ "range": 2.0,
+ "groups": [
+  "plaza",
+  "world"
+ ],
+ "sun_dir": [
+  0.639,
+  0.614,
+  0.4633
+ ],
+ "sun_energy": 1.0,
+ "sky_energy": 1.244313,
+ "hdri": "kloofendal_38d_partly_cloudy_puresky_1k.hdr"
+}

@@ -85,16 +85,61 @@ func _run() -> void:
 				_put(sk, (lv.markers["gate_1"] as Transform3D).origin)
 				await _frames(3)
 				report.append("%s (laps %d through %d gates): laps=%d done=%s" % [gid, g["laps"], gates, r.laps_done, r.done.has(gid)])
+			"marks":
+				# rolling through a mark doesn't count; stopping on it does
+				var n: int = r.marks.size()
+				_put(sk, (lv.markers["mark_1"] as Transform3D).origin)
+				sk.velocity = Vector3(6.0, 0.0, 0.0)
+				await _frames(1)
+				var rolled: bool = r.marks_hit.has(0)
+				var missed: Array[String] = []
+				for mi in n:
+					_put(sk, (lv.markers["mark_%d" % (mi + 1)] as Transform3D).origin)
+					await _frames(15)                    # settle onto the ground (a mark only counts standing on it)
+					if not r.marks_hit.has(mi):
+						missed.append("mark_%d at %s (%s)" % [mi + 1, sk.global_position.snappedf(0.01), Skater.State.keys()[sk.state]])
+				report.append("%s (marks, %d): counted while rolling %s, all hit %s %s" % [gid, n, rolled, r.done.has(gid),
+					"" if missed.is_empty() else "missed " + ", ".join(missed)])
+			"timed_run":
+				# a bail mid-take ruins it; then a clean take through every checkpoint in order counts
+				var n: int = r.gates.size()
+				_put(sk, (lv.markers["check_1"] as Transform3D).origin)
+				await _frames(3)
+				_put(sk, (lv.markers["check_2"] as Transform3D).origin)
+				await _frames(3)
+				sk._start_bail("sideways")
+				await _frames(2)
+				var ruined: bool = r._run_t < 0.0 and r._next_gate == 0
+				sk.finish_physical_bail(Transform3D(Basis.IDENTITY, (lv.markers["check_1"] as Transform3D).origin))
+				await _frames(3)
+				for ci in n:
+					_put(sk, (lv.markers["check_%d" % (ci + 1)] as Transform3D).origin)
+					await _frames(3)
+				report.append("%s (timed run, %d checkpoints): bail ruined the take %s, clean take %s" % [gid, n, ruined,
+					r.done.has(gid)])
 			"combo":
 				sk.score.banked.emit(int(g["points"]) + 100, 4)
 				await _frames(2)
 				report.append("%s (combo): %s" % [gid, r.done.has(gid)])
+			"zone_combo":
+				# outside the zone a big combo doesn't count; inside it does
+				_put(sk, (lv.markers["zone_" + String(g["zone"])] as Transform3D).origin + Vector3(float(g.get("radius", 8.0)) + 6.0, 0, 0))
+				await _frames(2)
+				sk.score.banked.emit(int(g["points"]) + 100, 4)
+				await _frames(2)
+				var outside: bool = r.done.has(gid)
+				_put(sk, (lv.markers["zone_" + String(g["zone"])] as Transform3D).origin + Vector3(1.0, 0, 0))
+				await _frames(2)
+				sk.score.banked.emit(int(g["points"]) + 100, 4)
+				await _frames(2)
+				report.append("%s (zone combo): counted outside %s, inside %s" % [gid, outside, r.done.has(gid)])
 			"score":
 				sk.score.score = int(g["points"]) + 100
 				await _frames(2)
 				report.append("%s (score): %s" % [gid, r.done.has(gid)])
 	for line in report:
 		print("[event] ", line)
-	var all_done: bool = r.done.size() == (ev["goals"] as Array).size()
+	var all_done: bool = r.done.size() == (ev["goals"] as Array).size() and not report.any(func(l: String) -> bool:
+		return l.contains("counted outside true") or l.contains("counted while rolling true"))
 	print("[event] %s all goals: %s" % [id, all_done])
 	get_tree().quit(0 if all_done else 1)

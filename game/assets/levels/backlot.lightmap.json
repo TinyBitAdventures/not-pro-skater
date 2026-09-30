@@ -1,0 +1,15 @@
+{
+ "range": 2.0,
+ "groups": [
+  "plaza",
+  "world"
+ ],
+ "sun_dir": [
+  0.7634,
+  0.3268,
+  0.5572
+ ],
+ "sun_energy": 1.0,
+ "sky_energy": 0.431453,
+ "hdri": "qwantani_late_afternoon_puresky_1k.hdr"
+}

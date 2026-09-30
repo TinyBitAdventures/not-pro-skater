@@ -63,6 +63,7 @@ SETS = {
     "brick": ("Bricks101", 1.5, (1.0, 1.0, 1.0), 0.0, True),
     "paving": ("PavingStones128", 2.0, (1.0, 1.0, 1.0), 0.0, True),
     "dirt": ("Ground037", 3.0, (1.0, 1.0, 1.0), 0.0, True),
+    "packed_dirt": ("Concrete044D", 3.0, (0.86, 0.72, 0.54), 0.0, True),   # a western set's street: sandy, hard (Ground037 is mossy)
 }
 
 # flat kit material name -> set
@@ -77,7 +78,7 @@ KIT = {
     "SidePaint": "side_paint", "Timber": "wood_side", "Court": "court",
     "Red": "paint_red", "Yellow": "paint_red", "Orange": "paint_red", "Blue": "paint_red",
     "Siding": "siding", "SidingBlue": "siding_blue", "SidingSage": "siding_sage", "Roof": "roof", "Brick": "brick",
-    "Paving": "paving", "Dirt": "dirt", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
+    "Paving": "paving", "Dirt": "dirt", "PackedDirt": "packed_dirt", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
     "SidingCream": "siding_cream", "SidingGrey": "siding_grey", "RoofDark": "roof_dark", "RoofBrown": "roof_brown",
     "Pole": "wood_side", "Driveway": "concrete", "FarGrass": "grass_far",
 }

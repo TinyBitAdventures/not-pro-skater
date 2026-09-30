@@ -12,6 +12,12 @@ extends RefCounted
 ##   laps       ride through the gates (markers Event_gate_<n>) in order and back to the first, `laps` times;
 ##              each lap adds `lap_points` as a trick
 ##
+##   zone_combo bank one combo worth at least `points` inside the zone (marker Event_zone_<zone>, `radius` m)
+##   marks      hit your marks: stop on each chalk mark (markers Event_mark_<n>)
+##   timed_run  the one-take run: through the checkpoints (markers Event_check_<n>) in order within `limit`
+##              seconds of the first; a bail or the clock ruins the take. `points` for finishing it
+##
+## deliver takes `item` (a scene path; the cake by default) and `drop_text`.
 ## `money` (optional): the score is money raised, this many dollars a point (a fundraiser); the HUD, results
 ## and goal texts show dollars.
 ## trick_on takes `rail` (one id) or `rails` (any of them); `trick` "" means any grind.
@@ -20,18 +26,47 @@ extends RefCounted
 ## two poles, presents, and party hats for the kids.
 
 ## The events in menu order. Each is scenes/<id>.tscn (an EventWorld with event_id = id).
-const ALL: Array[String] = ["birthday", "skateathon"]
+const ALL: Array[String] = ["birthday", "skateathon", "launchday", "recordrelease", "rushhour", "betweentakes"]
 ## Whose home event each one is ("" = everyone's): shown on the title menu.
-const HOME: Dictionary = {"birthday": "dad", "skateathon": ""}
+const HOME: Dictionary = {"birthday": "dad", "skateathon": "", "launchday": "dev", "recordrelease": "musician", "rushhour": "vlogger", "betweentakes": "actor"}
 ## Free Skate: every level, no clock.
 const LEVELS: Array[Dictionary] = [
-	{"id": "park", "name": "Neighborhood Park", "scene": "res://scenes/neighborhood.tscn"},
-	{"id": "school", "name": "Maple Grove Elementary", "scene": "res://scenes/school.tscn"},
+	{"id": "park", "name": "Neighborhood Park", "scene": "res://scenes/neighborhood.tscn",
+		"level": "res://assets/levels/neighborhood.gltf"},
+	{"id": "school", "name": "Maple Grove Elementary", "scene": "res://scenes/school.tscn",
+		"level": "res://assets/levels/school.gltf"},
+	{"id": "campus", "name": "Hilltop Tech", "scene": "res://scenes/campus.tscn",
+		"level": "res://assets/levels/campus.gltf"},
+	{"id": "warehouse", "name": "The Warehouse District", "scene": "res://scenes/warehouse.tscn",
+		"level": "res://assets/levels/warehouse.gltf"},
+	{"id": "downtown", "name": "Downtown", "scene": "res://scenes/downtown.tscn",
+		"level": "res://assets/levels/downtown.gltf"},
+	{"id": "backlot", "name": "Big Moon Studios", "scene": "res://scenes/backlot.tscn",
+		"level": "res://assets/levels/backlot.gltf"},
 ]
 
 
 static func scene(id: String) -> String:
 	return "res://scenes/%s.tscn" % id
+
+
+## The level (glTF) a scene loads, "" for scenes without one of these levels (the title, the greybox).
+static func level_of_scene(path: String) -> String:
+	for id in ALL:
+		if scene(id) == path:
+			return String(get_event(id)["level"])
+	for lv in LEVELS:
+		if lv["scene"] == path:
+			return String(lv["level"])
+	return ""
+
+
+## A level's name for the loading note ("Hilltop Tech").
+static func level_name(gltf: String) -> String:
+	for lv in LEVELS:
+		if lv["level"] == gltf:
+			return String(lv["name"])
+	return "the level"
 
 
 static func get_event(id: String) -> Dictionary:
@@ -104,4 +139,118 @@ static func get_event(id: String) -> Dictionary:
 					{"id": "raise", "kind": "score", "text": "Raise $2,500", "points": 25000},
 				],
 			}
+		"launchday":
+			return {
+				"id": "launchday",
+				"title": "LAUNCH DAY",
+				"blurb": "The app ships today. The team is out on the lawn, and the whole campus is yours.",
+				"level": "res://assets/levels/campus.gltf",
+				"session": 150.0,
+				"kids": ["coworker_ana", "coworker_raj", "coworker_june"],
+				"dressing": {
+					"banner": {"text": "HILLTOP LAUNCH DAY", "a": Vector3(-34.5, 0.0, -2.5), "b": Vector3(-34.5, 0.0, 3.5),
+						"height": 2.6},
+					"balloons": [Vector3(-43.0, 0.78, 2.0), Vector3(-43.0, 0.78, 8.0), Vector3(-43.0, 0.78, 14.0),
+						Vector3(-34.3, 1.0, -2.5), Vector3(-34.3, 1.0, 3.5), Vector3(STAGE_GODOT.x - 3.0, 1.2, STAGE_GODOT.z + 1.6),
+						Vector3(STAGE_GODOT.x + 3.0, 1.2, STAGE_GODOT.z + 1.6)],
+				},
+				"goals": [
+					{"id": "deploy", "kind": "letters", "text": "Collect D-E-P-L-O-Y", "letters": "DEPLOY"},
+					{"id": "pizza", "kind": "deliver", "text": "Bring the pizzas from the food truck to the picnic",
+						"from": "pizza_pickup", "to": "pizza_drop", "item": "res://assets/models/pizza.glb",
+						"drop_text": "PIZZAS DROPPED!  BACK TO THE TRUCK"},
+					{"id": "planters", "kind": "trick_on", "text": "Grind a long planter ledge",
+						"rails": ["planter_1a", "planter_1b", "planter_2a", "planter_2b"], "trick": ""},
+					{"id": "team", "kind": "show_kids", "text": "Show the team a trick"},
+					{"id": "demo", "kind": "zone_combo", "text": "The demo: a 6,000 combo at the stage", "zone": "stage",
+						"radius": 9.0, "points": 6000, "label": "DEMO STAGE"},
+					{"id": "score", "kind": "score", "text": "Score 30,000", "points": 30000},
+				],
+			}
+		"recordrelease":
+			return {
+				"id": "recordrelease",
+				"title": "RECORD RELEASE",
+				"blurb": "The band's new record comes out tonight at the Foundry. Warm up the crowd.",
+				"level": "res://assets/levels/warehouse.gltf",
+				"session": 150.0,
+				"kids": ["fan_zoe", "fan_mo", "fan_ike"],
+				"dressing": {
+					"banner": {"text": "RECORD RELEASE TONIGHT", "a": Vector3(-5.0, 0.0, 18.0), "b": Vector3(1.0, 0.0, 18.0),
+						"height": 2.6},
+					"balloons": [Vector3(36.5, 1.1, 9.5), Vector3(36.5, 1.1, -1.5), Vector3(30.0, 0.8, -6.0),
+						Vector3(-4.8, 1.0, 18.0), Vector3(0.8, 1.0, 18.0)],
+				},
+				"goals": [
+					{"id": "vinyl", "kind": "letters", "text": "Collect V-I-N-Y-L", "letters": "VINYL"},
+					{"id": "merch", "kind": "deliver", "text": "Get the merch from the van to the table",
+						"from": "merch_pickup", "to": "merch_drop", "item": "res://assets/models/merch.glb",
+						"drop_text": "MERCH DROPPED!  BACK TO THE VAN"},
+					{"id": "dock", "kind": "trick_on", "text": "Grind the Foundry's loading dock", "rails": ["dock_ledge"],
+						"trick": ""},
+					{"id": "fans", "kind": "show_kids", "text": "Hype the fans"},
+					{"id": "front", "kind": "zone_combo", "text": "A 7,000 combo in front of the stage", "zone": "stage",
+						"radius": 9.0, "points": 7000, "label": "FRONT OF STAGE"},
+					{"id": "score", "kind": "score", "text": "Score 35,000", "points": 35000},
+				],
+			}
+		"rushhour":
+			return {
+				"id": "rushhour",
+				"title": "RUSH HOUR",
+				"blurb": "One take, no bails. Film the city before the morning market packs up.",
+				"level": "res://assets/levels/downtown.gltf",
+				"session": 150.0,
+				"guests": [
+					{"char": "principal", "pos": Vector3(-9.2, 0.15, -3.0), "yaw": 110.0},
+					{"char": "guest_grandpa", "pos": Vector3(-11.0, 0.15, -7.6), "yaw": 70.0},
+					{"char": "guest_mom", "pos": Vector3(-9.0, 0.15, -11.2), "yaw": 100.0},
+				],
+				"dressing": {
+					"banner": {"text": "MARKET MORNING", "a": Vector3(-7.0, 0.0, 10.0), "b": Vector3(7.0, 0.0, 10.0),
+						"height": 3.0},
+					"balloons": [Vector3(-7.0, 1.0, 22.0), Vector3(7.0, 1.0, 22.0)],
+				},
+				"goals": [
+					{"id": "viral", "kind": "letters", "text": "Collect V-I-R-A-L", "letters": "VIRAL"},
+					{"id": "onetake", "kind": "timed_run", "text": "The one-take run: every checkpoint in 45 s",
+						"limit": 45.0, "points": 2000},
+					{"id": "coffee", "kind": "deliver", "text": "Get the coffee order to the office lobby",
+						"from": "coffee_pickup", "to": "coffee_drop", "item": "res://assets/models/coffee.glb",
+						"drop_text": "COFFEE SPILLED!  BACK TO THE CAFE"},
+					{"id": "intro", "kind": "zone_combo", "text": "Film the intro: a 5,000 combo on camera", "zone": "camera",
+						"radius": 7.0, "points": 5000, "label": "ROLLING"},
+					{"id": "bigrail", "kind": "trick_on", "text": "Grind the big rail at the civic plaza",
+						"rails": ["plaza_rail_c", "plaza_rail_side"], "trick": ""},
+					{"id": "score", "kind": "score", "text": "Score 35,000", "points": 35000},
+				],
+			}
+		"betweentakes":
+			return {
+				"id": "betweentakes",
+				"title": "BETWEEN TAKES",
+				"blurb": "Forty minutes while they relight the next scene. The whole backlot is a skatepark.",
+				"level": "res://assets/levels/backlot.gltf",
+				"session": 150.0,
+				"kids": ["director_lou", "crew_rita", "crew_ray"],
+				"dressing": {
+					"banner": {"text": "QUIET ON SET", "a": Vector3(-3.0, 0.0, 12.0), "b": Vector3(3.0, 0.0, 12.0),
+						"height": 3.0},
+				},
+				"goals": [
+					{"id": "action", "kind": "letters", "text": "Collect A-C-T-I-O-N", "letters": "ACTION"},
+					{"id": "marks", "kind": "marks", "text": "Hit your marks (stop on each one)"},
+					{"id": "script", "kind": "deliver", "text": "Bring the script pages to the director's chair",
+						"from": "script_pickup", "to": "script_drop", "item": "res://assets/models/script.glb",
+						"drop_text": "PAGES EVERYWHERE!  BACK TO THE TRAILER"},
+					{"id": "dolly", "kind": "trick_on", "text": "Grind the dolly track",
+						"rails": ["dolly_track_a", "dolly_track_b"], "trick": ""},
+					{"id": "crew", "kind": "show_kids", "text": "Impress the director and the crew"},
+					{"id": "score", "kind": "score", "text": "Score 40,000", "points": 40000},
+				],
+			}
 	return {}
+
+
+## Launch Day's stage (the amphitheatre's centre) in Godot coordinates, for placing its dressing.
+const STAGE_GODOT: Vector3 = Vector3(38.0, 0.0, 17.0)
