@@ -1,6 +1,34 @@
 # Changelog
 
-## Unreleased
+## v0.1.0 (2026-09-30)
+
+The first release of Not Pro Skater, a skateboarding game about people who skate for the love of it. Five archetype riders (the Dev, the Musician, the Vlogger, the Dad and the Actor) skate six community events on six real-scale levels. Play it in the browser, or download it for macOS, Windows or Linux.
+
+### Six events
+- **Birthday at the Park** (the Dad, Neighborhood Park): grab P-A-R-T-Y, bring the cake to the party, show the kids a trick.
+- **The Skate-a-thon** (everyone, Maple Grove Elementary): every point is money for a new playground. Ride sponsored laps of the school, grind the front-steps handrail, raise $2,500.
+- **Launch Day** (the Dev, Hilltop Tech): the app ships today. Pizzas to the company picnic, a demo combo on the amphitheatre stage, show the team.
+- **Record Release** (the Musician, the Warehouse District): the merch from the tour van to the table, grind the loading dock, hype the fans in front of the stage.
+- **Rush Hour** (the Vlogger, Downtown): the one-take run through six checkpoints in 45 seconds with no bails, the coffee order to the office lobby, film the intro.
+- **Between Takes** (the Actor, Big Moon Studios): hit your marks on a film backlot, bring the script pages to the director, grind the dolly track.
+
+Every level is also open for Free Skate with no timer, and a grey Practice level has every kind of ramp and rail in lanes.
+
+### Skating
+- Ollies, flips, grabs, spins, manuals, grinds with a balance meter, lip tricks, wall plants, reverts and transfers, linked into combos with a multiplier.
+- Vert ramps lock the air to the wall; small landing mistakes are lined up for you, big ones bail.
+- Crashes are physical: the rider falls like a body, braces with their arms, gets up the way they landed and walks back to the board.
+- Skater or screen steering, hold or tap to jump, keyboard or gamepad.
+
+### Look and sound
+- CC0 materials and props, light baked in Blender's Cycles, a different sky on each level, characters built with MakeHuman.
+- A melodic techno soundtrack and sound effects made with Wavelength.
+
+### Web and desktop
+- The browser version downloads the game and the first two levels (77 MB), then fetches each later level (6 to 15 MB) the first time you play it.
+- Downloads for macOS (universal), Windows and Linux carry every level.
+
+## Development history (before v0.1.0)
 
 ### Four more levels: every rider has a home event
 Six events now, one for each rider plus the Skate-a-thon everyone rides. Each new level is a real-scale place built like the first two (a Blender script, CC0 PBR materials, light baked in Cycles, grind lines as curves) with its own sky, bystanders and item to carry, and every one is free to skate without a timer (Free Skate on the title menu).
