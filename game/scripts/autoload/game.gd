@@ -41,6 +41,8 @@ var _dl_name: Label
 var _dl_note: Label
 var _dl_fill: ColorRect
 const DL_BAR_W: float = 420.0
+const UI_BASE: Vector2 = Vector2(1600, 900)   # the UI is laid out for this size and scales with the window...
+const UI_MIN_SCALE: float = 0.75              # ...but no smaller than this: small windows (a web embed) get more room instead
 
 
 func _ready() -> void:
@@ -85,6 +87,8 @@ func _ready() -> void:
 	_dl_note = UiKit.label("", 22, UiKit.MUTED, "bold")
 	_dl_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_dl.add_child(_dl_note)
+	get_tree().root.size_changed.connect(_fit_ui)
+	_fit_ui()
 	load_save()
 	# web: index.html?scene=<event id>, park, school, ... or greybox opens that scene straight away; desktop builds
 	# take the same as a user argument: NotProSkater -- --scene=rushhour
@@ -96,6 +100,18 @@ func _ready() -> void:
 			q = a.trim_prefix("--scene=")
 	if typeof(q) == TYPE_STRING and preview_scene(q) != "":
 		go.call_deferred(preview_scene(q))
+
+
+## Below UI_MIN_SCALE the UI's canvas shrinks instead of the text: at 960x540 it's laid out for 1280x720, so text
+## reads at 75% of its design size, not 60%.
+func _fit_ui() -> void:
+	var root: Window = get_tree().root
+	if root.size.x <= 0 or root.size.y <= 0:     # minimized
+		return
+	var s: float = minf(root.size.x / UI_BASE.x, root.size.y / UI_BASE.y)
+	var base: Vector2i = Vector2i((UI_BASE * minf(1.0, s / UI_MIN_SCALE)).round())
+	if root.content_scale_size != base:
+		root.content_scale_size = base
 
 
 ## The scene a web preview link (?scene=...) opens: an event id, a Free Skate level id, or a dev scene.

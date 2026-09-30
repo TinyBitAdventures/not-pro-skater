@@ -436,6 +436,7 @@ func _process(delta: float) -> void:
 		_show_card(nxt[0], nxt[1], nxt[2], nxt[3])
 	if _card_t > 0.0:
 		_card_t -= delta
+		_place_card()                          # the goal panel can appear (or the window change) under a card
 		card.modulate.a = clampf(_card_t / 0.45, 0.0, 1.0) * minf(1.0, card.modulate.a + delta * 8.0)
 		card_rule.custom_minimum_size.x = lerpf(card_rule.custom_minimum_size.x, 160.0, 1.0 - exp(-8.0 * delta))
 	# trick string: a bank shows green, a bail red, then it fades
@@ -715,15 +716,30 @@ func _show_card(text: String, color: Color, seconds: float, sub: String) -> void
 	card_sub.text = sub
 	card_sub.visible = sub != ""
 	card_label.text = text.to_upper()
-	var w: float = get_viewport().get_visible_rect().size.x if is_inside_tree() else 1600.0
+	var half: float = _place_card()
 	# short titles big; long lines smaller and wrapped onto two lines within the card
-	var fit: float = CARD_HALF * 2.0 * 1.9 * (2.0 if text.length() > 22 else 1.0) / maxf(text.length(), 1.0)
+	var fit: float = half * 2.0 * 1.9 * (2.0 if text.length() > 22 else 1.0) / maxf(text.length(), 1.0)
 	card_label.add_theme_font_size_override("font_size", int(clampf(fit, 34.0, 64.0)))
 	card_label.add_theme_color_override("font_color", color)
 	card_rule.color = ACCENT if color == PAPER else color
 	card_rule.custom_minimum_size.x = 40.0
 	card.modulate.a = 0.0
 	_card_t = seconds + 0.45
+
+
+## The card sits centred between the goal panel and the clock: on a narrow canvas (a small window, see
+## Game.UI_MIN_SCALE) it moves right of the screen's centre rather than over the goals. Returns its half width.
+func _place_card() -> float:
+	var w: float = get_viewport().get_visible_rect().size.x if is_inside_tree() else 1600.0
+	var lo: float = 36.0
+	if goals_panel.visible:
+		lo = goals_panel.get_global_rect().end.x + 16.0
+	var hi: float = w - 190.0                     # the clock
+	var half: float = minf(CARD_HALF, (hi - lo) * 0.5)
+	var centre: float = clampf(w * 0.5, lo + half, hi - half)
+	card.offset_left = centre - w * 0.5 - half
+	card.offset_right = centre - w * 0.5 + half
+	return half
 
 
 ## Key hints along the bottom left: [["SPACE", "jump"], ...].

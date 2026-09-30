@@ -23,6 +23,9 @@ var rider_name: Label
 var rider_blurb: Label
 var _hint: Control
 var _hint_root: Control
+var _col: VBoxContainer          # the logo and menu column, tightened in short windows (_fit_layout)
+var _logo: VBoxContainer
+var _logo_gap: Control
 var _orbit: float = 0.0             # set in _ready: starts on the sunny side, the rider's front three-quarter
 var _swing_t: float = 0.0           # the camera swings either side of that
 
@@ -42,6 +45,8 @@ func _ready() -> void:
 	if not OS.has_feature("web"):
 		items.append("quit")
 	_build_ui()
+	get_viewport().size_changed.connect(_fit_layout)
+	_fit_layout()
 	Sound.play_music("title")
 	Sound.play_ambience("park_ambience", -16.0)
 
@@ -115,16 +120,19 @@ func _build_ui() -> void:
 	col.add_theme_constant_override("separation", 0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(col)
+	_col = col
 	var logo: VBoxContainer = VBoxContainer.new()
 	logo.add_theme_constant_override("separation", -34)
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	logo.add_child(UiKit.label("NOT PRO", 108, UiKit.ACCENT, "display"))
 	logo.add_child(UiKit.label("SKATER", 108, UiKit.PAPER, "display"))
 	col.add_child(logo)
+	_logo = logo
 	col.add_child(UiKit.label("Skating for everyone else", 26, UiKit.MUTED, "body"))
 	var gap: Control = Control.new()
 	gap.custom_minimum_size = Vector2(0, 34)
 	col.add_child(gap)
+	_logo_gap = gap
 
 	for i in items.size():
 		if i == PLAY_ITEMS or items[i] == "quit":
@@ -201,6 +209,18 @@ func _build_ui() -> void:
 	controls_layer.visible = false
 	root.add_child(controls_layer)
 	_refresh()
+
+
+## A small window lays the UI out on a shorter canvas (Game.UI_MIN_SCALE: 1280x720 at 960x540), where the full
+## logo pushes Quit under the key hints: a smaller logo and less space above it keep the menu clear of them.
+func _fit_layout() -> void:
+	var short: bool = get_viewport().get_visible_rect().size.y < 860.0
+	_col.position.y = 26.0 if short else 64.0
+	for l in _logo.get_children():
+		(l as Label).add_theme_font_size_override("font_size", 72 if short else 108)
+	_logo.add_theme_constant_override("separation", -23 if short else -34)
+	_logo_gap.custom_minimum_size.y = 12.0 if short else 34.0
+	_col.reset_size()
 
 
 func _build_hints() -> void:
