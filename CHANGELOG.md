@@ -10,6 +10,9 @@
 - **Events** (`scripts/events/`): an event is a level plus goals (`Events.get_event`), run by `EventRunner`, shown in a HUD goal list, saved when done. Goal kinds: balloon letters, deliver an item without bailing, a named grind on one rail, show the kids a trick, a big combo, a session score.
 - **Birthday at the Park** (`scenes/birthday.tscn`): grab the P-A-R-T-Y balloons (some only in the air), bring the cake from the street table to the party (bail and it goes back), boardslide the party bench, land a trick near each of the three kids, a 10,000 combo, 25,000 points. Two-minute session with results.
 - **Kids** (Maya, Leo, Sam) from the character pipeline, as `Npc` bystanders: relaxed stance, heads following the skater, cheering with arms up when shown a trick.
+- **Party guests**: Leo's mom and Grandpa stand by the picnic tables and cheer tricks done near them.
+- **Trees sway** in the wind (`leaf_sway.gdshader`: sway grows with height, varies by position; shadows sway too).
+- **Web build stays under budget** (~78 MB): textures import GPU-compressed by default, detail maps (normal, roughness, packed AO/rough/metal) export at 512 and colour maps at 1K, characters keep 1K skin and 512 for the rest (bystanders 512 throughout), and the old cartoon park is left out of the web export.
 - **Title screen** for Not Pro Skaters: the park behind a slowly circling camera with the chosen rider on the board; Birthday at the Park, Free Skate, Practice, rider select (left / right), settings. The project is renamed; ESC in a level goes back to the title.
 
 ### Rebuild: skating feel (Not Pro Skaters)

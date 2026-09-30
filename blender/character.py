@@ -106,6 +106,25 @@ ARCHETYPES = {
         "skin": "young_asian_male", "eyes": "brown", "eyebrows": "eyebrow002", "eyelashes": "eyelashes01",
         "hair": "short04", "clothes": ["male_casualsuit06", "shoes05"],
     },
+    # party guests (bystanders)
+    "guest_mom": {
+        "title": "Leo's mom", "npc": True,
+        "macro": {"gender": 0.0, "age": 0.62, "muscle": 0.45, "weight": 0.5, "proportions": 0.55,
+                  "height": 0.5, "cupsize": 0.5, "firmness": 0.5,
+                  "race": {"asian": 0.1, "caucasian": 0.8, "african": 0.1}},
+        "stylize": {"head-scale-vert-incr": 0.2, "head-scale-horiz-incr": 0.15},
+        "skin": "middleage_caucasian_female", "eyes": "blue", "eyebrows": "eyebrow009", "eyelashes": "eyelashes03",
+        "hair": "bob02", "clothes": ["female_casualsuit02", "shoes05"],
+    },
+    "guest_grandpa": {
+        "title": "Grandpa", "npc": True,
+        "macro": {"gender": 1.0, "age": 0.9, "muscle": 0.4, "weight": 0.6, "proportions": 0.5,
+                  "height": 0.45, "cupsize": 0.5, "firmness": 0.4,
+                  "race": {"asian": 0.1, "caucasian": 0.8, "african": 0.1}},
+        "stylize": {"head-scale-vert-incr": 0.2, "head-scale-horiz-incr": 0.15},
+        "skin": "old_caucasian_male", "eyes": "brown", "eyebrows": "eyebrow003", "eyelashes": "eyelashes01",
+        "hair": "short03", "clothes": ["namuhekam_male_polo_shirt", "toigo_wool_pants", "shoes02"],
+    },
     "actor": {
         "title": "The Actor",
         "macro": {"gender": 1.0, "age": 0.62, "muscle": 0.4, "weight": 0.66, "proportions": 0.5,

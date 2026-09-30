@@ -62,7 +62,7 @@ def ground():
 
 
 def skate_features():
-    mini_ramp(root("Mini", -24.0, 2.0, 90.0), W=8.0, R=2.7, H=1.6, F=5.0, D=1.8)
+    mini_ramp(root("Mini", -24.0, 2.0, 90.0), W=8.0, R=2.7, H=1.6, F=5.0, D=1.8, decals=False)
     ledge(root("LedgeHigh", -10.0, 4.0, 90.0), L=6.0, W=0.7, h=0.45)
     ledge(root("LedgeLow", -10.0, -2.5, 90.0), L=6.0, W=0.7, h=0.3)
     manual_pad(root("Manual", -2.0, -8.0), L=5.0, W=1.6, H=0.2)

@@ -23,6 +23,11 @@ static func get_event(id: String) -> Dictionary:
 				"level": "res://assets/levels/neighborhood.glb",
 				"session": 120.0,
 				"kids": ["kid_leo", "kid_maya", "kid_sam"],
+				# grown-ups at the party (Godot coordinates, facing yaw in degrees)
+				"guests": [
+					{"char": "guest_mom", "pos": Vector3(24.5, 0.0, 3.2), "yaw": 200.0},
+					{"char": "guest_grandpa", "pos": Vector3(30.2, 0.0, -2.8), "yaw": 250.0},
+				],
 				"goals": [
 					{"id": "party", "kind": "letters", "text": "Grab the P-A-R-T-Y balloons", "letters": "PARTY"},
 					{"id": "cake", "kind": "deliver", "text": "Bring the cake from the street to the party",

@@ -157,13 +157,13 @@ def hip(root, W=2.6, R=5.0, H=0.55):
     kicker(empty(uname("Hip"), (0, yt, 0), math.pi, root), W=W, R=R, H=H)
 
 
-def mini_ramp(root, W=7.0, R=2.7, H=1.75, F=5.0, D=1.8, seed=3):
+def mini_ramp(root, W=7.0, R=2.7, H=1.75, F=5.0, D=1.8, seed=3, decals=True):
     """Two facing quarter pipes with a flat between them; the flat is the plaza slab."""
     yt = R * math.sin(math.acos(1 - H / R))
     left = empty(uname("Half"), (0, -F / 2, 0), math.pi, root)
     right = empty(uname("Half"), (0, F / 2, 0), 0.0, root)
-    quarter_pipe(left, W=W, R=R, H=H, D=D, seed=seed)
-    quarter_pipe(right, W=W, R=R, H=H, D=D, seed=seed + 1)
+    quarter_pipe(left, W=W, R=R, H=H, D=D, seed=seed, decals=decals)
+    quarter_pipe(right, W=W, R=R, H=H, D=D, seed=seed + 1, decals=decals)
     quad(uname("PipeFloor"), (-W / 2, -F / 2, 0.012), (W / 2, -F / 2, 0.012), (W / 2, F / 2, 0.012),
          (-W / 2, F / 2, 0.012), M("WoodB"), parent=root)
     # a little roll-in bump

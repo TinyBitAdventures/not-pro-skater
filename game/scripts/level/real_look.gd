@@ -5,6 +5,7 @@ extends RefCounted
 ## and is lit by the sky and the sun at runtime (metal rails, the skater, props).
 
 const SHADER: Shader = preload("res://shaders/baked_pbr.gdshader")
+const LEAVES: Shader = preload("res://shaders/leaf_sway.gdshader")
 
 static var bake_energy: float = 1.0
 static var _made: Array[ShaderMaterial] = []
@@ -23,6 +24,14 @@ static func apply(root: Node, lightmaps: Dictionary, info: Dictionary) -> void:
 		for s in mesh.get_surface_count():
 			var src: BaseMaterial3D = mesh.surface_get_material(s) as BaseMaterial3D
 			if src == null:
+				continue
+			if src.resource_name == "TreeLeaves":
+				if not cache.has("leaves"):
+					var lm: ShaderMaterial = ShaderMaterial.new()
+					lm.shader = LEAVES
+					lm.set_shader_parameter("albedo_tex", src.albedo_texture)
+					cache["leaves"] = lm
+				inst.set_surface_override_material(s, cache["leaves"])
 				continue
 			var has_uv2: bool = (mesh.surface_get_format(s) & Mesh.ARRAY_FORMAT_TEX_UV2) != 0
 			var lightmap: Texture2D = lightmaps.get(_group_of(inst), lightmaps.get("", null))

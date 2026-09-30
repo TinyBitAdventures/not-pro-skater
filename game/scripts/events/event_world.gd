@@ -17,6 +17,8 @@ func _ready() -> void:
 	look = "real"
 	super._ready()
 	skater.place_at(level.spawn)           # events start at the level's spawn, not the first test spot
+	if OS.get_environment("SHOT_START") != "":
+		warp(start_names.find(OS.get_environment("SHOT_START")))     # screenshot mode
 	(cam as ChaseCamera).snap_behind()
 	hud.level_label.text = ev["title"]
 	runner = EventRunner.new()

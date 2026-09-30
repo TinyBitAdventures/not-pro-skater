@@ -21,6 +21,7 @@ var _letters: Dictionary = {}      # letter -> Node3D balloon
 var _got_letters: String = ""
 var _kids: Array[Npc] = []
 var _kids_shown: Dictionary = {}
+var _guests: Array[Npc] = []
 var _cake: Node3D
 var _cake_state: String = "waiting"    # waiting / carried / delivered
 var _t: float = 0.0
@@ -35,6 +36,13 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 	score.banked.connect(_on_banked)
 	score.trick_added.connect(_on_trick)
 	skater.bailed.connect(_on_bailed)
+	for gd in ev.get("guests", []):
+		var guest: Npc = Npc.new()
+		guest.char_key = gd["char"]
+		guest.watch = skater
+		add_child(guest)
+		guest.global_transform = Transform3D(Basis(Vector3.UP, deg_to_rad(float(gd["yaw"]))), gd["pos"])
+		_guests.append(guest)
 	for g in ev["goals"]:
 		match String(g["kind"]):
 			"letters":
@@ -169,6 +177,9 @@ func _on_bailed(_reason: String) -> void:
 
 func _on_trick(_name: String, _points: int) -> void:
 	var p: Vector3 = skater.rider_position()
+	for gst in _guests:
+		if Vector2(p.x - gst.global_position.x, p.z - gst.global_position.z).length() < KID_RADIUS:
+			gst.cheer(2.0)
 	for i in _kids.size():
 		var k: Npc = _kids[i]
 		if _kids_shown.has(i):
