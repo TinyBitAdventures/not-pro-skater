@@ -49,6 +49,7 @@ var _card_t: float = 0.0
 var _trick_state: String = ""           # "", "live", "banked", "lost"
 var _trick_t: float = 0.0
 var _last_names: int = 0
+var _hint_entries: Array = []
 
 
 func _ready() -> void:
@@ -66,6 +67,11 @@ func _ready() -> void:
 	_build_hints()
 	_build_pause()
 	_build_results()
+	Controls.device_changed.connect(func(_pad: bool) -> void:
+		if not _hint_entries.is_empty():
+			var a: float = hint_box.modulate.a
+			set_hints(_hint_entries)
+			hint_box.modulate.a = a)
 
 
 # ------------------------------------------------------------------ builders
@@ -281,15 +287,8 @@ func _controls_card() -> PanelContainer:
 	v.add_theme_constant_override("separation", 4)
 	p.add_child(v)
 	v.add_child(UiKit.label("CONTROLS", 44, PAPER, "display"))
-	var grid: GridContainer = GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
-	grid.add_theme_constant_override("v_separation", 2)
-	for row in UiKit.CONTROLS:
-		grid.add_child(UiKit.label(String(row[0]), 21, ACCENT, "bold"))
-		grid.add_child(UiKit.label(String(row[1]), 21, PAPER, "body"))
-	v.add_child(grid)
-	var back: Label = UiKit.label("ESC  back", 19, MUTED, "bold")
+	v.add_child(UiKit.controls_grid())
+	var back: Label = UiKit.label("ESC / B  back", 19, MUTED, "bold")
 	v.add_child(back)
 	return p
 
@@ -468,8 +467,9 @@ func announce(text: String, color: Color = PAPER, seconds: float = 1.6) -> void:
 
 ## Key hints along the bottom left: [["SPACE", "jump"], ...].
 func set_hints(pairs: Array) -> void:
+	_hint_entries = pairs
 	for c in hint_box.get_children():
-		c.queue_free()
+		c.free()
 	hint_box.add_child(UiKit.hints(pairs))
 	hint_box.reset_size()
 	hint_box.modulate.a = 1.0
@@ -603,7 +603,7 @@ func show_results(r: Dictionary) -> void:
 	var gap2: Control = Control.new()
 	gap2.custom_minimum_size = Vector2(0, 14)
 	results_box.add_child(gap2)
-	results_box.add_child(UiKit.hints([["ENTER", "skate again"], ["ESC", "title"]]))
+	results_box.add_child(UiKit.hints([["ENTER", "skate again", "A"], ["ESC", "title", "START"]]))
 	results_layer.visible = true
 	results_layer.modulate.a = 0.0
 	create_tween().tween_property(results_layer, "modulate:a", 1.0, 0.5)

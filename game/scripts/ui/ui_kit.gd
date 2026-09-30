@@ -83,11 +83,19 @@ static func bar(width: float, height: float, fill: Color) -> ProgressBar:
 	return b
 
 
-## A row of key hints: "SPACE jump   J flip". Keys are bold paper, actions muted.
-static func hints(pairs: Array) -> HBoxContainer:
+## A row of key hints: "SPACE jump   J flip". Keys are bold paper, actions muted. Each entry is
+## [key, action] (keyboard only: left out while a gamepad is in use) or [key, action, pad button].
+static func hints(entries: Array) -> HBoxContainer:
 	var h: HBoxContainer = HBoxContainer.new()
 	h.add_theme_constant_override("separation", 6)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pad: bool = Controls.using_pad
+	var pairs: Array = []
+	for e in entries:
+		if not pad:
+			pairs.append([e[0], e[1]])
+		elif (e as Array).size() > 2:
+			pairs.append([e[2], e[1]])
 	for i in pairs.size():
 		var p: Array = pairs[i]
 		h.add_child(label(String(p[0]), 18, PAPER, "bold"))
@@ -108,18 +116,34 @@ static func commas(n: int) -> String:
 	return ("-" if n < 0 else "") + out
 
 
-## Rows for the controls card: [keys, what they do].
+## Rows for the controls card: [keys, gamepad, what they do].
 const CONTROLS: Array = [
-	["W / S", "push / brake"],
-	["A / D", "turn; in the air, spin"],
-	["SPACE", "hold to crouch, release to jump (longer = higher)"],
-	["J", "flip trick (hold a direction for variations)"],
-	["K", "hold to grab (hold a direction for variations)"],
-	["L", "grind: press near or toward a rail, ledge or coping"],
-	["W, S", "quick taps: manual     S, W  nose manual"],
-	["W / S", "in a manual: keep the balance meter centred"],
-	["M", "at a ramp lip: transfer; after a ramp landing: revert"],
-	["SPACE", "as you hit a wall: wall plant"],
-	["R", "reset to the start"],
-	["ESC", "pause"],
+	["W / S", "STICK UP / DOWN", "push / brake"],
+	["A / D", "STICK LEFT / RIGHT", "turn; in the air, spin"],
+	["SPACE", "A", "hold to crouch, release to jump (longer = higher)"],
+	["J", "X", "flip trick (hold a direction for variations)"],
+	["K", "B", "hold to grab (hold a direction for variations)"],
+	["L", "Y", "grind: press near or toward a rail, ledge or coping"],
+	["W, S", "UP, DOWN", "quick taps: manual     S, W / DOWN, UP  nose manual"],
+	["W / S", "STICK", "in a manual: keep the balance meter centred"],
+	["M", "RT", "at a ramp lip: transfer; after a ramp landing: revert"],
+	["SPACE", "A", "as you hit a wall: wall plant"],
+	["SHIFT", "LT", "brake"],
+	["R", "BACK", "reset to the start"],
+	["ESC", "START", "pause"],
 ]
+
+
+## The controls card: keys, gamepad and action columns.
+static func controls_grid() -> GridContainer:
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 24)
+	grid.add_theme_constant_override("v_separation", 2)
+	for head in ["KEYS", "GAMEPAD", ""]:
+		grid.add_child(caption(head, 15))
+	for row in CONTROLS:
+		grid.add_child(label(String(row[0]), 21, ACCENT, "bold"))
+		grid.add_child(label(String(row[1]), 21, INFO, "bold"))
+		grid.add_child(label(String(row[2]), 21, PAPER, "body"))
+	return grid

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Polish: gamepad hints
+- Hints follow the last device used: pick up a gamepad and the HUD, title and results show STICK, A, BACK, START (keyboard-only extras like the warp keys drop out); press a key and they switch back. The controls card lists keys and gamepad buttons side by side.
+
 ### Polish: small things
 - Standing still, riders breathe, shift their weight and glance about instead of freezing like a mannequin (the title screen rider most of all).
 - The title camera starts on the rider's front three-quarter, so you see the character you picked.

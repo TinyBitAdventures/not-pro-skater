@@ -47,7 +47,8 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.show_speed(look == "grey")
-	hud.set_hints([["1-9", "warp"], ["TAB", "next spot"], ["P", "rider"], ["R", "reset"], ["F3", "tuning"], ["ESC", "pause"]])
+	hud.set_hints([["1-9", "warp"], ["TAB", "next spot"], ["P", "rider"], ["R", "reset", "BACK"], ["F3", "tuning"],
+		["ESC", "pause", "START"]])
 	hud.restart_requested.connect(func() -> void: Game.go(""))
 	hud.quit_requested.connect(func() -> void: Game.go("res://scenes/title.tscn"))
 	tuning = TuningPanel.new()

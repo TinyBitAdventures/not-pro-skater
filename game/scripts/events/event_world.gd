@@ -32,7 +32,7 @@ func _ready() -> void:
 	runner.goal_done.connect(_on_goal)
 	time_left = float(ev.get("session", 120.0))
 	hud.set_timer(time_left, false)
-	hud.set_hints([["W", "roll to start the clock"], ["P", "rider"], ["R", "reset"], ["ESC", "pause"]])
+	hud.set_hints([["W", "roll to start the clock", "STICK"], ["P", "rider"], ["R", "reset", "BACK"], ["ESC", "pause", "START"]])
 	hud.announce(ev["title"], Hud.PAPER, 2.4)
 	Sound.play_music(Sound.gameplay_track())
 	get_tree().create_timer(2.6).timeout.connect(func() -> void: hud.announce(String(ev["blurb"]), Hud.INFO, 2.6))

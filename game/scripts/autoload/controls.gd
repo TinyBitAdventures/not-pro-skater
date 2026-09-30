@@ -19,6 +19,22 @@ const PAD_AXES: Dictionary = {
 }
 
 
+signal device_changed(pad: bool)
+
+var using_pad: bool = false       # the last input came from a gamepad: hints show pad buttons
+
+
+func _input(event: InputEvent) -> void:
+	var pad: bool = using_pad
+	if event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf((event as InputEventJoypadMotion).axis_value) > 0.5):
+		pad = true
+	elif event is InputEventKey or event is InputEventMouseButton:
+		pad = false
+	if pad != using_pad:
+		using_pad = pad
+		device_changed.emit(pad)
+
+
 func _ready() -> void:
 	for action in KEYS:
 		_ensure(action)

@@ -19,6 +19,8 @@ var controls_layer: Control
 var progress_label: Label
 var rider_name: Label
 var rider_blurb: Label
+var _hint: Control
+var _hint_root: Control
 var _orbit: float = 1.75            # starts on the rider's front three-quarter (the chest faces the board's right)
 
 
@@ -153,10 +155,9 @@ func _build_ui() -> void:
 	rider_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.add_child(rider_blurb)
 
-	var hint: Control = UiKit.hints([["UP / DOWN", "choose"], ["ENTER", "go"], ["LEFT / RIGHT", "change"]])
-	hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	hint.position = Vector2(72, -56)
-	root.add_child(hint)
+	_hint_root = root
+	_build_hints()
+	Controls.device_changed.connect(func(_pad: bool) -> void: _build_hints())
 
 	controls_layer = ColorRect.new()
 	(controls_layer as ColorRect).color = Color(UiKit.INK, 0.72)
@@ -169,19 +170,21 @@ func _build_ui() -> void:
 	v.add_theme_constant_override("separation", 4)
 	p.add_child(v)
 	v.add_child(UiKit.label("CONTROLS", 44, UiKit.PAPER, "display"))
-	var grid: GridContainer = GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
-	grid.add_theme_constant_override("v_separation", 2)
-	for r in UiKit.CONTROLS:
-		grid.add_child(UiKit.label(String(r[0]), 21, UiKit.ACCENT, "bold"))
-		grid.add_child(UiKit.label(String(r[1]), 21, UiKit.PAPER, "body"))
-	v.add_child(grid)
-	v.add_child(UiKit.label("ESC  back", 19, UiKit.MUTED, "bold"))
+	v.add_child(UiKit.controls_grid())
+	v.add_child(UiKit.label("ESC / B  back", 19, UiKit.MUTED, "bold"))
 	cc.add_child(p)
 	controls_layer.visible = false
 	root.add_child(controls_layer)
 	_refresh()
+
+
+func _build_hints() -> void:
+	if _hint != null:
+		_hint.queue_free()
+	_hint = UiKit.hints([["UP / DOWN", "choose", "D-PAD"], ["ENTER", "go", "A"], ["LEFT / RIGHT", "change", "D-PAD"]])
+	_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_hint.position = Vector2(72, -56)
+	_hint_root.add_child(_hint)
 
 
 func _refresh() -> void:

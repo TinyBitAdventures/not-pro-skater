@@ -54,6 +54,18 @@ func _run() -> void:
 	hud.combo_banked(7400)
 	await _wait(0.25)
 	await _shot("banked")
+	# a gamepad press: hints switch to pad buttons
+	var jb: InputEventJoypadButton = InputEventJoypadButton.new()
+	jb.button_index = JOY_BUTTON_DPAD_LEFT
+	jb.pressed = true
+	Input.parse_input_event(jb)
+	await _wait(0.2)
+	await _shot("pad")
+	var kb: InputEventKey = InputEventKey.new()
+	kb.physical_keycode = KEY_SHIFT
+	kb.pressed = true
+	Input.parse_input_event(kb)
+	await _wait(0.1)
 	hud.open_pause()
 	await _wait(0.3)
 	await _shot("pause")
