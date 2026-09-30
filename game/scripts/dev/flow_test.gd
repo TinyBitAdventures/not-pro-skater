@@ -48,7 +48,12 @@ func _run() -> void:
 	get_tree().change_scene_to_file("res://scenes/title.tscn")
 	await _wait(1.0)
 	_check("title loads", _scene().ends_with("title.tscn"))
-	await _press("ui_accept")                 # first item: Birthday at the Park
+	var title: Node = get_tree().current_scene
+	await _press("pause")                     # Esc on the title: onto Quit (not pressed: it would end the test)
+	var items: Array[String] = title.get("items")
+	_check("ESC on the title selects Quit", items[int(title.get("selected"))] == "quit")
+	await _press("ui_down")                   # wraps round to the first item: Birthday at the Park
+	await _press("ui_accept")
 	await _wait(1.5)
 	_check("title -> birthday", _scene().ends_with("birthday.tscn"))
 	await _press("pause")

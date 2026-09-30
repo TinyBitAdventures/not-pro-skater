@@ -1,6 +1,7 @@
 extends Node3D
 ## Title: Neighborhood Park under a slowly circling camera, the chosen rider on the board, the logo and menu on
-## the left, the rider's card bottom right. Up / down choose, Enter goes, left / right change a setting.
+## the left, the rider's card bottom right. Up / down choose, Enter goes, left / right change a setting, Esc jumps
+## to Quit (desktop builds; a browser tab has nothing to quit to).
 
 const EVENT_SCENE: String = "res://scenes/birthday.tscn"
 const FREE_SCENE: String = "res://scenes/neighborhood.tscn"
@@ -8,6 +9,7 @@ const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
 const SPOT: Vector3 = Vector3(-18.0, 0.02, 4.0)      # where the rider stands: by the mini ramp, in the late sun
 const ITEMS: Array[String] = ["event", "free", "practice", "rider", "steer", "jump", "music", "controls"]
 
+var items: Array[String] = []         # ITEMS, plus Quit on desktop
 var level: Level
 var cam: Camera3D
 var rider: Skater
@@ -36,6 +38,9 @@ func _ready() -> void:
 	var sh: Vector3 = _sun_h()
 	_orbit = atan2(sh.x, sh.z) - 0.45
 	_spawn_rider()
+	items = ITEMS.duplicate()
+	if not OS.has_feature("web"):
+		items.append("quit")
 	_build_ui()
 	Sound.play_music("title")
 	Sound.play_ambience("park_ambience", -16.0)
@@ -117,8 +122,8 @@ func _build_ui() -> void:
 	gap.custom_minimum_size = Vector2(0, 34)
 	col.add_child(gap)
 
-	for i in ITEMS.size():
-		if i == 3:
+	for i in items.size():
+		if i == 3 or items[i] == "quit":
 			var g2: Control = Control.new()
 			g2.custom_minimum_size = Vector2(0, 18)
 			col.add_child(g2)
@@ -197,7 +202,10 @@ func _build_ui() -> void:
 func _build_hints() -> void:
 	if _hint != null:
 		_hint.queue_free()
-	_hint = UiKit.hints([["UP / DOWN", "choose", "D-PAD"], ["ENTER", "go", "A"], ["LEFT / RIGHT", "change", "D-PAD"]])
+	var pairs: Array = [["UP / DOWN", "choose", "D-PAD"], ["ENTER", "go", "A"], ["LEFT / RIGHT", "change", "D-PAD"]]
+	if items.has("quit"):
+		pairs.append(["ESC", "quit", "B"])
+	_hint = UiKit.hints(pairs)
 	_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_hint.position = Vector2(72, -56)
 	_hint_root.add_child(_hint)
@@ -205,16 +213,16 @@ func _build_hints() -> void:
 
 func _refresh() -> void:
 	var names: Dictionary = {"event": "Birthday at the Park", "free": "Free Skate", "practice": "Practice",
-		"rider": "Rider", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls"}
+		"rider": "Rider", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls", "quit": "Quit"}
 	var values: Dictionary = {
 		"rider": Game.rider_name(Game.rider),
 		"steer": "Skater" if Game.steer_mode == "tank" else "Screen",
 		"jump": "Hold, release" if Game.jump_mode == "hold" else "Tap",
 		"music": {"cruise": "Cruise", "hype": "Hype", "off": "Off"}[Game.music_choice],
 	}
-	for i in ITEMS.size():
+	for i in items.size():
 		var on: bool = i == selected
-		var key: String = ITEMS[i]
+		var key: String = items[i]
 		row_labels[i].text = ("›  " if on else "") + String(names[key]).to_upper()
 		row_labels[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.88))
 		var val: String = String(values.get(key, ""))
@@ -247,13 +255,18 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("move_down") or event.is_action_pressed("ui_down"):
-		selected = (selected + 1) % ITEMS.size()
+		selected = (selected + 1) % items.size()
 		_refresh()
 		Sound.play("ui_ok", -6.0, 0.9)
 	elif event.is_action_pressed("move_up") or event.is_action_pressed("ui_up"):
-		selected = (selected - 1 + ITEMS.size()) % ITEMS.size()
+		selected = (selected - 1 + items.size()) % items.size()
 		_refresh()
 		Sound.play("ui_ok", -6.0, 0.9)
+	elif (event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel")) and items.has("quit"):
+		if items[selected] != "quit":
+			selected = items.find("quit")          # Esc on the title: onto Quit (Enter then quits)
+			_refresh()
+			Sound.play("ui_ok", -6.0, 0.9)
 	elif event.is_action_pressed("move_left") or event.is_action_pressed("ui_left"):
 		_change(-1)
 	elif event.is_action_pressed("move_right") or event.is_action_pressed("ui_right"):
@@ -268,7 +281,7 @@ func _input(event: InputEvent) -> void:
 
 ## Left / right: a setting steps; on the rider row it swaps the rider.
 func _change(step: int) -> void:
-	match ITEMS[selected]:
+	match items[selected]:
 		"rider":
 			var i: int = Game.RIDERS.find(Game.rider)
 			Game.rider = Game.RIDERS[posmod(i + step, Game.RIDERS.size())]
@@ -290,7 +303,7 @@ func _change(step: int) -> void:
 
 func _activate(step: int) -> void:
 	Sound.play("ui_ok")
-	match ITEMS[selected]:
+	match items[selected]:
 		"event":
 			Game.go(EVENT_SCENE)
 		"free":
@@ -299,5 +312,7 @@ func _activate(step: int) -> void:
 			Game.go(PRACTICE_SCENE)
 		"controls":
 			controls_layer.visible = true
+		"quit":
+			get_tree().quit()
 		_:
 			_change(step)
