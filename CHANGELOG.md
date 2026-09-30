@@ -7,6 +7,9 @@
 - Free Skate and Practice play the gameplay music too (only the event did).
 
 ### Graphics: an environment with depth
+- **Trees look alive:** the leaf texture's transparent texels were black, and mipmapping bled that into every leaf as a dark jagged outline; they now carry the leaves' own colour. Leaves let light through (backlight), each tree has its own shade of green, and the cut-out edges are smoothed by alpha to coverage.
+- **Real deck railings:** the mini ramp and quarter pipes had 17 cm red and green bars from the cartoon days; they are galvanized pipe now (48 mm top rail, 42 mm mid rail and posts, base flanges).
+- **Skated concrete:** the plaza is a shade darker and warmer, with patches of wheel marks and rubber scuffs streaking in a few directions.
 - A gentle grade (contrast 1.08, saturation 1.1) and a soft vignette under the HUD: a camera's picture profile rather than the flat physical render (`GRADE=off`, `VIGNETTE=off` for comparison shots).
 - **A world past the fence:** the park used to end at a flat lawn edge under the sky. Now the ground rolls out to low hills with a few hundred trees in clumps, real trees just past the edge, and the street carrying on to the horizon both ways; the haze does the rest (`blender/terrain.py`, one object, a few draw calls).
 - **The ground has shape:** the lawn gently rolls with a few low mounds (flattening to meet the plaza, paths, picnic paving and street), with trees, props and markers following it.

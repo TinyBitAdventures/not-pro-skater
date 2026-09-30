@@ -15,6 +15,7 @@ from mathutils import Vector
 from lib import (box, col_box, cyl_between, cyl_z, empty, grind_line, loft_box, mat, prism, quad, uname)
 
 PALETTE = {
+    "Galv": "#9ea4a8",
     "Wood": "#eaa964", "WoodB": "#d99552", "Navy": "#39415f", "Metal": "#bcc7d8", "MetalDk": "#7d8aa0",
     "Concrete": "#c9d0db", "Plaza": "#b7c2d4", "ConcreteDk": "#9ba7b8", "Path": "#8a97aa", "Grass": "#6fc84c",
     "Orange": "#ff8a3d", "Blue": "#3d9bff", "Green": "#3fc66d", "Purple": "#8a5cf0", "Red": "#ff5a5a",
@@ -79,21 +80,18 @@ def stickers(parent, xs, ys_zs, rnd, sizes=(0.28, 0.42)):
 
 
 def guard_rail(root, p0, p1, z, h, colors, post_every=1.4, col=True, surface="Wall"):
-    """Open colourful railing from p0 to p1 (x, y) standing on height z."""
+    """Deck railing from p0 to p1 (x, y) standing on height z: galvanized pipe (48 mm top rail, 42 mm mid rail and
+    posts), like the rails bolted round a real mini ramp deck. `colors` is kept for old callers and unused."""
     a, b = Vector((*p0, 0)), Vector((*p1, 0))
     L = (b - a).length
     n = max(1, int(round(L / post_every)))
+    galv = M("Galv")
     for i in range(n + 1):
         p = a.lerp(b, i / n)
-        cyl_z(uname("RailPost"), (p.x, p.y, z), h, 0.06, M("MetalDk"), seg=6, smooth=False, parent=root)
-    # top bar + mid bar in coloured segments
-    segs = max(1, n // 2)
-    for i in range(segs):
-        c = colors[i % len(colors)]
-        s0 = a.lerp(b, i / segs)
-        s1 = a.lerp(b, (i + 1) / segs)
-        cyl_between(uname("RailBar"), (s0.x, s0.y, z + h), (s1.x, s1.y, z + h), 0.085, M(c), seg=6, smooth=False, parent=root)
-        cyl_between(uname("RailBar"), (s0.x, s0.y, z + h * 0.5), (s1.x, s1.y, z + h * 0.5), 0.055, M(c), seg=6, smooth=False, parent=root)
+        cyl_z(uname("RailPost"), (p.x, p.y, z), h, 0.021, galv, seg=10, parent=root)
+        cyl_z(uname("RailFoot"), (p.x, p.y, z), 0.012, 0.055, galv, seg=10, parent=root)     # base flange
+    cyl_between(uname("RailBar"), (a.x, a.y, z + h), (b.x, b.y, z + h), 0.024, galv, seg=12, parent=root)
+    cyl_between(uname("RailBar"), (a.x, a.y, z + h * 0.52), (b.x, b.y, z + h * 0.52), 0.021, galv, seg=12, parent=root)
     if col:
         mid = (a + b) / 2
         ang = math.atan2(b.y - a.y, b.x - a.x)

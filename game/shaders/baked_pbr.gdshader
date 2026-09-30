@@ -37,6 +37,9 @@ uniform float joint_width = 0.006;
 uniform float uv_tile = 0.0;               // 0 = not plywood
 uniform vec2 sheet = vec2(1.22, 2.44);
 uniform float wear = 0.0;
+// Skated concrete: wheel marks and rubber scuffs, long thin dark streaks in a few directions, heavier in
+// patches (where the lines are), fading out in the distance.
+uniform float scuff = 0.0;
 
 varying vec3 wpos;
 varying vec3 wnorm;
@@ -79,6 +82,20 @@ void fragment() {
 		}
 	}
 	col *= 1.0 - joint * 0.6;
+	if (scuff > 0.0 && wnorm.y > 0.9) {
+		vec2 p = wpos.xz;
+		float patchy = smoothstep(0.35, 0.75, texture(macro_tex, p * 0.018 + vec2(0.61, 0.13)).r);
+		float marks = 0.0;
+		for (int i = 0; i < 3; i++) {
+			float a = float(i) * 1.1 + 0.4;
+			vec2 d = vec2(cos(a), sin(a));
+			vec2 q = vec2(dot(p, d), dot(p, vec2(-d.y, d.x)));
+			float streak = texture(macro_tex, vec2(q.x * 0.02, q.y * 0.9) + float(i) * 0.37).r;
+			marks = max(marks, smoothstep(0.62, 0.8, streak));
+		}
+		float fadeaway = clamp(0.05 / max(fwidth(p.x), 0.0005), 0.0, 1.0);
+		col *= 1.0 - scuff * marks * patchy * fadeaway;
+	}
 	if (uv_tile > 0.0) {
 		vec2 m = UV * uv_tile;                       // metres across / along the sheet
 		vec2 fw = fwidth(m) + 0.0005;

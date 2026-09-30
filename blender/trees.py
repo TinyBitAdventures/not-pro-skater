@@ -23,7 +23,7 @@ _mats = {}
 def make_leaf_cluster(size=512, leaves=90, seed=7):
     """Composite many scaled, rotated, tinted copies of Leaf001 into one RGBA card texture."""
     import numpy as np
-    if os.path.exists(CLUSTER):
+    if os.path.exists(CLUSTER) and os.path.getmtime(CLUSTER) > os.path.getmtime(__file__):
         return CLUSTER
     os.makedirs(GEN, exist_ok=True)
     base = os.path.join(realism.ART, "textures", "Leaf001", "Leaf001_1K-JPG")
@@ -65,6 +65,17 @@ def make_leaf_cluster(size=512, leaves=90, seed=7):
         region = out[y0:y1, x0:x1]
         region[:, :, :3] = region[:, :, :3] * (1 - la[..., None]) + lc * la[..., None]
         region[:, :, 3] = np.maximum(region[:, :, 3], la)
+    # transparent texels take the leaves' average colour: black there bled into every leaf's edge through the
+    # mipmaps (the crowns had dark jagged outlines)
+    solid = out[:, :, 3] > 0.5
+    if solid.any():
+        avg = out[solid][:, :3].mean(axis=0)
+        clear = out[:, :, 3] < 0.99
+        mix = (1.0 - out[:, :, 3])[..., None]
+        out[:, :, :3] = np.where(clear[..., None], out[:, :, :3] * (1.0 - mix) + avg * mix, out[:, :, :3])
+        # straight alpha: colours under partial alpha were composited over black, lift them back
+        part = (out[:, :, 3] > 0.05) & clear
+        out[part, :3] = np.minimum(1.0, out[part, :3] / np.maximum(out[part, 3:4], 0.35))
     img = bpy.data.images.new("LeafCluster", size, size, alpha=True)
     img.pixels.foreach_set(out.ravel())
     img.filepath_raw = CLUSTER

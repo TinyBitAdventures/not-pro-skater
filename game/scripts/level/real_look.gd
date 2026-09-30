@@ -17,7 +17,7 @@ static var _macro: Texture2D
 ## yellow patches, concrete and asphalt faint stains, everything else a whisper so no tile repeats exactly.
 const MACRO: Dictionary = {
 	"grass": [0.2, Color(1.2, 1.1, 0.55), 0.4],
-	"concrete": [0.09, Color(0.86, 0.84, 0.8), 0.35],
+	"concrete": [0.12, Color(0.8, 0.78, 0.74), 0.5],
 	"concrete_rough": [0.08, Color(0.9, 0.88, 0.85), 0.3],
 	"asphalt": [0.12, Color(0.82, 0.82, 0.85), 0.3],
 	"paving": [0.08, Color(0.9, 0.87, 0.82), 0.3],
@@ -96,6 +96,9 @@ static func _dress(m: ShaderMaterial, mat_name: String, look: Dictionary) -> voi
 	var tint: Color = mc[1]
 	m.set_shader_parameter("macro_tint", Vector3(tint.r, tint.g, tint.b))
 	m.set_shader_parameter("macro_tint_amount", mc[2])
+	if set_name == "concrete":                     # a skated slab: a shade darker and warmer, scuffed where people ride
+		m.set_shader_parameter("albedo", Color(0.84, 0.83, 0.8))
+		m.set_shader_parameter("scuff", 0.16)
 	if set_name == "wood":                         # ramp surfaces: plywood sheets, screws, wheel wear
 		m.set_shader_parameter("uv_tile", PLY_TILE)
 		m.set_shader_parameter("wear", 0.07)
