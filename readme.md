@@ -154,6 +154,7 @@ The feel tests cover coasting momentum, tile seams, rolling over a curb, being s
 EVENT=skateathon godot --headless --path . --fixed-fps 120 res://scenes/dev_event.tscn   # drives every goal of an event (default birthday)
 EVENT=skateathon godot --headless --path . --fixed-fps 120 res://scenes/dev_lapride.tscn # rides the route with real physics: laps, the one-take run (rushhour), the marks (betweentakes)
 LEVEL=school godot --headless --path . --fixed-fps 120 res://scenes/dev_railaudit.tscn    # grinds every rail, ledge and curb in a level (park, school, campus, warehouse, downtown, backlot)
+LEVEL=school godot --headless --path . --fixed-fps 120 res://scenes/dev_sweep.tscn       # rides the whole level from a grid (48 skaters at once): stuck spots, falls, snaps, roll-overs, rides through drawn geometry, the camera in walls, by collider (STEP, HEADINGS, OUT=file.json; TRACE="x,z,deg" replays one ride tick by tick)
 godot --headless --path . --fixed-fps 120 res://scenes/dev_jumptap.tscn    # quick taps always jump
 godot --headless --path . --fixed-fps 60 res://scenes/dev_jumphold.tscn    # a held Space never jumps until it is let go
 RIDER=dev godot --path . res://scenes/dev_rig.tscn --resolution 960x720     # pose tour -> ../shots/rig_*.png
