@@ -154,7 +154,7 @@ func _build_ui() -> void:
 	card_panel.anchor_right = 1.0
 	card_panel.anchor_top = 1.0
 	card_panel.anchor_bottom = 1.0
-	card_panel.offset_left = -500.0
+	card_panel.offset_left = -576.0          # wide enough that no blurb ends on a one-word line
 	card_panel.offset_right = -56.0
 	card_panel.offset_top = -196.0
 	card_panel.offset_bottom = -52.0
@@ -201,7 +201,7 @@ func _build_ui() -> void:
 func _build_hints() -> void:
 	if _hint != null:
 		_hint.queue_free()
-	var pairs: Array = [["UP / DOWN", "choose", "D-PAD"], ["ENTER", "go", "A"], ["LEFT / RIGHT", "change", "D-PAD"]]
+	var pairs: Array = [["UP / DOWN", "choose", "D-PAD UP / DOWN"], ["ENTER", "go", "A"], ["LEFT / RIGHT", "change", "D-PAD LEFT / RIGHT"]]
 	if items.has("quit"):
 		pairs.append(["ESC", "quit", "B"])
 	_hint = UiKit.hints(pairs)
@@ -247,6 +247,21 @@ func _refresh() -> void:
 			+ "    %d / %d GOALS" % [done, (ev["goals"] as Array).size()] + (("    BEST  " + best_text) if best > 0 else ""),
 		"ALL EVENTS  %d / %d GOALS" % [all_done, all_goals],
 	]
+	# the footer follows the row: Free Skate describes its level, Rider the rider's own event
+	match items[selected] if selected < items.size() else "":
+		"free":
+			lines[0] = "%s    NO CLOCK, NO GOALS: JUST SKATE" % level_name.to_upper()
+		"practice":
+			lines[0] = "THE GREY TEST LEVEL: EVERY RAMP AND RAIL IN ROWS"
+		"rider":
+			var own: String = ""
+			for eid in Events.HOME:
+				if Events.HOME[eid] == Game.rider:
+					own = eid
+			if own != "":
+				var oev: Dictionary = Events.get_event(own)
+				lines[0] = "%s'S HOME EVENT: %s    %d / %d GOALS" % [Game.rider_name(Game.rider).to_upper(),
+					String(oev["title"]), Game.event_goals(own).size(), (oev["goals"] as Array).size()]
 	progress_label.text = "\n".join(lines)
 	rider_name.text = Game.rider_name(Game.rider).to_upper()
 	rider_blurb.text = String(Game.RIDER_INFO.get(Game.rider, {}).get("blurb", ""))

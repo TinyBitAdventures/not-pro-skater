@@ -733,7 +733,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("ui_accept") or event.is_action_pressed("respawn"):
 			get_viewport().set_input_as_handled()
 			restart_requested.emit()
-		elif event.is_action_pressed("pause"):
+		elif event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel"):
 			get_viewport().set_input_as_handled()
 			quit_requested.emit()
 		return
@@ -753,6 +753,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if controls_card.visible:
 		if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
 			_show_controls(false)
+		return
+	if event.is_action_pressed("ui_cancel"):          # B (or ESC's twin) backs out of the pause menu
+		close_pause()
+		resume_requested.emit()
 		return
 	if Controls.nav_pressed(event, "move_down") or Controls.nav_pressed(event, "ui_down"):
 		_pause_select(pause_sel + 1)
@@ -801,7 +805,7 @@ func show_results(r: Dictionary) -> void:
 	var gap2: Control = Control.new()
 	gap2.custom_minimum_size = Vector2(0, 14)
 	results_box.add_child(gap2)
-	results_box.add_child(UiKit.hints([["ENTER", "skate again", "A"], ["ESC", "title", "START"]]))
+	results_box.add_child(UiKit.hints([["ENTER", "skate again", "A"], ["ESC", "title", "B"]]))
 	_set_hud_visible(false)
 	results_layer.visible = true
 	_results_at = Time.get_ticks_msec()
