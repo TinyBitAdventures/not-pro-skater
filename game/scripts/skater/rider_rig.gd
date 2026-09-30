@@ -23,7 +23,9 @@ const CAPSULE_TO_CONTACT: float = 0.02
 const SETTLE_SPEED: float = 0.45
 const RELAXED_TONE: float = 0.35         # ragdoll muscle strength once the body is lying still
 const WALK_TURN: float = 5.0             # rad/s: turning round toward the board before walking to it
-const WALK_GIVE_UP: float = 10.0         # s into the walk back: the rider is just put back on the board
+const RUN_BACK_MAX: float = 5.2          # m/s: the fastest run back to the board (faster, the planted feet skate)
+const WALK_GIVE_UP: float = 10.0         # s into the walk back: the rider is just put back on the board (a stuck walk;
+                                         # SkateTuning.recover_max normally ends a long one first)
 const FINGER_CURL: Dictionary = {        # degrees at each knuckle, base to tip: a relaxed hand
 	"index": [14.0, 22.0, 12.0], "middle": [18.0, 26.0, 14.0], "ring": [22.0, 28.0, 16.0], "pinky": [26.0, 30.0, 16.0],
 	"thumb": [6.0, 10.0, 12.0],
@@ -716,7 +718,7 @@ func _physical(sk: Skater, dt: float) -> void:
 				_walk_pos = _ground_under(sk.global_position + Vector3.UP * 0.5)
 				var to: Vector3 = loose.global_position - _walk_pos
 				to.y = 0.0
-				_walk_pace = maxf(sk.tune.walk_speed, to.length() / 1.4)
+				_walk_pace = _pace_to(sk, to.length())
 				phys_phase = "walk"
 				_walk(sk, dt)
 			else:
@@ -752,6 +754,7 @@ func _physical(sk: Skater, dt: float) -> void:
 func _spawn_loose(sk: Skater) -> void:
 	loose = LooseBoard.new()
 	loose.rider_key = char_key
+	loose.roll_resist = sk.tune.board_roll_resist
 	var holder: Node = sk.get_parent()
 	holder.add_child(loose)
 	var right: Vector3 = sk.hdg.cross(Vector3.UP).normalized()
@@ -872,7 +875,7 @@ func _walk(sk: Skater, dt: float) -> void:
 			return
 		# standing: hand over to the walk (a short blend covers the small difference)
 		phys_phase = "walk"
-		_walk_pace = clampf(dist * 0.8, sk.tune.walk_speed, sk.tune.walk_speed * 2.4)   # walk to a near board, jog to a far one
+		_walk_pace = _pace_to(sk, dist)
 		_blend_from.clear()
 		for g in _glob:
 			_blend_from.append(g)
@@ -893,6 +896,7 @@ func _walk(sk: Skater, dt: float) -> void:
 			turn_rate = turn / maxf(dt, 0.0001)
 			_walk_dir = _walk_dir.rotated(Vector3.UP, turn).normalized()
 			var facing: float = clampf(_walk_dir.dot(want), 0.0, 1.0)
+			_walk_pace = maxf(_walk_pace, _pace_to(sk, dist))    # (a board still rolling away)
 			# speed up from standing, and slow down for the last steps onto the board
 			var goal: float = minf(_walk_pace, sqrt(2.0 * 2.5 * maxf(dist - 0.2, 0.0)) + 0.45) * facing * facing
 			_loco_speed = move_toward(_loco_speed, goal, 4.0 * dt)
@@ -904,13 +908,18 @@ func _walk(sk: Skater, dt: float) -> void:
 		# a board that came to rest up on something (a ledge, a car roof) or down in a hole is taken from where
 		# the rider stands, not stepped up (or down) to; and a walk that goes on too long just ends
 		var up_there: bool = dist < 1.0 and absf(_ground_under(target + Vector3.UP * 0.5).y - _walk_pos.y) > 0.6
-		if up_there or (phys_phase == "walk" and _phase_t > WALK_GIVE_UP):
+		# past the recovery budget (a board that rolled away down a bank, say) the screen blinks and the rider is
+		# on the board where they stand, facing the way they were walking
+		var late: bool = sk.bail_time > sk.tune.recover_max and dist > 1.5
+		if up_there or late or (phys_phase == "walk" and _phase_t > WALK_GIVE_UP):
 			var at: Transform3D = loose.stand_transform()
 			at.origin = _walk_pos
 			if dist > 0.1:
 				at.basis = Basis.looking_at(to / dist, Vector3.UP)
 			_end_physical()
 			sk.finish_physical_bail(at)
+			if late:
+				sk.warped.emit()
 			return
 		if dist < 0.06:
 			var stand: Transform3D = loose.stand_transform()
@@ -932,6 +941,15 @@ func _walk(sk: Skater, dt: float) -> void:
 	board_yaw = 0.0
 	grab_amt = 0.0
 	_apply_rig(sk)
+
+
+## How fast to go back to a board `dist` away: a walk to one close by, a jog or a run to one further off (up to
+## RUN_BACK_MAX), quicker when a slower pace wouldn't get there within the recovery budget
+## (SkateTuning.recover_max; about a second goes on turning round, speeding up and the last slow steps).
+func _pace_to(sk: Skater, dist: float) -> float:
+	var pace: float = clampf(dist * 0.8, sk.tune.walk_speed, RUN_BACK_MAX)
+	var left: float = sk.tune.recover_max - sk.bail_time - 1.0
+	return maxf(pace, minf(dist / maxf(left, 0.3), RUN_BACK_MAX))
 
 
 ## A small mistake: off the board and running it out on foot. The capsule is the body (Skater._run_out);

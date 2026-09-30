@@ -1,6 +1,6 @@
 extends Node3D
 ## Physical bails with the skinned rider (ragdoll + loose board), headless:
-##   BAIL=halfpipe|flat|wall|all godot --headless --path . --fixed-fps 60 res://scenes/dev_bailphys.tscn
+##   BAIL=halfpipe|flat|wall|runout|runout_trip|edge|edge_board|far_board|roll|all godot --headless --path . --fixed-fps 60 res://scenes/dev_bailphys.tscn
 ## Prints where the body and the board went, and whether the rider got back on.
 
 var level: Level
@@ -202,7 +202,88 @@ func _run() -> void:
 		var ok2: bool = t2 < 9.0 and b2.has_point(Vector2(sk.global_position.x, sk.global_position.z)) and lowest > -6.0
 		print("[bail] edge_board: %s  back on after %.2f s, the board fell to y %.1f, rider ended %s" % [
 			"PASS" if ok2 else "FAIL", t2, lowest, sk.global_position.snappedf(0.1)])
+	if which in ["far_board", "all"]:
+		# a board that got away (down a bank, across a plaza): put 25 m off by hand mid-crash. The rider runs for it,
+		# and past the recovery budget the screen blinks and they're on the board where they stand
+		await _spawn("flat", Vector3.ZERO, Vector3.ZERO, 0.0)
+		sk.bounds = level.bounds
+		var b3: Rect2 = level.bounds
+		var from3: Vector3 = Vector3(b3.position.x + 12.0, 30.0, b3.get_center().y + 14.0)
+		var q3: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from3, from3 + Vector3.DOWN * 60.0, 1)
+		var hit3: Dictionary = get_viewport().world_3d.direct_space_state.intersect_ray(q3)
+		sk.place_at(Transform3D(Basis.looking_at(Vector3.RIGHT, Vector3.UP), (hit3["position"] as Vector3) + Vector3.UP * 0.02))
+		for i in 6:
+			await get_tree().physics_frame
+		sk.velocity = Vector3.RIGHT * 8.0
+		sk._start_bail("grind")
+		var blinks: Array[int] = [0]
+		var on_warp: Callable = func() -> void: blinks[0] += 1
+		sk.warped.connect(on_warp)
+		for i in 30:
+			await get_tree().physics_frame
+		var rig3: RiderRig = sk.visual as RiderRig
+		var away: Vector3 = sk.global_position + Vector3(25.0, 0.3, 0.0)
+		rig3.loose.put_at(Transform3D(Basis.looking_at(Vector3.RIGHT, Vector3.UP), away))
+		var t3: float = 30.0 / Engine.physics_ticks_per_second
+		var top: float = 0.0
+		var g3: Dictionary = {"slide": 0.0, "flex_sum": 0.0, "flex_max": 0.0, "n": 0, "hip_sum": 0.0, "planted": [null, null],
+			"jog_sum": 0.0, "jog_n": 0}
+		while sk.state == Skater.State.BAIL and t3 < 14.0:
+			await get_tree().physics_frame
+			t3 += 1.0 / Engine.physics_ticks_per_second
+			if rig3.phys_phase == "walk":
+				top = maxf(top, rig3._loco_speed)
+				if not rig3._gait_now.is_empty() and rig3._step_on <= 0.0:
+					_gait_sample(rig3, g3)
+		sk.warped.disconnect(on_warp)
+		var ok3: bool = t3 <= sk.tune.recover_max + 0.5 and blinks[0] == 1 and float(g3["slide"]) < 0.03
+		print("[bail] far_board: %s  riding again after %.2f s (budget %.1f), %d blink, ran at up to %.1f m/s, planted feet slid up to %.1f cm" % [
+			"PASS" if ok3 else "FAIL", t3, sk.tune.recover_max, blinks[0], top, float(g3["slide"]) * 100.0])
+	if which in ["roll", "all"]:
+		# straight bails at speed (a lost manual is run out, a lost grind slams): the board rolls on along its
+		# length. With little rolling drag it went 30 m and more, and the walk back ran into the give-up
+		# (a crash spins the board at random: it tips over or stays on its wheels, so each case runs a few times)
+		for c in [["manual", 6.0], ["manual", 10.0], ["grind", 10.0]]:
+			for sd in [1, 2, 3, 4]:
+				seed(sd)
+				await _straight_bail("roll_%s_%d seed %d" % [c[0], int(c[1]), sd], String(c[0]), float(c[1]))
 	get_tree().quit()
+
+
+## A bail riding straight across the flat at `speed`, started by hand: prints how far the board rolled and when
+## the rider was riding again. Fails past the recovery budget.
+func _straight_bail(label: String, reason: String, speed: float) -> void:
+	await _spawn("flat", Vector3.ZERO, Vector3.ZERO, 0.0)
+	sk.bounds = level.bounds
+	var b: Rect2 = level.bounds
+	var from: Vector3 = Vector3(b.position.x + 12.0, 30.0, b.get_center().y + 14.0)
+	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 60.0, 1)
+	var hit: Dictionary = get_viewport().world_3d.direct_space_state.intersect_ray(q)
+	sk.place_at(Transform3D(Basis.looking_at(Vector3.RIGHT, Vector3.UP), (hit["position"] as Vector3) + Vector3.UP * 0.02))
+	for i in 6:
+		await get_tree().physics_frame
+	sk.velocity = Vector3.RIGHT * speed
+	var at: Vector3 = sk.global_position
+	sk._start_bail(reason)
+	var t: float = 0.0
+	var far: float = 0.0
+	var wheels: int = 0
+	var n: int = 0
+	while sk.state == Skater.State.BAIL and t < 14.0:
+		await get_tree().physics_frame
+		t += 1.0 / Engine.physics_ticks_per_second
+		var rig: RiderRig = sk.visual as RiderRig
+		if rig != null and rig.loose != null:
+			far = maxf(far, Vector2(rig.loose.global_position.x - at.x, rig.loose.global_position.z - at.z).length())
+			n += 1
+			wheels += 1 if rig.loose.wheels_down else 0
+			if OS.get_environment("ROLL_DEBUG") != "" and n % 60 == 0:
+				print("[roll] t %.1f phase %s board %s v %.1f wheels %s walk %s" % [t, rig.phys_phase,
+					rig.loose.global_position.snappedf(0.1), rig.loose.linear_velocity.length(), rig.loose.wheels_down,
+					rig._walk_pos.snappedf(0.1)])
+	var budget: float = sk.tune.recover_max + 0.5
+	print("[bail] %s: %s  %s, the board rolled up to %.1f m away (on its wheels %d%% of the time), riding again after %.2f s (budget %.1f)" % [
+		label, "PASS" if t <= budget else "FAIL", sk.bail_kind, far, 100 * wheels / maxi(n, 1), t, budget])
 
 
 ## One frame of the walk back: how far each planted foot's ball has moved since it touched down, the standing

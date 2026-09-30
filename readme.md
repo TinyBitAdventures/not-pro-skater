@@ -146,7 +146,7 @@ Feel tests on the greybox (pass / fail, exit code = failures):
 FEEL=all godot --headless --path . --fixed-fps 120 res://scenes/dev_feel.tscn    # or FEEL=vert,transfer VERBOSE=1
 ```
 
-Physical crashes (ragdoll + loose board, needs the skinned rider): `BAIL=halfpipe|flat|wall|all godot --headless --path . --fixed-fps 60 res://scenes/dev_bailphys.tscn`. It also checks the walk back to the board: planted feet stay put (under 3 cm of slip) and the standing knee stays nearly straight.
+Physical crashes (ragdoll + loose board, needs the skinned rider): `BAIL=halfpipe|flat|wall|runout|runout_trip|edge|edge_board|far_board|roll|all godot --headless --path . --fixed-fps 120 res://scenes/dev_bailphys.tscn`. It also checks the walk back to the board: planted feet stay put (under 3 cm of slip) and the standing knee stays nearly straight. `roll` bails riding straight at 6 and 10 m/s (four random seeds each) and checks the rider is riding again within the recovery budget (`recover_max`); `far_board` moves the board 25 m off mid-crash and checks the rider runs for it and blinks onto it at the budget.
 
 The feel tests cover coasting momentum, tile seams, rolling over a curb, being stopped by a step, quarter pipe air time, the vert lock, the transfer, grinding a curved and a kinked rail, rail magnetism, grind balance (held, dropped, leaning with the stick), warping back before the level's edge, and landings at 0 / 20 / 34 / 45 / 65 / 180 degrees, manuals, wall plants, bails, and the camera near walls.
 

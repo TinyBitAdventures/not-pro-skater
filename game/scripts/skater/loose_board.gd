@@ -14,6 +14,9 @@ const TRUCK_Z: float = 0.215
 const WHEEL_X: float = 0.09
 
 var roll_drag: float = 0.22          # per second, rolling on its wheels
+var roll_resist: float = 1.8         # m/s per second, rolling on its wheels (SkateTuning.board_roll_resist): a
+                                     # crashed board runs over grit and cracks, and with drag alone one rolled on for
+                                     # 15 m across the flat and far further down a bank
 var scrape_drag: float = 3.0         # per second, sliding on the deck or its side
 var side_grip: float = 14.0          # how fast sideways slip dies while the wheels are down
 var wheels_down: bool = false
@@ -89,6 +92,8 @@ func _integrate_forces(st: PhysicsDirectBodyState3D) -> void:
 			v -= side * v.dot(side) * clampf(side_grip * dt, 0.0, 1.0)
 			var along: Vector3 = b.z
 			v -= along * v.dot(along) * (1.0 - exp(-roll_drag * dt))
+			var s: float = v.dot(along)
+			v -= along * signf(s) * minf(absf(s), roll_resist * dt)     # (never past a stop)
 			# the wheels also stop the board spinning flat on the ground like a top
 			var w: Vector3 = st.angular_velocity
 			st.angular_velocity = w - ground_n * w.dot(ground_n) * clampf(4.0 * dt, 0.0, 1.0)
