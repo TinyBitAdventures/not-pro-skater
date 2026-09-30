@@ -3,13 +3,10 @@ extends Node3D
 ## the left, the rider's card bottom right. Up / down choose, Enter goes, left / right change a setting, Esc jumps
 ## to Quit (desktop builds; a browser tab has nothing to quit to).
 
-const EVENT_SCENE: String = "res://scenes/birthday.tscn"
-const FREE_SCENE: String = "res://scenes/neighborhood.tscn"
 const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
 const SPOT: Vector3 = Vector3(-18.0, 0.02, 4.0)      # where the rider stands: by the mini ramp, in the late sun
-const ITEMS: Array[String] = ["event", "event2", "free", "practice", "rider", "steer", "jump", "music", "controls"]
-const EVENT2_SCENE: String = "res://scenes/skateathon.tscn"
-const PLAY_ITEMS: int = 4                # the big entries (things to play) before the settings
+const ITEMS: Array[String] = ["event", "free", "practice", "rider", "steer", "jump", "music", "controls"]
+const PLAY_ITEMS: int = 3                # the big entries (things to play) before the settings
 
 var items: Array[String] = []         # ITEMS, plus Quit on desktop
 var level: Level
@@ -214,9 +211,13 @@ func _build_hints() -> void:
 
 
 func _refresh() -> void:
-	var names: Dictionary = {"event": "Birthday at the Park", "event2": "Skate-a-thon", "free": "Free Skate", "practice": "Practice",
+	var ev: Dictionary = Events.get_event(Game.event_choice)
+	var level_name: String = String(_level()["name"])
+	var names: Dictionary = {"event": String(ev["title"]), "free": "Free Skate", "practice": "Practice",
 		"rider": "Rider", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls", "quit": "Quit"}
 	var values: Dictionary = {
+		"event": "%d / %d" % [Events.ALL.find(Game.event_choice) + 1, Events.ALL.size()],
+		"free": level_name,
 		"rider": Game.rider_name(Game.rider),
 		"steer": "Skater" if Game.steer_mode == "tank" else "Screen",
 		"jump": "Hold, release" if Game.jump_mode == "hold" else "Tap",
@@ -230,15 +231,22 @@ func _refresh() -> void:
 		var val: String = String(values.get(key, ""))
 		row_values[i].text = ("‹  %s  ›" % val) if (on and val != "") else val
 		row_values[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.8))
-	var lines: Array[String] = []
-	for eid in ["birthday", "skateathon"]:
-		var e: Dictionary = Events.get_event(eid)
-		var done: int = Game.event_goals(eid).size()
-		var best: int = int(Game.best.get(eid, {}).get("score", 0))
-		var money: float = float(e.get("money", 0.0))
-		var best_text: String = ("$" + UiKit.commas(int(best * money))) if money > 0.0 else UiKit.commas(best)
-		lines.append("%s  %d / %d GOALS" % [String(e["title"]), done, (e["goals"] as Array).size()]
-			+ (("    BEST  " + best_text) if best > 0 else ""))
+	# the chosen event: whose home it is, its goals so far and the best; then every event's goals together
+	var home: String = String(Events.HOME.get(Game.event_choice, ""))
+	var done: int = Game.event_goals(Game.event_choice).size()
+	var best: int = int(Game.best.get(Game.event_choice, {}).get("score", 0))
+	var money: float = float(ev.get("money", 0.0))
+	var best_text: String = ("$" + UiKit.commas(int(best * money))) if money > 0.0 else UiKit.commas(best)
+	var all_done: int = 0
+	var all_goals: int = 0
+	for eid in Events.ALL:
+		all_done += Game.event_goals(eid).size()
+		all_goals += (Events.get_event(eid)["goals"] as Array).size()
+	var lines: Array[String] = [
+		(Game.rider_name(home) + "'s home event" if home != "" else "Everyone's event").to_upper()
+			+ "    %d / %d GOALS" % [done, (ev["goals"] as Array).size()] + (("    BEST  " + best_text) if best > 0 else ""),
+		"ALL EVENTS  %d / %d GOALS" % [all_done, all_goals],
+	]
 	progress_label.text = "\n".join(lines)
 	rider_name.text = Game.rider_name(Game.rider).to_upper()
 	rider_blurb.text = String(Game.RIDER_INFO.get(Game.rider, {}).get("blurb", ""))
@@ -287,9 +295,23 @@ func _input(event: InputEvent) -> void:
 		_activate(1)
 
 
-## Left / right: a setting steps; on the rider row it swaps the rider.
+func _level() -> Dictionary:
+	for lv in Events.LEVELS:
+		if lv["id"] == Game.level_choice:
+			return lv
+	return Events.LEVELS[0]
+
+
+## Left / right: a setting steps; on the rider row it swaps the rider, on EVENT the event, on FREE SKATE the level.
 func _change(step: int) -> void:
 	match items[selected]:
+		"event":
+			Game.event_choice = Events.ALL[posmod(Events.ALL.find(Game.event_choice) + step, Events.ALL.size())]
+			Game.save()
+		"free":
+			var ids: Array = Events.LEVELS.map(func(lv: Dictionary) -> String: return String(lv["id"]))
+			Game.level_choice = ids[posmod(ids.find(Game.level_choice) + step, ids.size())]
+			Game.save()
 		"rider":
 			var i: int = Game.RIDERS.find(Game.rider)
 			Game.rider = Game.RIDERS[posmod(i + step, Game.RIDERS.size())]
@@ -313,11 +335,9 @@ func _activate(step: int) -> void:
 	Sound.play("ui_ok")
 	match items[selected]:
 		"event":
-			Game.go(EVENT_SCENE)
-		"event2":
-			Game.go(EVENT2_SCENE)
+			Game.go(Events.scene(Game.event_choice))
 		"free":
-			Game.go(FREE_SCENE)
+			Game.go(String(_level()["scene"]))
 		"practice":
 			Game.go(PRACTICE_SCENE)
 		"controls":

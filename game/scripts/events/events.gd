@@ -19,7 +19,19 @@ extends RefCounted
 ## "dressing" decorates the level for the event (Godot coordinates): balloon bunches tied to anchors, a banner on
 ## two poles, presents, and party hats for the kids.
 
+## The events in menu order. Each is scenes/<id>.tscn (an EventWorld with event_id = id).
 const ALL: Array[String] = ["birthday", "skateathon"]
+## Whose home event each one is ("" = everyone's): shown on the title menu.
+const HOME: Dictionary = {"birthday": "dad", "skateathon": ""}
+## Free Skate: every level, no clock.
+const LEVELS: Array[Dictionary] = [
+	{"id": "park", "name": "Neighborhood Park", "scene": "res://scenes/neighborhood.tscn"},
+	{"id": "school", "name": "Maple Grove Elementary", "scene": "res://scenes/school.tscn"},
+]
+
+
+static func scene(id: String) -> String:
+	return "res://scenes/%s.tscn" % id
 
 
 static func get_event(id: String) -> Dictionary:

@@ -10,6 +10,8 @@ var jump_mode: String = "hold"   # "hold" = crouch while held, jump on release (
 var music_choice: String = "cruise"   # "cruise" (125 BPM), "hype" (131) or "off"; see docs/audio_credits_music.md
 var master_volume: float = 0.8
 var rider: String = "dev"          # the playable character (assets/characters/<rider>.glb)
+var event_choice: String = "birthday"   # the event the title menu's EVENT row is on
+var level_choice: String = "park"       # the level the title menu's FREE SKATE row is on
 
 
 ## The playable archetypes (assets/characters/<key>.glb). Inspired by people who skate but never went pro;
@@ -28,13 +30,7 @@ static func rider_name(key: String) -> String:
 	return String(RIDER_INFO.get(key, {}).get("name", key.capitalize()))
 
 
-const PREVIEW_SCENES: Dictionary = {
-	"greybox": "res://scenes/greybox.tscn",
-	"birthday": "res://scenes/birthday.tscn",
-	"park": "res://scenes/neighborhood.tscn",
-	"skateathon": "res://scenes/skateathon.tscn",
-	"school": "res://scenes/school.tscn",
-}
+const PREVIEW_SCENES: Dictionary = {"greybox": "res://scenes/greybox.tscn"}
 
 
 var _fade: ColorRect
@@ -58,11 +54,23 @@ func _ready() -> void:
 	_loading.visible = false
 	layer.add_child(_loading)
 	load_save()
-	# web: index.html?scene=greybox (or birthday, park) opens that scene straight away
+	# web: index.html?scene=<event id>, park, school, ... or greybox opens that scene straight away
 	if OS.has_feature("web"):
 		var q: Variant = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('scene') || ''")
-		if typeof(q) == TYPE_STRING and PREVIEW_SCENES.has(q):
-			get_tree().change_scene_to_file.call_deferred(PREVIEW_SCENES[q])
+		if typeof(q) == TYPE_STRING and preview_scene(q) != "":
+			go.call_deferred(preview_scene(q))
+
+
+## The scene a web preview link (?scene=...) opens: an event id, a Free Skate level id, or a dev scene.
+static func preview_scene(q: String) -> String:
+	if PREVIEW_SCENES.has(q):
+		return PREVIEW_SCENES[q]
+	if Events.ALL.has(q):
+		return Events.scene(q)
+	for lv in Events.LEVELS:
+		if lv["id"] == q:
+			return lv["scene"]
+	return ""
 
 
 ## Change scene behind a quick fade to black and back ("" reloads the current scene).
@@ -115,6 +123,10 @@ func load_save() -> void:
 		jump_mode = cfg.get_value("settings", "jump_mode", "hold")
 	master_volume = cfg.get_value("settings", "master_volume", 0.8)
 	rider = cfg.get_value("settings", "rider", "dev")
+	event_choice = cfg.get_value("settings", "event_choice", "birthday")
+	if not Events.ALL.has(event_choice):
+		event_choice = "birthday"
+	level_choice = cfg.get_value("settings", "level_choice", "park")
 
 
 func save() -> void:
@@ -129,6 +141,8 @@ func save() -> void:
 	cfg.set_value("settings", "music_choice", music_choice)
 	cfg.set_value("settings", "master_volume", master_volume)
 	cfg.set_value("settings", "rider", rider)
+	cfg.set_value("settings", "event_choice", event_choice)
+	cfg.set_value("settings", "level_choice", level_choice)
 	cfg.save(SAVE_PATH)
 
 
