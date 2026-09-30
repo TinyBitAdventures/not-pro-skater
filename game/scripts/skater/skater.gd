@@ -534,10 +534,39 @@ func _ground(dt: float) -> void:
 		else:
 			velocity = Vector3.ZERO
 		_update_board_n(dt)
+	elif _stick_to_ground(v_want):
+		_update_board_n(dt)
 	else:
 		_enter_air()
 		_maybe_vert(false)
 	_check_wall_crash(vel_before)
+
+
+## The physics engine can briefly lose floor contact on a curved transition (Jolt does, every other tick, and
+## lets go of steep faces early). If the surface is still right under the board, curving up ahead, and the
+## board is not moving away from it, stay on it: snap down, take its normal, keep the speed along it.
+func _stick_to_ground(v_want: Vector3) -> bool:
+	var n: Vector3 = floor_n
+	if v_want.dot(n) > 2.0:
+		return false
+	var c: Vector3 = _board_centre(n)
+	var hit: Dictionary = _ray(c + n * 0.3, c - n * (tune.floor_snap + 0.05))
+	if hit.is_empty():
+		return false
+	var hn: Vector3 = hit["normal"]
+	if hn.angle_to(n) > 0.6:
+		return false
+	# only through a surface that curves UP ahead (a transition), never over a crest or an edge that falls
+	# away (kicker lips, stair tops, pyramid edges: those launch you)
+	var vdir: Vector3 = v_want.normalized() if v_want.length() > 0.1 else hdg
+	if hn.dot(vdir) > n.dot(vdir) + 0.01:
+		return false
+	global_position += (hit["position"] as Vector3) - c
+	floor_n = hn
+	var tangent: Vector3 = v_want - hn * v_want.dot(hn)
+	velocity = tangent.normalized() * v_want.length() if tangent.length_squared() > 0.0001 else Vector3.ZERO
+	_coyote = tune.coyote
+	return true
 
 
 ## The surface normal straight under the board centre, cast along the current board normal `up`.
