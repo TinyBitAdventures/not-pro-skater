@@ -17,6 +17,7 @@ var roll_drag: float = 0.22          # per second, rolling on its wheels
 var scrape_drag: float = 3.0         # per second, sliding on the deck or its side
 var side_grip: float = 14.0          # how fast sideways slip dies while the wheels are down
 var wheels_down: bool = false
+var rider_key: String = "dev"           # whose deck graphic
 
 
 func setup(xf: Transform3D, vel: Vector3, spin: Vector3) -> void:
@@ -46,7 +47,7 @@ func setup(xf: Transform3D, vel: Vector3, spin: Vector3) -> void:
 			add_child(w)
 	var vis: Node3D = RiderRig.BOARD_SCENE.instantiate()
 	add_child(vis)
-	RiderRig.style_board(vis)
+	RiderRig.style_board(vis, rider_key)
 	for mi in vis.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM

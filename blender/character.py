@@ -77,8 +77,8 @@ ARCHETYPES = {
         "eyebrows": "eyebrow003",
         "eyelashes": "eyelashes01",
         "hair": "short03",
-        "clothes": ["namuhekam_male_polo_shirt", "cortu_cargo_pants", "shoes02"],
-        "tint": {"namuhekam_male_polo_shirt": "#4d7a52"},
+        "clothes": ["namuhekam_male_polo_shirt", "toigo_wool_pants", "shoes02"],
+        "tint": {"namuhekam_male_polo_shirt": "#4d7a52", "toigo_wool_pants": "#a8946c"},      # polo and khakis
     },
     # the birthday party's kids (they watch your tricks; not playable)
     "kid_maya": {
@@ -252,10 +252,32 @@ def _fix_materials(rig):
             for link in list(alpha.links):
                 m.node_tree.links.remove(link)
             alpha.default_value = 1.0
+            _fill_transparent(_upstream_image(bsdf.inputs["Base Color"]))
             if hasattr(m, "blend_method"):
                 m.blend_method = "OPAQUE"
             if hasattr(m, "surface_render_method"):
                 m.surface_render_method = "DITHERED"
+
+
+def _fill_transparent(img):
+    """Opaque garments whose texture has see-through parts (the cargo pants' knees) showed the white behind the
+    alpha. The body under clothes is removed, so a cutout would be a hole: paint those texels in the garment's
+    own average colour instead."""
+    if img is None or img.channels < 4:
+        return
+    import numpy as np
+    w, h = img.size
+    px = np.empty(w * h * 4, dtype=np.float32)
+    img.pixels.foreach_get(px)
+    px = px.reshape(-1, 4)
+    clear = px[:, 3] < 0.5
+    if not clear.any() or clear.all():
+        return
+    px[clear, :3] = px[~clear, :3].mean(axis=0)
+    px[:, 3] = 1.0
+    img.pixels.foreach_set(px.ravel())
+    img.update()
+    print(f"[character] filled {int(clear.sum())} clear texels in {img.name}")
 
 
 def _shrink_textures(rig, npc=False):

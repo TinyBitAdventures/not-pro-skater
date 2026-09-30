@@ -84,7 +84,7 @@ func setup(_look: Dictionary = {}) -> void:
 	_m = container.transform * ch.transform * _node_to(ch, skel)
 	board = BOARD_SCENE.instantiate()
 	model.add_child(board)
-	style_board(board)
+	style_board(board, char_key)
 	var n: int = skel.get_bone_count()
 	_rest_local.resize(n)
 	_rest_model.resize(n)
@@ -129,7 +129,48 @@ static func _node_to(from: Node3D, to: Node3D) -> Transform3D:
 	return xf
 
 
-static func style_board(root: Node) -> void:
+## Each rider's deck graphic (the bottom of the board): base, band, mark, pinstripe.
+const DECKS: Dictionary = {
+	"dev": [Color(0.13, 0.15, 0.19), Color(1.0, 0.56, 0.16), Color(0.25, 0.85, 0.8), Color(0.9, 0.9, 0.86)],
+	"musician": [Color(0.08, 0.08, 0.08), Color(0.85, 0.68, 0.3), Color(0.85, 0.68, 0.3), Color(0.6, 0.15, 0.15)],
+	"vlogger": [Color(0.95, 0.94, 0.9), Color(0.85, 0.2, 0.2), Color(0.12, 0.12, 0.14), Color(0.85, 0.2, 0.2)],
+	"dad": [Color(0.24, 0.4, 0.28), Color(0.95, 0.9, 0.76), Color(0.95, 0.72, 0.2), Color(0.95, 0.9, 0.76)],
+	"actor": [Color(0.3, 0.18, 0.45), Color(0.98, 0.8, 0.3), Color(0.95, 0.95, 0.95), Color(0.98, 0.8, 0.3)],
+}
+static var _deck_art: Dictionary = {}
+
+
+## The deck's bottom as a small texture: u runs across the board, v along it (tail at 0, nose at 1).
+static func deck_art(key: String) -> Texture2D:
+	if _deck_art.has(key):
+		return _deck_art[key]
+	var c: Array = DECKS.get(key, DECKS["dev"])
+	var w: int = 64
+	var h: int = 256
+	var img: Image = Image.create(w, h, false, Image.FORMAT_RGB8)
+	for y in h:
+		var v: float = (y + 0.5) / h
+		for x in w:
+			var u: float = (x + 0.5) / w
+			var col: Color = c[0]
+			if absf(u - 0.5) > 0.4 and absf(u - 0.5) < 0.43:
+				col = c[3]                                           # pinstripes down both edges
+			var band: float = v - 0.24 - (u - 0.5) * 0.25                # a slanted band toward the tail
+			if absf(band) < 0.055:
+				col = c[1]
+			var dx: float = (u - 0.5) * 8.0
+			var dy: float = (v - 0.7) * 31.5                             # a round mark toward the nose (real inches)
+			var r: float = sqrt(dx * dx + dy * dy)
+			if r < 2.4:
+				col = c[2] if r > 1.5 or r < 0.7 else c[0]
+			img.set_pixel(x, h - 1 - y, col)
+	img.generate_mipmaps()
+	var tex: ImageTexture = ImageTexture.create_from_image(img)
+	_deck_art[key] = tex
+	return tex
+
+
+static func style_board(root: Node, rider_key: String = "dev") -> void:
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		var inst: MeshInstance3D = mi
 		for s in inst.mesh.get_surface_count():
@@ -147,6 +188,8 @@ static func style_board(root: Node) -> void:
 					m.roughness = 1.0
 				"DeckArt":
 					m.roughness = 0.45
+					m.albedo_color = Color.WHITE
+					m.albedo_texture = deck_art(rider_key)
 			inst.set_surface_override_material(s, m)
 
 
@@ -535,6 +578,7 @@ func _physical(sk: Skater, dt: float) -> void:
 ## The board flies off on its own with the rider's speed (and some of its spin), from where it is now.
 func _spawn_loose(sk: Skater) -> void:
 	loose = LooseBoard.new()
+	loose.rider_key = char_key
 	var holder: Node = sk.get_parent()
 	holder.add_child(loose)
 	var right: Vector3 = sk.hdg.cross(Vector3.UP).normalized()

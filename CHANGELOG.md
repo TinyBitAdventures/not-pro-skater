@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Polish: boards and details
+- **Every rider has their own deck graphic** (base colour, a slanted band toward the tail, a ring toward the nose, pinstripes; drawn at load, `RiderRig.deck_art`); the board that rolls away in a crash keeps it.
+- The Dad wears khaki chinos with his green polo: the cargo pants asset has ripped knees, which read as a rendering fault. Garment textures with see-through parts are filled with the garment's own colour (they showed white where the alpha was).
+- New app icon and boot colour in the UI palette (the old ones were from the cartoon look).
+
 ### Polish: the end of a session
 - The clock ticks softly through the last five seconds; when it runs out the music fades, the results jingle plays, and a NEW BEST sting follows when you beat your score.
 - Fixed: skating again straight after a session could leave the music silent (the results fade was still running and stopped the new track).
