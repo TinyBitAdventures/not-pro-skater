@@ -6,7 +6,7 @@ Fetch the CC0 source assets the Blender builders use, into art/ (idempotent: exi
     python3 tools/fetch_assets.py --list     # what would be fetched
 
 Textures come from ambientCG (1K JPG sets: Color, NormalGL, Roughness, Metalness, Opacity), models from
-Poly Haven (glTF at 1K). Everything here is CC0; ART_CREDITS.md lists what is used where.
+Poly Haven (glTF at 1K). Everything here is CC0; art_credits.md lists what is used where.
 """
 
 import io

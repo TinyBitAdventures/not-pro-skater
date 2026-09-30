@@ -144,7 +144,7 @@ Criteria: how it looks in a web build, PCK size, rebuild time, whether it can ru
 - The glTF export carries base colour, normal and ORM maps straight into Godot's `StandardMaterial3D`.
 - Kit pieces get proper UVs (box projection for procedural meshes) and a second UV set for lightmaps. Godot can generate UV2 on import with the "Static Lightmaps" option.
 - Skate-specific wear: waxed ledge edges (darker, glossier), coping scuffs, rubber marks at the base of ramps, cracked concrete, and grip tape on the board.
-- Record every texture's source and licence in `ART_CREDITS.md`, as with the audio credits.
+- Record every texture's source and licence in `art_credits.md`, as with the audio credits.
 
 **3c. Environment.**
 - A Poly Haven CC0 HDRI for the sky and reflections, and ReflectionProbes (Compatibility supports 2 per mesh) around wet or glossy spots.

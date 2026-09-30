@@ -1,4 +1,4 @@
-"""Build levels.json, measurements.json, CREDITS.md, the reel and the deliver folder from out/final + out/measure.json."""
+"""Build levels.json, measurements.json, credits.md, the reel and the deliver folder from out/final + out/measure.json."""
 import json, os, shutil, subprocess, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np

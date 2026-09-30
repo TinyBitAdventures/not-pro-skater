@@ -50,12 +50,7 @@ Community assets from the MakeHuman asset library, by their authors (licence as 
 | culturalibre_hair_05 | culturalibre | CC0 | The Actor |
 | braid01 | MakeHuman team (released as CC0 in September 2020) | CC0 | Leo's mom |
 
-Every character asset that ships is CC0, which sits fine beside the MIT-licensed code. Two hairstyles that
-used to be in the cast were swapped out on 2026-09-30 because their files say AGPL3: culturalibre_hair_02 (The
-Actor) and rehmanpolanski_hair_bun_brown (Leo's mom). MakeHuman made its own assets CC0 by default in 2020, but
-it cannot relicense a third party's upload, and its old CC0 exception covered only exports from the official
-MakeHuman application, not MPFB. When adding clothes or hair, check the `license` line in the asset's `.mhclo`
-and keep to CC0.
+Every character asset that ships is CC0, which sits fine beside the MIT-licensed code. Two hairstyles that used to be in the cast were swapped out on 2026-09-30 because their files say AGPL3: culturalibre_hair_02 (The Actor) and rehmanpolanski_hair_bun_brown (Leo's mom). MakeHuman made its own assets CC0 by default in 2020, but it cannot relicense a third party's upload, and its old CC0 exception covered only exports from the official MakeHuman application, not MPFB. When adding clothes or hair, check the `license` line in the asset's `.mhclo` and keep to CC0.
 
 Licence: https://www.makehumancommunity.org/content/license_explanation.html
 
@@ -65,4 +60,4 @@ Licence: https://www.makehumancommunity.org/content/license_explanation.html
 |---|---|---|
 | Barlow Condensed (Medium, Bold, ExtraBold), The Barlow Project Authors | all UI text | https://github.com/jpt/barlow |
 
-The font is **not** CC0: it is under the SIL Open Font License 1.1 (`game/assets/fonts/OFL.txt`), which allows bundling it with the game; it must keep its licence and cannot be sold on its own.
+The font is **not** CC0: it is under the SIL Open Font License 1.1 (`game/assets/fonts/ofl.txt`), which allows bundling it with the game; it must keep its licence and cannot be sold on its own.

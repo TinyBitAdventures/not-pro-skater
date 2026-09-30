@@ -1,18 +1,10 @@
 # Not Pro Skater SFX: credits and licence classes
 
-Rendered with Wavelength 0.5.0-dev (headless host) at 44.1 kHz, then sliced, folded to mono, faded, peak-normalised and dithered to 16 bit
-(see `recipes/scripts/`). The job for every sound is in `recipes/jobs/<recipe>.job.json`. Plugin renders are not bit-reproducible, so the WAVs
-are the assets; do not rebuild them in CI.
+Rendered with Wavelength 0.5.0-dev (headless host) at 44.1 kHz, then sliced, folded to mono, faded, peak-normalised and dithered to 16 bit (see `recipes/scripts/`). The job for every sound is in `recipes/jobs/<recipe>.job.json`. Plugin renders are not bit-reproducible, so the WAVs are the assets; do not rebuild them in CI.
 
-Licence classes follow the research report (`research/sfx-palette.md`, section 4): OPEN = plugin code is open source; builtin:* = Wavelength's own DSP.
-No FREE-proprietary or COMMERCIAL source is used anywhere (Vital, RP2A03 and every sample library were left out).
+Licence classes follow the research report (`research/sfx-palette.md`, section 4): OPEN = plugin code is open source; builtin:* = Wavelength's own DSP. No FREE-proprietary or COMMERCIAL source is used anywhere (Vital, RP2A03 and every sample library were left out).
 
-**Licence caveat, read before shipping (unknown, not checked):** the report only established that Surge XT, OB-Xf and Dexed are GPL-3.0-or-later
-(`wavelength kit`). It did not establish the terms of the presets themselves or of the rendered audio. On this machine every Surge XT preset used
-below lives in `Surge XT/patches_3rdparty/<author>/` (community-contributed, no licence file next to them) and the Dexed voice comes from the
-`SynprezFM_26` cartridge. Audio terms for those: **unknown**. Six sounds depend on them (ollie, land, land_hard, grab, grind_start, manual). Licence-safe
-stand-ins made only from builtin:* are in `alt/builtin-only/` (land, land_hard, manual, grind_start) and `alt/` (ollie__alt = builtin-only, grab__alt = builtin-only);
-swap them in if the patch terms turn out not to allow redistribution. Everything else is builtin:* and needs no third-party terms.
+**Licence caveat, read before shipping (unknown, not checked):** the report only established that Surge XT, OB-Xf and Dexed are GPL-3.0-or-later (`wavelength kit`). It did not establish the terms of the presets themselves or of the rendered audio. On this machine every Surge XT preset used below lives in `Surge XT/patches_3rdparty/<author>/` (community-contributed, no licence file next to them) and the Dexed voice comes from the `SynprezFM_26` cartridge. Audio terms for those: **unknown**. Six sounds depend on them (ollie, land, land_hard, grab, grind_start, manual). Licence-safe stand-ins made only from builtin:* are in `alt/builtin-only/` (land, land_hard, manual, grind_start) and `alt/` (ollie__alt = builtin-only, grab__alt = builtin-only); swap them in if the patch terms turn out not to allow redistribution. Everything else is builtin:* and needs no third-party terms.
 
 | sound | source (plugin / preset or builtin patch) | class | notes |
 |---|---|---|---|

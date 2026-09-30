@@ -7,7 +7,7 @@ rigs it with MPFB's game-engine skeleton, bakes helpers and hidden body parts aw
 
 Needs the MPFB extension enabled in Blender's user preferences, so this runs WITHOUT --factory-startup:
     blender --background --python blender/character.py -- dev
-Asset packs (CC0) live in MPFB's user data dir; see ART_CREDITS.md.
+Asset packs (CC0) live in MPFB's user data dir; see art_credits.md.
 """
 
 import importlib
@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "game", "assets", "characters"))
 MPFB = "bl_ext.blender_org.mpfb"
 
-# Every archetype is inspired by a KIND of real skater who is not a pro (see docs/REBUILD_PLAN.md): original
+# Every archetype is inspired by a KIND of real skater who is not a pro (see docs/rebuild_plan.md): original
 # characters, not likenesses. Assets are named by MPFB folder (skins/<skin>, hair/<hair>, clothes/<name>, ...).
 STYLIZE = {"head-scale-vert-incr": 0.35, "head-scale-horiz-incr": 0.3, "head-scale-depth-incr": 0.25,
            "l-hand-scale-incr": 0.35, "r-hand-scale-incr": 0.35}
