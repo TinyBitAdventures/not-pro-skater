@@ -66,6 +66,26 @@ func _run() -> void:
 	await _press("ui_accept")
 	await _wait(1.5)
 	_check("title -> birthday", _scene().ends_with("birthday.tscn"))
+	# screen steering: holding S (back, toward the camera) stops the rider, it doesn't spin them round
+	var was_mode: String = Game.steer_mode
+	Game.steer_mode = "screen"
+	var sk: Skater = get_tree().current_scene.get("skater")
+	var yaw0: float = sk.yaw
+	var hold: InputEventAction = InputEventAction.new()
+	hold.action = "move_down"
+	hold.pressed = true
+	hold.strength = 1.0
+	Input.parse_input_event(hold)
+	await _wait(1.5)
+	var turned: float = absf(angle_difference(yaw0, sk.yaw))
+	var up: InputEventAction = InputEventAction.new()
+	up.action = "move_down"
+	up.pressed = false
+	Input.parse_input_event(up)
+	await _wait(0.1)
+	Game.steer_mode = was_mode
+	_check("screen steering: holding S stays put (turned %.2f rad, %.2f m/s)" % [turned, sk.velocity.length()],
+		turned < 0.1 and sk.velocity.length() < 0.3)
 	await _press("pause")
 	await _wait(0.2)
 	_check("ESC pauses", get_tree().paused)

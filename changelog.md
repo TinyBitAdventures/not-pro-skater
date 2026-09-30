@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixes
+- **Holding S stops you in screen steering:** pulling the stick back (toward the camera) used to mean "turn round and go that way", and since the chase camera swings round behind as you turn, back was back again and the rider spun on the spot. Back now brakes to a stop; A / D turn round.
 - The floating NEXT marker no longer repeats a gate's own banner: it hides over the start and finish gates of the Skate-a-thon laps and the Rush Hour one-take run (both said START twice).
 - Rush Hour's MARKET MORNING banner hung right behind the START gate, hidden by it; it spans Market Street further up now.
 - **Event goals count what you actually did:**

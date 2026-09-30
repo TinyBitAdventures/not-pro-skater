@@ -149,6 +149,7 @@ var _air_popped: bool = false
 var _last_safe: Vector3 = Vector3.ZERO
 var _glance_dir: Vector3 = Vector3.ZERO      # glanced off a wall in the air: the board turns toward this
 const GLANCE_TURN: float = 9.0              # rad/s
+const BACK_BRAKE_ANGLE: float = 2.2         # rad (126 deg): screen steering, a stick further back than this brakes
 var _safe_timer: float = 0.0
 var _spawn: Transform3D = Transform3D.IDENTITY
 
@@ -343,6 +344,14 @@ func _read_input() -> void:
 	inp.grind_pressed = Input.is_action_just_pressed("grind")
 	inp.brake = Input.is_action_pressed("brake")
 	inp.manual = Input.is_action_pressed("manual")
+	# screen steering, on the ground: the stick pulled back toward the camera brakes. Turning round to "go that
+	# way" never ended: the chase camera swings round behind as the rider turns, so back is back again, and
+	# holding S spun the rider on the spot. A / D turn round (the stick's up / down taps still start manuals)
+	if Game.steer_mode != "tank" and state == State.GROUND and v.length() > 0.3:
+		var flat: Vector3 = Vector3(inp.world_dir.x, 0.0, inp.world_dir.z)
+		if flat.length() > 0.01 and absf(hdg.signed_angle_to(flat, Vector3.UP)) > BACK_BRAKE_ANGLE:
+			inp.brake = true
+			inp.world_dir = Vector3.ZERO
 	if Input.is_action_just_pressed("respawn"):
 		respawn()
 
