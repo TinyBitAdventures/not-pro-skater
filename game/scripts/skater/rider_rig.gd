@@ -349,13 +349,30 @@ func _pose(sk: Skater, dt: float) -> void:
 					"back":
 						pitch_t = 360.0 * ease_f
 			if sk.grab_kind != "":
+				# knees tucked hard and the board pulled up to the hand, back rounded over it
 				grab_t = 1.0
-				hip_t = 0.66
-				lean_t = 26.0
-				feet_t = 0.16
-				lift_t = 0.24
-				pitch_t = -8.0
+				hip_t = 0.5
+				lean_t = 38.0
+				feet_t = 0.3
+				lift_t = 0.42
+				pitch_t = -10.0
 				arms_t = 0.7
+				# each grab has its own shape
+				match sk.grab_kind:
+					"forward":                       # nosegrab: nose pulled up, leaning over it
+						pitch_t = 22.0
+						lean_t = 44.0
+					"back":                          # method: board kicked back and up, chest arched
+						pitch_t = -26.0
+						roll_t = -34.0
+						lean_t = 20.0
+						twist_t = -20.0
+					"left":                          # melon: reach down the heel side, board tilted up
+						roll_t = 18.0
+						twist_t = 30.0
+					"right":                         # mute: reach across the body
+						twist_t = 40.0
+						roll_t = -10.0
 		Skater.State.GRIND:
 			hip_t = 0.58
 			lean_t = 20.0
@@ -869,18 +886,21 @@ func _rig_leg(side: String, sole: Vector3, foot_angle: float, board_xf: Transfor
 
 ## [left hand target, right hand target, use left, use right] for a grab, on the board as it is posed now.
 func _grab_targets(kind: String, bt: Transform3D) -> Array:
-	var toe: Vector3 = bt * Vector3(0.1, DECK, -0.02)
-	var heel: Vector3 = bt * Vector3(-0.1, DECK, -0.02)
-	var nose: Vector3 = bt * Vector3(0.0, DECK + 0.03, -0.36)
+	# points on the posed deck (bt), in model space: the toe edge faces the chest (+X), the nose is -Z
+	var toe_mid: Vector3 = bt * Vector3(0.11, DECK + 0.01, 0.02)
+	var heel_mid: Vector3 = bt * Vector3(-0.11, DECK + 0.01, 0.02)
+	var heel_front: Vector3 = bt * Vector3(-0.11, DECK + 0.01, -0.12)
+	var nose: Vector3 = bt * Vector3(0.0, DECK + 0.03, -0.38)
+	var tail: Vector3 = bt * Vector3(0.0, DECK + 0.03, 0.38)
 	match kind:
 		"none":
-			return [toe, toe, 0.0, 1.0]       # indy: back hand, toe edge
+			return [toe_mid, toe_mid, 0.0, 1.0]        # indy: back hand, toe edge between the feet
 		"left":
-			return [heel, heel, 1.0, 0.0]     # melon
+			return [heel_front, heel_front, 1.0, 0.0]  # melon: front hand, heel edge
 		"right":
-			return [toe, toe, 1.0, 0.0]       # mute
+			return [toe_mid, toe_mid, 1.0, 0.0]        # mute: front hand, toe edge
 		"forward":
-			return [nose, nose, 1.0, 0.0]     # nosegrab
+			return [nose, nose, 1.0, 0.0]              # nosegrab
 		"back":
-			return [heel, heel, 1.0, 0.0]     # method
-	return [toe, toe, 0.0, 0.0]
+			return [heel_mid, tail, 1.0, 0.0]          # method: front hand, heel edge; board kicked out behind
+	return [toe_mid, toe_mid, 0.0, 0.0]

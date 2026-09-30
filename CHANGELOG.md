@@ -48,6 +48,9 @@
 ### Polish: carrying the cake
 - The rider carries the birthday cake in both hands, held out in front of the belly (`RiderRig.carry_item`), instead of the cake floating by the chest while the arms balance; a crash lets go of it and it goes back to the table at the street, as before. The pose tour has a `carry` pose.
 
+### Polish: grabs look like grabs
+- Grabs tuck the knees hard and pull the board up to the hand (the hand used to hang in the air by the shin), and each has its own shape: Indy between the feet, Melon reaching down the heel side with the board tilted, Nosegrab with the nose pulled up, Method with the board kicked back and the chest turned, Mute reaching across. Hands aim at the posed deck's edges, not a rest-pose offset. Pose tour `POSES=grab_`.
+
 ### Polish: no snaps onto rails and copings
 - Locking onto a rail or a coping moved the body there in one physics tick (up to a third of a metre in a frame for a lip stall) and the board jumped to its stall angle. The drawn rider now glides the last bit over about a tenth of a second (`Skater._snap_to`, a decaying offset carried inside the interpolated positions) and the board eases into a stall. The `lip_stall` feel test checks the largest per-tick move (0.31 m before, 0.09 m now).
 
