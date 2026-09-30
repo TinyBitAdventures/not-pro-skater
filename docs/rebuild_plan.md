@@ -252,7 +252,7 @@ Backlog, most important first (done items are in the changelog under Unreleased)
 4. Shaded walls are blotchy (one 1024 px world lightmap, no denoise, half the atlas on hidden roof faces). Done: every bake is denoised (`blender/lightmap_denoise.py`); the atlas space is still worth a look.
 5. Small ones: the school sign clipped by window sills; a lamp in the school's crosswalk; leaf litter reads as green paper; the Start_stunt camera inside the tent; warehouse crates buried in the bank; the floating monitor and café counter; the sound stages look like villas; the far towers are blank slabs; the plaza paving is a busy checker.
 
-**UI (from the UI review), still open:** an objective pointer to the next target; delivery targets marked in the world; the pause screen showing the goals.
+**UI (from the UI review):** done (objective pointer, delivery targets marked in the world, the pause screen showing the goals, a minimum UI scale).
 
 ---
 
