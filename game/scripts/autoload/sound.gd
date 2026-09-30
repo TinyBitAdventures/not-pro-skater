@@ -141,7 +141,7 @@ func toggle_music() -> bool:
 
 
 ## Start a looping track from res://assets/audio/music/<track>.ogg (no restart if it is already playing).
-func play_music(track: String = "grip_tape_summer") -> void:
+func play_music(track: String = "cruise") -> void:
 	if _fade_tw != null and _fade_tw.is_valid():
 		_fade_tw.kill()                      # a restart during the results fade must not be faded out and stopped
 		_fade_tw = null
@@ -149,7 +149,7 @@ func play_music(track: String = "grip_tape_summer") -> void:
 		return
 	var path: String = "res://assets/audio/music/%s.ogg" % track
 	if not ResourceLoader.exists(path):
-		path = "res://assets/audio/music/grip_tape_summer.ogg"
+		path = "res://assets/audio/music/cruise.ogg"
 	var m: AudioStreamOggVorbis = load(path)
 	m.loop = true
 	_music.stream = m
@@ -222,7 +222,7 @@ func play_jingle(jingle_name: String, vol_db: float = 0.0, slot: int = 0) -> voi
 
 ## Gameplay track for the current music choice.
 func gameplay_track() -> String:
-	return "rail_rush" if Game.music_choice == "hype" else "grip_tape_summer"
+	return "hype" if Game.music_choice == "hype" else "cruise"
 
 
 ## cruise -> hype -> off -> cruise. Returns the new choice.

@@ -78,9 +78,9 @@ func _finish() -> void:
 	var new_best: bool = Game.record(String(ev["id"]), score.score, score.best_combo)
 	Sound.play("time_up")
 	Sound.fade_music(0.8)
-	Sound.play_jingle("results-jingle", -2.0)
+	Sound.play_jingle("results", -2.0)
 	if new_best and score.score > 0:
-		get_tree().create_timer(1.4).timeout.connect(func() -> void: Sound.play_jingle("new-best", 0.0, 1))
+		get_tree().create_timer(1.4).timeout.connect(func() -> void: Sound.play_jingle("new_best", -3.0, 1))
 	hud.show_results({"title": ev["title"], "score": score.score, "best_combo": score.best_combo,
 		"new_best": new_best and score.score > 0, "goals": runner.goal_list()})
 	skater.scripted = true

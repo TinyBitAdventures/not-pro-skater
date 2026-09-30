@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### New soundtrack: melodic techno
+- Five new Wavelength pieces replace the cartoon-era music, all built on one motif: **title** (atmospheric melodic techno, 120 BPM, A minor, 32 bars), **cruise** (friendly, groovy, swung, 125 BPM, D dorian, 64 bars, with a lift, a peak, a break and a return), **hype** (harder, straight 16ths, 131.25 BPM, E minor, 64 bars), and **results** / **new best** stings (the new-best run lands on the results chord). Seamless loops (exact sample counts, seams checked), -14 LUFS, balanced left/right, the 2-5 kHz band kept clear for the sound effects. All open-licensed sounds (Wavelength built-ins, MuseScore General, Surge XT patches); credits in `docs/AUDIO_CREDITS_music.md`.
+- Free Skate and Practice play the gameplay music too (only the event did).
+
 ### Graphics: an environment with depth
 - A gentle grade (contrast 1.08, saturation 1.1) and a soft vignette under the HUD: a camera's picture profile rather than the flat physical render (`GRADE=off`, `VIGNETTE=off` for comparison shots).
 - **A world past the fence:** the park used to end at a flat lawn edge under the sky. Now the ground rolls out to low hills with a few hundred trees in clumps, real trees just past the edge, and the street carrying on to the horizon both ways; the haze does the rest (`blender/terrain.py`, one object, a few draw calls).

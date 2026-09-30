@@ -6,7 +6,7 @@ const SAVE_PATH: String = "user://not_pro_skaters.cfg"
 var best: Dictionary = {}          # level id -> {"score": int, "combo": int}
 var steer_mode: String = "tank"    # "tank" = skater steering (A/D turn, W push), "screen" = stick points where you go
 var jump_mode: String = "hold"   # "hold" = crouch while held, jump on release (hold longer = higher); "tap" = jump on press
-var music_choice: String = "cruise"   # "cruise" (Grip Tape Summer), "hype" (Rail Rush) or "off"
+var music_choice: String = "cruise"   # "cruise" (125 BPM), "hype" (131) or "off"; see docs/AUDIO_CREDITS_music.md
 var master_volume: float = 0.8
 var rider: String = "dev"          # the playable character (assets/characters/<rider>.glb)
 

@@ -34,7 +34,7 @@ func _ready() -> void:
 	add_child(cam)
 	_spawn_rider()
 	_build_ui()
-	Sound.play_music("boardwalk_morning")
+	Sound.play_music("title")
 	Sound.play_ambience("park_ambience", -16.0)
 
 
