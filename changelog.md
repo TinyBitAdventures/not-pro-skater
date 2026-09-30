@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## v0.1.0 (2026-09-30)
 
 The first release of Not Pro Skater, a skateboarding game about people who skate for the love of it. Five archetype riders (the Dev, the Musician, the Vlogger, the Dad and the Actor) skate six community events on six real-scale levels. Play it in the browser, or download it for macOS, Windows or Linux.
