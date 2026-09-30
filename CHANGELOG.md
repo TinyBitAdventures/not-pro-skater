@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Graphics: an environment with depth
+- A gentle grade (contrast 1.08, saturation 1.1) and a soft vignette under the HUD: a camera's picture profile rather than the flat physical render (`GRADE=off`, `VIGNETTE=off` for comparison shots).
 - **A world past the fence:** the park used to end at a flat lawn edge under the sky. Now the ground rolls out to low hills with a few hundred trees in clumps, real trees just past the edge, and the street carrying on to the horizon both ways; the haze does the rest (`blender/terrain.py`, one object, a few draw calls).
 - **The ground has shape:** the lawn gently rolls with a few low mounds (flattening to meet the plaza, paths, picnic paving and street), with trees, props and markers following it.
 - **Grass you can see:** tens of thousands of grass tufts on the lawns (`GrassField`, `grass_tuft.gdshader`), dropped onto grass collision at load (about 150 ms), in 20 m chunks culled past 46 m, swaying in the wind, fading into the ground at the edge of their range, no shadow cost. Shrub clumps soften the edges of the plaza and paths.

@@ -5,6 +5,7 @@ extends RefCounted
 
 const SKY_DIR: String = "res://assets/sky/"
 const SKY_YAW: float = PI * 0.5
+const VIGNETTE: Shader = preload("res://shaders/vignette.gdshader")
 
 
 static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
@@ -35,9 +36,18 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	env.fog_light_color = Color(0.7, 0.78, 0.9)
 	env.fog_density = 0.0015
 	env.fog_sky_affect = 0.0
+	# a gentle grade: a touch more contrast and colour than the physical render, like a camera's picture profile
+	var grade: String = OS.get_environment("GRADE")
+	if grade != "off":
+		env.adjustment_enabled = true
+		env.adjustment_contrast = 1.08 if grade == "" else float(grade.get_slice(",", 0))
+		env.adjustment_saturation = 1.1 if grade == "" else float(grade.get_slice(",", 1))
+		env.adjustment_brightness = 1.0
 	var we: WorldEnvironment = WorldEnvironment.new()
 	we.environment = env
 	parent.add_child(we)
+	if OS.get_environment("VIGNETTE") != "off":
+		_vignette(parent)
 
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.light_energy = float(info.get("sun_energy", 1.0))
@@ -56,3 +66,18 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	var to_sun: Vector3 = Vector3(d[0], d[1], d[2]).normalized()
 	sun.global_transform = Transform3D(Basis.looking_at(-to_sun, Vector3.UP), Vector3.ZERO)
 	return sun
+
+
+## Darkens the corners a little: pulls the eye to the rider in the middle of the frame.
+static func _vignette(parent: Node) -> void:
+	var layer: CanvasLayer = CanvasLayer.new()
+	layer.layer = 5                                   # under the HUD (10)
+	var rect: ColorRect = ColorRect.new()
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sm: ShaderMaterial = ShaderMaterial.new()
+	sm.shader = VIGNETTE
+	rect.material = sm
+	layer.add_child(rect)
+	parent.add_child(layer)
+
