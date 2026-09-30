@@ -57,7 +57,12 @@ func _refresh_goals() -> void:
 
 func _on_goal(id: String, text: String) -> void:
 	if id == "":
-		hud.announce(text, Hud.BAD, 1.6)
+		# "CAKE DROPPED!  BACK TO THE STREET": the shout big, what to do next under it
+		var parts: PackedStringArray = text.split("  ", false, 1)
+		var sub: String = parts[1].strip_edges().to_lower() if parts.size() > 1 else ""
+		if sub != "":
+			sub = sub[0].to_upper() + sub.substr(1)
+		hud.announce(parts[0], Hud.BAD, 1.8, sub)
 		Sound.play("combo_lost")
 	else:
 		hud.announce("Goal: " + text, Hud.GOOD, 2.0)

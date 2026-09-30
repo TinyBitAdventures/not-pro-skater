@@ -28,6 +28,23 @@ func _run() -> void:
 	hud = world.get("hud")
 	await _wait(0.9)
 	await _shot("card")
+	# a bonus and the goal it finished, in the same frame: both show, one after the other
+	await _wait(3.6)
+	(world.get("score") as ScoreKeeper).award("One Take", 2000)
+	world.call("_on_goal", "onetake", "The one-take run: every checkpoint in 45 s")
+	await _wait(0.4)
+	await _shot("queue_1")
+	await _wait(1.3)
+	await _shot("queue_2")
+	await _wait(2.6)
+	# carrying (a long goal line wraps in the panel), then dropping it: the shout big, what to do under it
+	var r0: EventRunner = world.get("runner")
+	r0._cake_state = "carried"
+	r0.changed.emit()
+	world.call("_on_goal", "", "CAKE DROPPED!  BACK TO THE CAR PARK")
+	await _wait(0.5)
+	await _shot("drop")
+	await _wait(2.4)
 	# the kids in their party hats, close up
 	var runner: EventRunner = world.get("runner")
 	var kid: Node3D = runner._kids[0]

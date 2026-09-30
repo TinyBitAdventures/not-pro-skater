@@ -122,17 +122,17 @@ func goal_list() -> Array:
 			"show_kids":
 				text += "  %d/%d" % [_kids_shown.size(), _kids.size()]
 			"deliver":
-				if _cake_state == "carried" and not done.has(id):
+				if _cake_state == "carried" and not done.has(id) and active:
 					text += "  (carrying!)"
 			"laps":
 				text += "  %d/%d" % [mini(laps_done, int(g["laps"])), int(g["laps"])]
 			"marks":
 				text += "  %d/%d" % [marks_hit.size(), marks.size()]
 			"timed_run":
-				if _run_t >= 0.0:
-					text += "  %d/%d  0:%02d LEFT" % [_next_gate, gates.size() - 1, maxi(0, ceili(float(g["limit"]) - _run_t))]
+				if _run_t >= 0.0 and active:              # checkpoints passed (START doesn't count), time left
+					text += "  %d/%d  0:%02d LEFT" % [_next_gate - 1, gates.size() - 1, maxi(0, ceili(float(g["limit"]) - _run_t))]
 			"zone_combo":
-				if not done.has(id) and not saved.has(id) and in_zone(g):
+				if not done.has(id) and not saved.has(id) and active and in_zone(g):
 					text += "  (in the zone!)"
 		out.append({"text": text, "done": done.has(id) or saved.has(id)})
 	return out
@@ -255,7 +255,7 @@ func _cake_tick() -> void:
 
 func _on_bailed(_reason: String) -> void:
 	if _run_t >= 0.0:
-		_ruin_take("BAILED!  THAT TAKE'S RUINED")
+		_ruin_take("BAILED!  THAT TAKE'S RUINED, BACK TO THE START")
 	if _cake_state == "carried":
 		_cake_state = "waiting"          # dropped it: it goes back to the table at the street
 		if skater.visual != null:
@@ -462,6 +462,10 @@ func _banner(bd: Dictionary) -> void:
 	l.shaded = true
 	add_child(l)
 	l.global_transform = Transform3D(Basis.looking_at(-facing, Vector3.UP), mid + facing * 0.012)
+	# printed on both faces: riders come at a gate from either side (the lap start / finish from behind it)
+	var back: Label3D = l.duplicate() as Label3D
+	add_child(back)
+	back.global_transform = Transform3D(Basis.looking_at(facing, Vector3.UP), mid - facing * 0.012)
 
 
 ## A little pile of presents: wrapped boxes with a ribbon each way.
@@ -629,6 +633,9 @@ func _run_tick(rider: Vector3, dt: float) -> void:
 		if g["kind"] == "timed_run":
 			goal = g
 	if goal.is_empty():
+		return
+	if done.has(goal["id"]):
+		_next_marker.visible = false               # the take's in the can: passing START again starts nothing
 		return
 	var last: int = gates.size() - 1
 	var gxf: Transform3D = gates[_next_gate]

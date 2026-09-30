@@ -59,6 +59,9 @@ var _results_at: int = 0             # when the results came up (msec)
 var _shown_score: float = 0.0
 var _target_score: int = 0
 var _card_t: float = 0.0
+var _card_queue: Array = []                 # cards waiting their turn: [text, color, seconds, sub]
+const CARD_HALF: float = 330.0              # half the centre card's width (the goal panel ends at about x 420)
+const GOAL_TEXT_W: float = 330.0            # goal lines wrap at this width
 var _trick_state: String = ""           # "", "live", "banked", "lost"
 var _trick_t: float = 0.0
 var _last_names: int = 0
@@ -105,7 +108,7 @@ func _build_score() -> void:
 	gap.custom_minimum_size = Vector2(0, 10)
 	col.add_child(gap)
 	goals_panel = UiKit.panel(0.5, 6, ACCENT)
-	goals_panel.custom_minimum_size = Vector2(340, 0)
+	goals_panel.custom_minimum_size = Vector2(GOAL_TEXT_W + 24, 0)
 	var gv: VBoxContainer = VBoxContainer.new()
 	gv.add_theme_constant_override("separation", 3)
 	goals_panel.add_child(gv)
@@ -243,14 +246,15 @@ func _build_card() -> void:
 	card = VBoxContainer.new()
 	card.anchor_left = 0.5
 	card.anchor_right = 0.5
-	card.anchor_top = 0.2
-	card.anchor_bottom = 0.2
-	card.offset_left = -390.0          # clear of the goal panel on the left and the clock on the right
-	card.offset_right = 390.0
+	card.anchor_top = 0.26             # under the letters, and below where a gate's banner sits as you ride through
+	card.anchor_bottom = 0.26
+	card.offset_left = -CARD_HALF      # clear of the goal panel on the left and the clock on the right
+	card.offset_right = CARD_HALF
 	card.add_theme_constant_override("separation", 6)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(card)
 	card_label = UiKit.label("", 64, PAPER, "display")
+	_outline(card_label, 12)                 # cards land on banners, walls and sky: an outline keeps them readable
 	card_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	card_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.add_child(card_label)
@@ -262,10 +266,16 @@ func _build_card() -> void:
 	rule_row.add_child(card_rule)
 	card.add_child(rule_row)
 	card_sub = UiKit.label("", 30, PAPER, "body")
+	_outline(card_sub, 8)
 	card_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	card_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.add_child(card_sub)
 	card.modulate.a = 0.0
+
+
+static func _outline(l: Label, px: int) -> void:
+	l.add_theme_constant_override("outline_size", px)
+	l.add_theme_color_override("font_outline_color", Color(UiKit.INK, 0.75))
 
 
 func _build_hints() -> void:
@@ -356,6 +366,9 @@ func _process(delta: float) -> void:
 		_shown_score = float(_target_score)
 	score_value.text = amount(int(round(_shown_score)))
 	# title card: fade in fast, hold, fade out
+	if _card_t <= 0.0 and not _card_queue.is_empty():
+		var nxt: Array = _card_queue.pop_front()
+		_show_card(nxt[0], nxt[1], nxt[2], nxt[3])
 	if _card_t > 0.0:
 		_card_t -= delta
 		card.modulate.a = clampf(_card_t / 0.45, 0.0, 1.0) * minf(1.0, card.modulate.a + delta * 8.0)
@@ -578,7 +591,7 @@ func set_goals(items: Array) -> void:
 	_fill_goals(goals_box, items)
 
 
-static func _fill_goals(box_parent: VBoxContainer, items: Array) -> void:
+static func _fill_goals(box_parent: VBoxContainer, items: Array, text_w: float = GOAL_TEXT_W) -> void:
 	for c in box_parent.get_children():
 		c.queue_free()
 	for g in items:
@@ -598,18 +611,34 @@ static func _fill_goals(box_parent: VBoxContainer, items: Array) -> void:
 		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(box)
 		var l: Label = UiKit.label(String(g["text"]), 20, Color(PAPER, 0.55) if done else PAPER, "body")
+		l.custom_minimum_size = Vector2(text_w, 0)      # long goals wrap instead of widening the panel under the cards
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(l)
 		box_parent.add_child(row)
 
 
-## A title card in the upper middle of the screen, with an optional line of text under the rule.
+## A title card in the upper middle of the screen, with an optional line of text under the rule. A card that
+## arrives while another is up waits its turn (a bonus and the goal it finished come in the same frame), and
+## cuts the one showing short so the queue keeps up.
 func announce(text: String, color: Color = PAPER, seconds: float = 1.6, sub: String = "") -> void:
+	if _card_t > 0.45:                       # a card is up (or fading in), not just fading out
+		if card_label.text == text.to_upper() and card_sub.text == sub:
+			return
+		_card_queue.append([text, color, seconds, sub])
+		if _card_queue.size() > 3:
+			_card_queue.pop_front()
+		_card_t = minf(_card_t, 1.25)        # the card showing stays up at least 0.8 s more, then fades
+		return
+	_show_card(text, color, seconds, sub)
+
+
+func _show_card(text: String, color: Color, seconds: float, sub: String) -> void:
 	card_sub.text = sub
 	card_sub.visible = sub != ""
 	card_label.text = text.to_upper()
 	var w: float = get_viewport().get_visible_rect().size.x if is_inside_tree() else 1600.0
 	# short titles big; long lines smaller and wrapped onto two lines within the card
-	var fit: float = 780.0 * 1.9 * (2.0 if text.length() > 26 else 1.0) / maxf(text.length(), 1.0)
+	var fit: float = CARD_HALF * 2.0 * 1.9 * (2.0 if text.length() > 22 else 1.0) / maxf(text.length(), 1.0)
 	card_label.add_theme_font_size_override("font_size", int(clampf(fit, 34.0, 64.0)))
 	card_label.add_theme_color_override("font_color", color)
 	card_rule.color = ACCENT if color == PAPER else color
@@ -768,7 +797,7 @@ func show_results(r: Dictionary) -> void:
 	var list: VBoxContainer = VBoxContainer.new()
 	list.add_theme_constant_override("separation", 2)
 	results_box.add_child(list)
-	_fill_goals(list, goals)
+	_fill_goals(list, goals, 560.0)
 	var gap2: Control = Control.new()
 	gap2.custom_minimum_size = Vector2(0, 14)
 	results_box.add_child(gap2)
