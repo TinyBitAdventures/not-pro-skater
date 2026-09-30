@@ -6,7 +6,8 @@ extends Node
 
 const DT: float = 1.0 / 120.0
 const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert", "transfer", "curve_rail", "kink",
-	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet"]
+	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
+	"vert_frame", "bail_small", "bail_big"]
 
 var level: Level
 var sk: Skater
@@ -304,6 +305,99 @@ func _t_rail_magnet() -> void:
 		if sk.state == Skater.State.GRIND:
 			grind_t += DT
 	_result("rail_magnet", grind_t > 0.4, "pressed %.2f s before the rail starts, 1.1 m to the side: grind %.2f s (want > 0.4)" % [press_gap, grind_t])
+
+
+# ------------------------------------------------------------------ jumping
+
+## Chaining ollies: a tap while still falling (0.3 s before touchdown) must pop again on landing.
+func _t_early_tap() -> void:
+	await _early(false, "early_tap")
+
+
+func _t_early_hold() -> void:
+	await _early(true, "early_hold")
+
+
+func _early(hold_mode: bool, name: String) -> void:
+	await _spawn("flat", 7.0)
+	sk.force_charge = hold_mode
+	var pops: Dictionary = {"n": 0}        # lambdas capture primitives by value: count in a Dictionary
+	sk.sfx.connect(func(k: String) -> void:
+		if k == "ollie":
+			pops["n"] += 1)
+	var pressed: bool = false
+	var phase: int = 0            # 0 first jump, 1 waiting to tap early, 2 done
+	for i in 360:
+		_push()
+		if phase == 0:
+			if hold_mode:
+				sk.inp.ollie_held = i < 3
+				sk.inp.ollie_released = i == 3
+			else:
+				sk.inp.ollie_pressed = i == 0
+			if sk.state == Skater.State.AIR and sk.velocity.y < 0.0:
+				phase = 1
+		elif phase == 1:
+			var h: float = sk.global_position.y
+			var vy: float = -sk.velocity.y
+			var g: float = sk.tune.air_gravity_down
+			var t_land: float = (-vy + sqrt(vy * vy + 2.0 * g * maxf(h, 0.0))) / g
+			if t_land <= 0.3:
+				if hold_mode:
+					sk.inp.ollie_held = true
+					await _tick(3)
+					sk.inp.ollie_held = false
+					sk.inp.ollie_released = true
+				else:
+					sk.inp.ollie_pressed = true
+				phase = 2
+		await _tick()
+		sk.inp.ollie_released = false
+	_result(name, int(pops["n"]) >= 2, "%s tapped 0.3 s before landing: %d pops (want 2)" % ["hold/release" if hold_mode else "tap", int(pops["n"])])
+
+
+# ------------------------------------------------------------------ vert frame and bails
+
+## In a vert air the rider stays side-on to the wall (feet toward it) and turns in the wall's plane.
+func _t_vert_frame() -> void:
+	await _spawn("vert", 15.0)
+	_coast()
+	var max_up_y: float = 0.0
+	var seen: bool = false
+	var f0: Vector3 = Vector3.ZERO
+	var turn: float = 0.0
+	for i in 600:
+		await _tick()
+		if sk.state == Skater.State.AIR and sk.vert_air:
+			if not seen:
+				f0 = sk.air_fwd
+				seen = true
+			max_up_y = maxf(max_up_y, absf(sk.air_up.y))
+			turn = maxf(turn, rad_to_deg(f0.angle_to(sk.air_fwd)))
+		elif seen:
+			break
+	_result("vert_frame", seen and max_up_y < 0.5 and turn > 150.0, "vert air: rider's up stays within %.0f deg of horizontal (want < 30), turns %.0f deg in the wall's plane (want > 150)" % [
+		rad_to_deg(asin(clampf(max_up_y, 0.0, 1.0))), turn])
+
+
+func _t_bail_small() -> void:
+	await _t_land(65.0, "land_65_kind")
+	var kind: String = sk.bail_kind
+	results.pop_back()
+	_result("bail_small", kind == "runout", "a 65 degree landing at 8 m/s is a %s (want runout)" % kind)
+
+
+func _t_bail_big() -> void:
+	await _spawn("flat", 0.0, Vector3(0, 4.0, 0))
+	sk.velocity = sk.hdg * 16.0 + Vector3.UP * 3.0
+	sk._enter_air()
+	sk.yaw += deg_to_rad(85.0)
+	sk.hdg = sk.heading_h()
+	for i in 240:
+		await _tick()
+		if sk.state == Skater.State.BAIL:
+			break
+	_result("bail_big", sk.bail_kind != "runout", "a sideways landing from 4 m at 16 m/s is a %s (want slam or tumble)" % sk.bail_kind)
 
 
 # ------------------------------------------------------------------ landing

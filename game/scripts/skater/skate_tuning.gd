@@ -37,12 +37,13 @@ static var _shared: SkateTuning = null
 @export_group("Jumping")
 @export_range(2.0, 16.0, 0.1) var ollie_speed: float = 8.0     ## tap mode
 @export_range(0.1, 1.5, 0.01) var charge_max: float = 0.45     ## seconds of crouch for a full pop
-@export_range(2.0, 16.0, 0.1) var pop_min: float = 6.8
+@export_range(2.0, 16.0, 0.1) var pop_min: float = 7.8          ## a quick tap: a real ollie, not a hop
 @export_range(2.0, 20.0, 0.1) var pop_max: float = 10.0
 @export_range(0.0, 1.5, 0.05) var lip_pop_mult: float = 0.8   ## a late pop just after a lip is this strong
 @export_range(0.0, 0.5, 0.01) var lip_window: float = 0.16
 @export_range(0.0, 0.4, 0.01) var coyote: float = 0.11
 @export_range(0.0, 0.4, 0.01) var buffer: float = 0.14
+@export_range(0.0, 0.6, 0.01) var land_jump_buffer: float = 0.35 ## a jump tapped while still falling pops on touchdown
 
 @export_group("Air")
 @export_range(5.0, 60.0, 0.5) var air_gravity_up: float = 26.0
@@ -69,6 +70,11 @@ static var _shared: SkateTuning = null
 @export_range(0.3, 1.0, 0.05) var sketchy_keep: float = 0.75   ## speed kept after a sketchy landing
 @export_range(0.0, 1.0, 0.05) var revert_window: float = 0.35  ## seconds after a ramp landing to revert
 @export_range(1.0, 20.0, 0.5) var wall_crash_speed: float = 7.5
+@export_range(0.0, 1.0, 0.05) var runout_below: float = 0.4    ## bail severity under this: step off and run it out
+@export_range(0.0, 1.0, 0.05) var tumble_above: float = 0.7   ## over this: a full roll; between: a slam and slide
+@export_range(0.3, 2.0, 0.05) var runout_time: float = 0.85
+@export_range(0.5, 3.0, 0.05) var slam_time: float = 1.3
+@export_range(0.5, 3.0, 0.05) var tumble_time: float = 1.6
 
 @export_group("Grinding")
 @export_range(0.2, 2.5, 0.05) var grind_snap_h: float = 0.9    ## horizontal reach to a rail

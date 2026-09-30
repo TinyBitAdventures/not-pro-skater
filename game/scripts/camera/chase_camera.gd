@@ -30,7 +30,8 @@ var _vert_hold: bool = false
 var _vert_anchor: Vector3 = Vector3.ZERO
 var _vert_lip: Vector3 = Vector3.ZERO
 var vert_back: float = 6.0         # how far out from the wall the vert shot sits
-var vert_rise: float = 0.6         # and how far above the lip
+var vert_rise: float = 0.2         # and how far above the lip
+var vert_side: float = 3.5         # and how far to the side along the coping
 var _swing_boost: float = 0.0      # extra swing speed just after a vert landing
 var _was_state: int = -1
 
@@ -129,7 +130,11 @@ func _process(dt: float) -> void:
 	if sk.vert_air and not _vert_hold:
 		_vert_hold = true
 		_vert_lip = sk.global_position
-		_vert_anchor = _collide(_vert_lip + Vector3.UP * 0.5, _vert_lip + sk.vert_out * vert_back + Vector3.UP * vert_rise)
+		# off to one side of the ramp, so the rider (side-on to the wall) is seen full length as it turns
+		var along: Vector3 = sk.vert_out.cross(Vector3.UP).normalized()
+		var side: float = 1.0 if sk.velocity.dot(along) >= 0.0 else -1.0
+		_vert_anchor = _collide(_vert_lip + Vector3.UP * 0.5,
+			_vert_lip + sk.vert_out * vert_back + along * side * vert_side + Vector3.UP * vert_rise)
 	elif not sk.vert_air:
 		_vert_hold = false
 

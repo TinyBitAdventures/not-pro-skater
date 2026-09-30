@@ -48,7 +48,6 @@ var grab_use_r: float = 0.0
 var vis_n: Vector3 = Vector3.UP
 var tumble: float = 0.0
 var tumble_axis: Vector3 = Vector3.RIGHT
-var _bail_seed: float = 0.0
 var _t: float = 0.0
 var shoes: Dictionary = {}       # node -> rest transform, per side
 
@@ -141,12 +140,19 @@ func _approach(cur: float, tgt: float, rate: float, dt: float) -> float:
 
 func sync_from(sk: Skater, dt: float) -> void:
 	_t += dt
-	var n: Vector3 = sk.board_n if sk.state == Skater.State.GROUND else (sk.floor_n if sk.state == Skater.State.BAIL else Vector3.UP)
+	var n: Vector3 = Vector3.UP
+	var fwd: Vector3 = sk.facing()
+	match sk.state:
+		Skater.State.GROUND:
+			n = sk.board_n
+		Skater.State.BAIL:
+			n = sk.floor_n
+			fwd = sk.hdg
+		Skater.State.AIR:
+			n = sk.air_up                  # vert airs: side-on to the wall, turning in the wall's plane
+			fwd = sk.air_fwd
 	var blended: Vector3 = vis_n.lerp(n.normalized(), 1.0 - exp(-16.0 * dt))
 	vis_n = blended.normalized() if blended.length() > 0.2 else Vector3.UP
-	var fwd: Vector3 = sk.hdg
-	if sk.state == Skater.State.AIR:
-		fwd = sk.heading_h()
 	fwd = (fwd - vis_n * fwd.dot(vis_n)).normalized()
 	if fwd.length() < 0.5:
 		fwd = Vector3(0, 0, -1)
@@ -154,8 +160,8 @@ func sync_from(sk: Skater, dt: float) -> void:
 	var basis_v: Basis = Basis(fwd.cross(vis_n), vis_n, -fwd)
 	_pose(sk, dt)
 	var xf: Transform3D = Transform3D(basis_v, pos)
-	if sk.state == Skater.State.BAIL:
-		xf = _tumble_transform(sk, basis_v, pos)
+	if sk.state == Skater.State.BAIL and sk.bail_kind != "runout":
+		xf = _slam_transform(sk, basis_v, pos) if sk.bail_kind == "slam" else _tumble_transform(sk, basis_v, pos)
 	global_transform = xf
 	_apply_rig(sk)
 	if sk.state == Skater.State.BAIL:
@@ -185,7 +191,7 @@ func _tumble_transform(sk: Skater, basis_v: Basis, pos: Vector3) -> Transform3D:
 	const THICK: float = 0.3                             # half thickness when lying down
 	var t: float = sk.bail_time
 	var get_up: float = 0.5
-	var roll_end: float = Skater.BAIL_TIME - get_up
+	var roll_end: float = sk.bail_duration - get_up
 	var phi: float
 	if t < roll_end:
 		var p: float = clampf(t / 0.85, 0.0, 1.0)
@@ -195,11 +201,30 @@ func _tumble_transform(sk: Skater, basis_v: Basis, pos: Vector3) -> Transform3D:
 		phi = TAU * 0.75 + q * q * (3.0 - 2.0 * q) * TAU * 0.25
 	var c: float = cos(phi)
 	var extent: float = (BELOW if c > 0.0 else ABOVE) * absf(c) + THICK * absf(sin(phi))
-	var hop: float = sin(clampf(t / 0.7, 0.0, 1.0) * PI) * 0.4
+	var hop: float = sin(clampf(t / 0.7, 0.0, 1.0) * PI) * 0.25
 	var rot: Basis = Basis(Vector3.RIGHT, -phi)
 	var center_world: Vector3 = pos + vis_n * (extent + 0.03 + hop)
 	var m: Basis = basis_v * rot
 	return Transform3D(m, center_world - m * CENTER)
+
+
+## A slam: the rider goes down onto a hip (rolling ~80 degrees about the direction of travel), slides, and
+## gets back up. Lowest point kept on the surface like the tumble.
+func _slam_transform(sk: Skater, basis_v: Basis, pos: Vector3) -> Transform3D:
+	const CENTER: Vector3 = Vector3(0, 0.55, 0)
+	const BELOW: float = 0.55
+	const THICK: float = 0.28
+	var t: float = sk.bail_time
+	var get_up: float = 0.45
+	var down: float = clampf(t / 0.28, 0.0, 1.0)
+	var up: float = clampf((t - (sk.bail_duration - get_up)) / get_up, 0.0, 1.0)
+	var amt: float = (1.0 - pow(1.0 - down, 2.0)) * (1.0 - up * up * (3.0 - 2.0 * up))
+	var side: float = 1.0 if int(sk.stats["bails"]) % 2 == 0 else -1.0   # alternate hips
+	var phi: float = deg_to_rad(80.0) * amt * side
+	var extent: float = BELOW * absf(cos(phi)) + THICK * absf(sin(phi))
+	var rot: Basis = Basis(Vector3(0, 0, 1), phi)
+	var m: Basis = basis_v * rot
+	return Transform3D(m, pos + vis_n * (extent + 0.03) - m * CENTER)
 
 
 func _pose(sk: Skater, dt: float) -> void:
@@ -272,6 +297,10 @@ func _pose(sk: Skater, dt: float) -> void:
 		Skater.State.BAIL:
 			hip_t = 0.5
 			arms_t = 1.2
+			if sk.bail_kind == "runout":
+				hip_t = 0.86
+				lean_t = 16.0
+				arms_t = 0.7
 	hip_h = _approach(hip_h, hip_t, 30.0 if st == Skater.State.AIR else 16.0, dt)
 	lean = _approach(lean, lean_t, 12.0, dt)
 	twist = _approach(twist, twist_t, 10.0, dt)
@@ -297,9 +326,19 @@ func _apply_rig(sk: Skater) -> void:
 	var rot: Basis = Basis.from_euler(Vector3(deg_to_rad(board_pitch), deg_to_rad(board_yaw), deg_to_rad(board_roll)), EULER_ORDER_YXZ)
 	# spin about the deck centre, not the wheels
 	bt = Transform3D(rot, pivot - rot * pivot + Vector3(0, board_lift, 0))
+	var bail_u: float = clampf(sk.bail_time / maxf(sk.bail_duration, 0.1), 0.0, 1.0)
 	if sk.state == Skater.State.BAIL:
-		var p: float = clampf(sk.bail_time / 1.0, 0.0, 1.0)
-		bt = Transform3D(Basis.from_euler(Vector3(p * 5.0, p * 3.0, p * 2.0)), Vector3(0.5 * p, sin(p * PI) * 0.9, -0.9 * p))
+		match sk.bail_kind:
+			"runout":    # the board rolls on ahead, then the rider catches up and hops back on
+				var ahead: float = sin(bail_u * PI) * 1.3
+				bt = Transform3D(Basis(Vector3.UP, sin(sk.bail_time * 5.0) * 0.15 * (1.0 - bail_u)), Vector3(0, 0, -ahead))
+			"slam":      # the board shoots out sideways along the ground
+				var p2: float = 1.0 - pow(1.0 - minf(sk.bail_time / 0.6, 1.0), 2.0)
+				var back_on: float = clampf((bail_u - 0.7) / 0.3, 0.0, 1.0)
+				bt = Transform3D(Basis(Vector3.UP, p2 * 1.4 * (1.0 - back_on)), Vector3(0.7 * p2, 0.0, -0.9 * p2) * (1.0 - back_on))
+			_:
+				var p: float = clampf(sk.bail_time / 1.0, 0.0, 1.0)
+				bt = Transform3D(Basis.from_euler(Vector3(p * 5.0, p * 3.0, p * 2.0)), Vector3(0.5 * p, sin(p * PI) * 0.9, -0.9 * p))
 	board.transform = bt
 
 	# body + torso
@@ -321,10 +360,19 @@ func _apply_rig(sk: Skater) -> void:
 		if ph < 0.55:
 			var k: float = ph / 0.55
 			back = Vector3(0.05, maxf(0.0, sin(k * PI) * 0.16), 0.22 + 0.45 * sin(k * PI * 0.5))
-	if sk.state == Skater.State.BAIL:
+	if sk.state == Skater.State.BAIL and sk.bail_kind == "runout":
+		# running steps on the ground, easing back onto the deck for the last quarter
+		var ph: float = sk.bail_time * 11.0
+		var on: float = clampf((bail_u - 0.75) / 0.25, 0.0, 1.0)
+		var run_f: Vector3 = Vector3(0.1, maxf(0.0, sin(ph)) * 0.22 - 0.02, -0.05 - cos(ph) * 0.34)
+		var run_b: Vector3 = Vector3(-0.1, maxf(0.0, -sin(ph)) * 0.22 - 0.02, -0.05 + cos(ph) * 0.34)
+		front = run_f.lerp(front, on)
+		back = run_b.lerp(back, on)
+	elif sk.state == Skater.State.BAIL:
+		var amp: float = 0.12 if sk.bail_kind == "slam" else 0.25
 		var w: float = sin(sk.bail_time * 11.0)
-		front = Vector3(0.3, 0.2 + w * 0.25, -0.5)
-		back = Vector3(-0.3, 0.3 - w * 0.25, 0.4)
+		front = Vector3(0.3, 0.2 + w * amp, -0.5)
+		back = Vector3(-0.3, 0.3 - w * amp, 0.4)
 	_leg(leg_l, shin_l, "L", front, body_inv)
 	_leg(leg_r, shin_r, "R", back, body_inv)
 
@@ -334,7 +382,11 @@ func _apply_rig(sk: Skater) -> void:
 	var spread: float = arms_out
 	var free_l: Vector3 = sh_l + Vector3(0.10 + 0.1 * spread, -0.42 + 0.55 * spread, -0.18 - 0.30 * spread)
 	var free_r: Vector3 = sh_r + Vector3(0.05, -0.40 + 0.5 * spread, 0.20 + 0.34 * spread)
-	if sk.state == Skater.State.BAIL:
+	if sk.state == Skater.State.BAIL and sk.bail_kind == "runout":
+		var ph2: float = sk.bail_time * 11.0
+		free_l = sh_l + Vector3(0.12, -0.3, -0.05 + cos(ph2) * 0.3)
+		free_r = sh_r + Vector3(-0.12, -0.3, 0.05 - cos(ph2) * 0.3)
+	elif sk.state == Skater.State.BAIL:
 		var w2: float = sin(sk.bail_time * 9.0)
 		free_l = sh_l + Vector3(0.1, 0.4 + w2 * 0.2, -0.5)
 		free_r = sh_r + Vector3(-0.1, 0.4 - w2 * 0.2, 0.5)

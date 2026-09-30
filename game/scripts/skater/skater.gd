@@ -49,7 +49,16 @@ var hdg: Vector3 = Vector3(0, 0, -1)     # facing, tangent to the surface (groun
 var yaw: float = 0.0
 var floor_n: Vector3 = Vector3.UP
 var board_n: Vector3 = Vector3.UP        # smoothed four-wheel board normal: what the visual tilts to
-var stance: String = "regular"           # "fakie" after landing backwards, back after the next backwards landing
+var stance: String = "regular"           # "fakie": the rider faces against the direction of travel (see facing())
+var air_up: Vector3 = Vector3.UP         # the board's up and forward in the air (vert airs tilt them: see _air)
+var air_fwd: Vector3 = Vector3.FORWARD
+var bail_kind: String = "slam"           # "runout" (step off), "slam" (onto the hip) or "tumble" (a full roll)
+var bail_duration: float = BAIL_TIME
+var bail_severity: float = 0.0
+var _land_jump: float = 0.0              # a jump tapped while falling, waiting for touchdown
+var _vert_up0: Vector3 = Vector3.UP
+var _vert_fwd0: Vector3 = Vector3.FORWARD
+var _vert_yaw0: float = 0.0
 var vert_air: bool = false               # left a steep face: the air stays in the wall's plane
 var vert_out: Vector3 = Vector3.ZERO     # horizontal, pointing away from that wall
 var _vert_plane: float = 0.0
@@ -193,6 +202,7 @@ func place_at(xf: Transform3D) -> void:
 	yaw = atan2(-hdg.x, -hdg.z)
 	velocity = Vector3.ZERO
 	state = State.GROUND
+	stance = "regular"
 	floor_n = Vector3.UP
 	_last_safe = xf.origin
 	_reset_air()
@@ -206,6 +216,11 @@ func respawn() -> void:
 
 func speed() -> float:
 	return velocity.length()
+
+
+## The way the rider (and the board's nose) points: along the travel heading, or against it when fakie.
+func facing() -> Vector3:
+	return -hdg if stance == "fakie" else hdg
 
 
 func heading_h() -> Vector3:
@@ -262,6 +277,7 @@ func _physics_process(delta: float) -> void:
 	_coyote = maxf(0.0, _coyote - delta)
 	_revert_t = maxf(0.0, _revert_t - delta)
 	_magnet_t = maxf(0.0, _magnet_t - delta)
+	_land_jump = maxf(0.0, _land_jump - delta)
 	var manual_edge: bool = inp.manual and not _prev_manual
 	_prev_manual = inp.manual
 	if manual_edge and _revert_t > 0.0 and state == State.GROUND:
@@ -278,6 +294,10 @@ func _physics_process(delta: float) -> void:
 	_prev_held = inp.ollie_held
 	if release_edge:
 		_release_buf = tune.buffer
+	# a jump asked for while falling back down is kept until touchdown (the lip pop has its own window)
+	var asked: bool = release_edge if charge_mode else inp.ollie_pressed
+	if asked and state == State.AIR and (_air_popped or air_time >= tune.lip_window) and velocity.y < 1.0:
+		_land_jump = tune.land_jump_buffer
 	if inp.grind_pressed:
 		_grind_buf = tune.buffer
 	if inp.flip_pressed:
@@ -546,8 +566,11 @@ func _enter_air() -> void:
 	state = State.AIR
 	floor_snap_length = 0.0
 	_reset_air()
-	yaw = atan2(-hdg.x, -hdg.z)
+	var f: Vector3 = facing()
+	yaw = atan2(-f.x, -f.z)
 	_air_ref = hdg
+	air_up = Vector3.UP
+	air_fwd = heading_h()
 
 
 ## Leaving a steep face going up (the top of a quarter pipe or vert wall) locks the air to the wall's plane,
@@ -569,6 +592,15 @@ func _maybe_vert(_popped: bool) -> void:
 	vert_air = true
 	vert_out = out
 	_vert_plane = global_position.dot(out)
+	# the rider stays side-on to the wall (feet toward it) and the vert 180 turns in the wall's plane
+	_vert_up0 = n
+	var f0: Vector3 = facing() - n * facing().dot(n)
+	if f0.length() < 0.2:
+		f0 = Vector3.UP - n * Vector3.UP.dot(n)
+	_vert_fwd0 = f0.normalized()
+	_vert_yaw0 = yaw
+	air_up = _vert_up0
+	air_fwd = _vert_fwd0
 	velocity -= out * velocity.dot(out)
 	var vy: float = maxf(velocity.y, 0.5)
 	var gs: float = tune.vert_gravity_scale
@@ -640,6 +672,12 @@ func _air(dt: float) -> void:
 		yaw += step                           # the automatic vert 180 is not a trick: not in spin_total
 		_vert_turn_left -= step
 	hdg = heading_h()
+	if vert_air:
+		air_up = _vert_up0
+		air_fwd = _vert_fwd0.rotated(_vert_up0, yaw - _vert_yaw0)
+	else:
+		air_up = air_up.lerp(Vector3.UP, 1.0 - exp(-6.0 * dt)).normalized()
+		air_fwd = hdg
 
 	if charge_mode:
 		# release just after rolling off a lip still pops: the classic "jump at the top of the ramp"
@@ -749,15 +787,15 @@ func _land() -> void:
 	var was_air: float = air_time
 	var was_vert: bool = vert_air
 	if was_air > 0.25 and err > tune.bail_angle_rad():
-		_start_bail("sideways")
+		_start_bail("sideways", err)
 		return
 	var kind: String = "clean"
 	if was_air > 0.25 and err > deg_to_rad(tune.assist_angle):
 		kind = "sketchy"
 		velocity *= tune.sketchy_keep
-	if backwards and was_air > 0.15:
-		stance = "regular" if stance == "fakie" else "fakie"
-		if kind == "clean":
+	if ref != Vector3.ZERO:
+		stance = "fakie" if backwards else "regular"
+		if backwards and kind == "clean" and was_air > 0.15:
 			kind = "fakie"
 	floor_n = n
 	board_n = n
@@ -794,6 +832,12 @@ func _land() -> void:
 	crouch = 1.0
 	charge = 0.0
 	_reset_air()
+	if _land_jump > 0.0:
+		_land_jump = 0.0
+		if charge_mode:
+			_release_buf = tune.buffer
+		else:
+			_ollie_buf = tune.buffer
 
 
 ## Manual right after landing on a ramp: spin the board 180 and keep the combo going (Tony Hawk's revert).
@@ -896,7 +940,8 @@ func _grind(dt: float) -> void:
 	stats["grind_time"] += dt
 	if score != null:
 		score.hold("grind", dt, Tricks.GRIND_HOLD_RATE)
-	yaw = atan2(-d.x, -d.z)
+	var fd: Vector3 = -d if stance == "fakie" else d       # a fakie grind stays fakie off the end
+	yaw = atan2(-fd.x, -fd.z)
 	hdg = Vector3(d.x, 0.0, d.z).normalized() if Vector2(d.x, d.z).length() > 0.01 else hdg
 	if grind_dist <= 0.0 or grind_dist >= grind_line.length:
 		_end_grind(false)
@@ -931,7 +976,28 @@ func _end_grind(pop: bool) -> void:
 
 # ------------------------------------------------------------------ bail
 
-func _start_bail(reason: String) -> void:
+## How bad the fall is decides how it looks: a small mistake is stepped off and run out, a medium one is a
+## slam and slide onto the hip, and only a fast or high one is a full roll. `err` = landing angle (radians).
+func _start_bail(reason: String, err: float = 0.0) -> void:
+	var spd: float = velocity.length()
+	var sev: float = clampf((spd - 4.0) / 14.0, 0.0, 1.0) * 0.5 + clampf(air_time / 1.6, 0.0, 1.0) * 0.3
+	if reason == "crash":
+		sev += 0.25
+	if err > 0.0:
+		sev += clampf((err - tune.bail_angle_rad()) / maxf(PI * 0.5 - tune.bail_angle_rad(), 0.1), 0.0, 1.0) * 0.2
+	bail_severity = clampf(sev, 0.0, 1.0)
+	if bail_severity < tune.runout_below and reason != "crash":
+		bail_kind = "runout"
+		bail_duration = tune.runout_time
+	elif bail_severity < tune.tumble_above:
+		bail_kind = "slam"
+		bail_duration = tune.slam_time
+	else:
+		bail_kind = "tumble"
+		bail_duration = tune.tumble_time
+	var travel: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	if travel.length() > 1.0:
+		hdg = travel.normalized()             # fall (and run it out) the way the body was going
 	state = State.BAIL
 	bail_time = 0.0
 	stats["bails"] += 1
@@ -948,15 +1014,21 @@ func _start_bail(reason: String) -> void:
 func _bail(dt: float) -> void:
 	bail_time += dt
 	velocity.y -= tune.gravity * dt
-	var damp: float = exp(-(2.6 if is_on_floor() else 0.4) * dt)
+	# a run-out keeps moving on foot; slams and rolls slide to a stop
+	var ground_damp: float = 1.6 if bail_kind == "runout" else 2.6
+	var damp: float = exp(-(ground_damp if is_on_floor() else 0.4) * dt)
 	velocity.x *= damp
 	velocity.z *= damp
 	move_and_slide()
 	if is_on_floor():
-		floor_n = get_floor_normal()
-	if bail_time > BAIL_TIME:
-		velocity = Vector3.ZERO
-		hdg = heading_h()
+		floor_n = _probe_floor(floor_n, get_floor_normal())
+	if bail_time > bail_duration:
+		var keep: Vector3 = velocity * 0.5 if bail_kind == "runout" else Vector3.ZERO
+		keep.y = 0.0
+		var h: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+		hdg = h.normalized() if h.length() > 0.5 else heading_h()
+		velocity = keep
+		stance = "regular"
 		state = State.GROUND
 		floor_snap_length = tune.floor_snap
 		crouch = 1.0
