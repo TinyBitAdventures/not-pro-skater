@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Polish: grind sparks
+- Grinding metal (rails, coping) throws real sparks: thin streaks stretched along their flight, hot yellow to orange, thrown back off the trucks and falling fast. They used to be little yellow cubes. Concrete ledges and curbs kick up grit instead.
+
 ### Polish: the camera on ramps
 - Rolling back down a ramp after an air, "behind the rider" is inside the ramp: the camera used to pull in against the ramp's face, right at the coping. It now rises (up to 3 m) until it sees the rider clearly, floating over the deck and looking down the transition, like a skate game camera should.
 - A big swing (after a vert landing) no longer slides straight through the rider: the camera keeps a minimum radius as it comes round.

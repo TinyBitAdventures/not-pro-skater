@@ -7,6 +7,7 @@ var skater: Skater
 var _dust_land: CPUParticles3D
 var _dust_push: CPUParticles3D
 var _sparks: CPUParticles3D
+var _grit: CPUParticles3D
 var _puff_tex: GradientTexture2D
 
 
@@ -72,30 +73,44 @@ func _make_dust(amount: int, life: float, speed: float, size: float) -> CPUParti
 
 
 func _make_sparks() -> void:
+	# thin streaks stretched along their velocity (align_y + a quad that turns about its own Y to face the
+	# camera), hot white to orange, falling fast and gone in a fraction of a second
 	_sparks = CPUParticles3D.new()
-	_sparks.amount = 36
-	_sparks.lifetime = 0.4
+	_sparks.amount = 48
+	_sparks.lifetime = 0.28
 	_sparks.local_coords = false
 	_sparks.emitting = false
 	_sparks.direction = Vector3.UP
-	_sparks.spread = 65.0
-	_sparks.initial_velocity_min = 2.0
-	_sparks.initial_velocity_max = 5.5
-	_sparks.gravity = Vector3(0, -14, 0)
+	_sparks.spread = 45.0
+	_sparks.initial_velocity_min = 2.5
+	_sparks.initial_velocity_max = 6.0
+	_sparks.gravity = Vector3(0, -18, 0)
+	_sparks.particle_flag_align_y = true
+	_sparks.scale_amount_min = 0.6
+	_sparks.scale_amount_max = 1.2
 	var ramp: Gradient = Gradient.new()
-	ramp.set_color(0, Color(1.0, 0.95, 0.5, 1.0))
-	ramp.set_color(1, Color(1.0, 0.45, 0.1, 0.0))
+	ramp.set_color(0, Color(1.0, 0.86, 0.45, 1.0))
+	ramp.add_point(0.3, Color(1.0, 0.58, 0.14, 1.0))
+	ramp.set_color(ramp.get_point_count() - 1, Color(0.85, 0.25, 0.04, 0.0))
 	_sparks.color_ramp = ramp
-	var b: BoxMesh = BoxMesh.new()
-	b.size = Vector3(0.07, 0.07, 0.07)
+	var q: QuadMesh = QuadMesh.new()
+	q.size = Vector2(0.014, 0.075)
 	var m: StandardMaterial3D = StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.vertex_color_use_as_albedo = true
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	b.material = m
-	_sparks.mesh = b
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	m.billboard_keep_scale = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	q.material = m
+	_sparks.mesh = q
 	_sparks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_sparks)
+	# concrete ledges and curbs kick up a little grit instead
+	_grit = _make_dust(10, 0.35, 1.0, 0.18)
+	_grit.one_shot = false
+	_grit.explosiveness = 0.0
+	_grit.emitting = false
 
 
 ## Called by Skater._process every frame.
@@ -104,9 +119,15 @@ func tick(_dt: float) -> void:
 		return
 	var s: Skater = skater
 	var foot: Vector3 = s.global_position + Vector3.UP * 0.05
-	# sparks ride the board while grinding
+	# sparks off metal (rails, coping) while grinding; grit off concrete (ledges, curbs)
+	var grinding: bool = s.state == Skater.State.GRIND
+	var metal: bool = grinding and s.grind_line != null and (s.grind_line.kind == "rail" or s.grind_line.kind == "coping")
 	_sparks.global_position = foot
-	_sparks.emitting = s.state == Skater.State.GRIND
+	_sparks.emitting = metal
+	if metal:                                   # thrown back off the trucks, away from the way it is going
+		_sparks.direction = (-s.hdg * 0.8 + Vector3.UP * 0.6).normalized()
+	_grit.global_position = foot
+	_grit.emitting = grinding and not metal
 	# push dust from the back wheels on the flat
 	_dust_push.global_position = foot
 	var kicking: bool = s.state == Skater.State.GROUND and s.pushing and not s.braking and s.velocity.length() < 7.0 and s.surface != "grass"
