@@ -13,6 +13,7 @@ var _rest_g: Array[Transform3D] = []      # rest global poses (skeleton space)
 var _t: float = 0.0
 var _seed: float = 0.0
 var _root_y: float = 0.0
+const HAT_UP: float = 0.2         # head bone origin -> the crown, metres (bone space)
 
 
 func _ready() -> void:
@@ -25,6 +26,38 @@ func _ready() -> void:
 	RiderRig.prepare_character(ch, 1.0)
 	_seed = randf() * 10.0
 	_root_y = ch.position.y
+
+
+## A paper party hat (a striped cone with a pom-pom) on the head bone.
+func wear_party_hat(color: Color) -> void:
+	var att: BoneAttachment3D = BoneAttachment3D.new()
+	att.bone_name = "head"
+	skel.add_child(att)
+	var m: StandardMaterial3D = StandardMaterial3D.new()
+	m.albedo_color = color
+	m.roughness = 0.6
+	var cone: CylinderMesh = CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.075
+	cone.height = 0.2
+	cone.radial_segments = 14
+	cone.material = m
+	var hat: MeshInstance3D = MeshInstance3D.new()
+	hat.mesh = cone
+	# the head bone runs up the neck into the skull: sit the hat on the crown, tipped back a touch
+	hat.position = Vector3(0.0, HAT_UP, -0.01)
+	hat.rotation = Vector3(-0.2, 0.0, 0.0)
+	att.add_child(hat)
+	var pom: SphereMesh = SphereMesh.new()
+	pom.radius = 0.028
+	pom.height = 0.056
+	var pm: StandardMaterial3D = StandardMaterial3D.new()
+	pm.albedo_color = Color(0.98, 0.97, 0.94)
+	pom.material = pm
+	var p: MeshInstance3D = MeshInstance3D.new()
+	p.mesh = pom
+	p.position = Vector3(0.0, 0.1, 0.0)
+	hat.add_child(p)
 
 
 func cheer(seconds: float = 2.5) -> void:

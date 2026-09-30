@@ -28,6 +28,19 @@ func _run() -> void:
 	hud = world.get("hud")
 	await _wait(0.9)
 	await _shot("card")
+	# the kids in their party hats, close up
+	var runner: EventRunner = world.get("runner")
+	var kid: Node3D = runner._kids[0]
+	var kc: Camera3D = Camera3D.new()
+	kc.fov = 35.0
+	world.add_child(kc)
+	var at: Vector3 = kid.global_position + Vector3.UP * 1.25
+	kc.global_transform = Transform3D(Basis.looking_at(-kid.global_basis.z * -1.0 * -1.0, Vector3.UP), at + kid.global_basis.z * 2.6 + Vector3.UP * 0.2).looking_at(at, Vector3.UP)
+	kc.current = true
+	await _wait(0.3)
+	await _shot("kid")
+	kc.queue_free()
+	(world.get("cam") as Camera3D).current = true
 	world.set_process(false)                 # the world would reset the meters every frame
 	var names: Array[String] = ["Kickflip", "50-50 Grind", "Manual", "Pop Shove-it", "Indy"]
 	hud.set_combo(4, names, 1850, true)

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Polish: the party looks like a party
+- Birthday at the Park dresses the park for the day (`dressing` in the event, built by `EventRunner`): a HAPPY BIRTHDAY LEO! banner on two poles across the path in, bunches of balloons tied to the picnic tables, the cake table, the lamps and the banner poles (they lean and turn in the breeze), a pile of wrapped presents by the cake table, and party hats on the kids.
+- Title cards stay between the goal list and the clock, and long lines wrap onto two.
+
 ### Polish: feel and sound
 - **Landings have weight:** the camera dips on a spring when you land (bigger air, deeper dip) and settles with a small rebound; a bail presses it too. The random camera shake is gone.
 - **The park sounds alive:** a seamless ambience loop synthesised in `audio/build_ambience.py` (gusting wind, leaves rustling in the gusts, distant traffic with a car passing, five birds with their own calls placed around the stereo field). It plays under the park, the birthday and the title (quieter), and goes quiet with the effects when paused. 330 KB.

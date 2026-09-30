@@ -25,6 +25,7 @@ var _guests: Array[Npc] = []
 var _cake: Node3D
 var _cake_state: String = "waiting"    # waiting / carried / delivered
 var _t: float = 0.0
+var _bunches: Array[Node3D] = []
 
 
 func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKeeper) -> void:
@@ -36,6 +37,7 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 	score.banked.connect(_on_banked)
 	score.trick_added.connect(_on_trick)
 	skater.bailed.connect(_on_bailed)
+	_dress(ev.get("dressing", {}))
 	for gd in ev.get("guests", []):
 		var guest: Npc = Npc.new()
 		guest.char_key = gd["char"]
@@ -65,6 +67,8 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 					add_child(kid)
 					kid.global_transform = level.markers[mk]
 					_kids.append(kid)
+					if ev.get("dressing", {}).get("party_hats", false):
+						kid.wear_party_hat(PARTY_COLORS[i % PARTY_COLORS.size()])
 
 
 ## For the HUD: [{"text", "done"}], with progress in the text.
@@ -108,6 +112,9 @@ func _complete(id: String) -> void:
 func _process(dt: float) -> void:
 	_t += dt
 	var rider: Vector3 = skater.rider_position()
+	for b in _bunches:                          # tied balloons lean and turn a little in the breeze
+		var ph: float = b.get_meta("phase")
+		b.rotation = Vector3(sin(_t * 0.9 + ph) * 0.07, sin(_t * 0.4 + ph) * 0.3, cos(_t * 0.7 + ph) * 0.07)
 	# balloons bob and are grabbed by riding (or flying) through them
 	for l in _letters.keys():
 		var b: Node3D = _letters[l]
@@ -198,6 +205,147 @@ func _on_banked(points: int, _n: int) -> void:
 	for g in ev["goals"]:
 		if g["kind"] == "combo" and points >= int(g["points"]):
 			_complete(g["id"])
+
+
+const PARTY_COLORS: Array[Color] = [Color(0.92, 0.2, 0.25), Color(0.2, 0.5, 0.95), Color(1.0, 0.78, 0.15),
+	Color(0.25, 0.75, 0.4), Color(0.85, 0.35, 0.8), Color(1.0, 0.55, 0.2), Color(0.97, 0.97, 0.95)]
+
+
+## The event's decorations: balloon bunches, a banner, presents.
+func _dress(d: Dictionary) -> void:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 42
+	for at in d.get("balloons", []):
+		_bunch(at, rng)
+	if d.has("banner"):
+		_banner(d["banner"])
+	if d.has("gifts"):
+		_gifts(d["gifts"], rng)
+
+
+static func _latex(c: Color) -> StandardMaterial3D:
+	var m: StandardMaterial3D = StandardMaterial3D.new()
+	m.albedo_color = c
+	m.roughness = 0.2
+	m.clearcoat_enabled = true
+	m.rim_enabled = true
+	m.rim = 0.25
+	return m
+
+
+## Three to five balloons on strings tied to one point; the bunch sways about the knot.
+func _bunch(at: Vector3, rng: RandomNumberGenerator) -> void:
+	var root: Node3D = Node3D.new()
+	add_child(root)
+	root.global_position = at
+	root.set_meta("phase", rng.randf() * TAU)
+	_bunches.append(root)
+	var string_mat: StandardMaterial3D = StandardMaterial3D.new()
+	string_mat.albedo_color = Color(0.95, 0.95, 0.95)
+	var n: int = rng.randi_range(3, 5)
+	for i in n:
+		var a: float = TAU * i / n + rng.randf_range(-0.3, 0.3)
+		var top: Vector3 = Vector3(cos(a) * 0.28, rng.randf_range(1.5, 2.1), sin(a) * 0.28)
+		var sph: SphereMesh = SphereMesh.new()
+		sph.radius = 0.2
+		sph.height = 0.46
+		sph.radial_segments = 16
+		sph.rings = 10
+		sph.material = _latex(PARTY_COLORS[rng.randi_range(0, PARTY_COLORS.size() - 1)])
+		var b: MeshInstance3D = MeshInstance3D.new()
+		b.mesh = sph
+		b.position = top
+		b.rotation = Vector3(rng.randf_range(-0.2, 0.2), 0.0, rng.randf_range(-0.2, 0.2))
+		root.add_child(b)
+		var line: CylinderMesh = CylinderMesh.new()
+		line.top_radius = 0.003
+		line.bottom_radius = 0.003
+		line.height = top.length()
+		line.radial_segments = 4
+		line.material = string_mat
+		var s_mi: MeshInstance3D = MeshInstance3D.new()
+		s_mi.mesh = line
+		s_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(s_mi)
+		# a cylinder stands along Y: turn it to run from the knot to the balloon
+		s_mi.transform = Transform3D(Basis(Quaternion(Vector3.UP, top.normalized())), top * 0.5)
+
+
+## A cloth banner with lettering between two poles, readable from the plaza side.
+func _banner(bd: Dictionary) -> void:
+	var a: Vector3 = bd["a"]
+	var b: Vector3 = bd["b"]
+	var h: float = float(bd.get("height", 2.4))
+	var pole_mat: StandardMaterial3D = StandardMaterial3D.new()
+	pole_mat.albedo_color = Color(0.93, 0.93, 0.9)
+	pole_mat.roughness = 0.5
+	for p in [a, b]:
+		var c: CylinderMesh = CylinderMesh.new()
+		c.top_radius = 0.035
+		c.bottom_radius = 0.04
+		c.height = h + 0.9
+		c.material = pole_mat
+		var mi: MeshInstance3D = MeshInstance3D.new()
+		mi.mesh = c
+		add_child(mi)
+		mi.global_position = p + Vector3.UP * (h + 0.9) * 0.5
+	var span: Vector3 = b - a
+	var cloth: QuadMesh = QuadMesh.new()
+	cloth.size = Vector2(span.length() - 0.1, 0.8)
+	var cm: StandardMaterial3D = StandardMaterial3D.new()
+	cm.albedo_color = Color(0.98, 0.95, 0.88)
+	cm.roughness = 0.9
+	cm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	cloth.material = cm
+	var q: MeshInstance3D = MeshInstance3D.new()
+	q.mesh = cloth
+	add_child(q)
+	var mid: Vector3 = (a + b) * 0.5 + Vector3.UP * (h + 0.35)
+	var along: Vector3 = span.normalized()
+	var facing: Vector3 = along.cross(Vector3.UP)          # the side the text reads from
+	if facing.x > 0.0:
+		facing = -facing                                    # toward the plaza (west)
+	q.global_transform = Transform3D(Basis(along if facing.cross(Vector3.UP).dot(along) < 0.0 else -along, Vector3.UP, facing), mid)
+	var l: Label3D = Label3D.new()
+	l.text = String(bd["text"])
+	l.font = UiKit.FONT_DISPLAY
+	l.font_size = 160
+	l.pixel_size = 0.0028
+	l.modulate = Color(0.9, 0.22, 0.28)
+	l.outline_size = 0
+	l.double_sided = false
+	l.shaded = true
+	add_child(l)
+	l.global_transform = Transform3D(Basis.looking_at(-facing, Vector3.UP), mid + facing * 0.012)
+
+
+## A little pile of presents: wrapped boxes with a ribbon each way.
+func _gifts(at: Vector3, rng: RandomNumberGenerator) -> void:
+	var ribbon: StandardMaterial3D = StandardMaterial3D.new()
+	ribbon.albedo_color = Color(1.0, 0.85, 0.3)
+	ribbon.roughness = 0.35
+	var y: float = 0.0
+	for i in 5:
+		var size: Vector3 = Vector3(rng.randf_range(0.28, 0.5), rng.randf_range(0.18, 0.34), rng.randf_range(0.28, 0.45))
+		var off: Vector3 = Vector3(rng.randf_range(-0.55, 0.55), 0.0, rng.randf_range(-0.45, 0.45))
+		var stacked: bool = i >= 3
+		var base_y: float = y if stacked else 0.0
+		var root: Node3D = Node3D.new()
+		add_child(root)
+		root.global_transform = Transform3D(Basis(Vector3.UP, rng.randf() * TAU), at + (off * 0.3 if stacked else off) + Vector3.UP * base_y)
+		var wrap: StandardMaterial3D = StandardMaterial3D.new()
+		wrap.albedo_color = PARTY_COLORS[(i * 3 + 1) % PARTY_COLORS.size()]
+		wrap.roughness = 0.45
+		for part in [[size, wrap], [Vector3(size.x + 0.01, size.y + 0.005, 0.05), ribbon], [Vector3(0.05, size.y + 0.006, size.z + 0.01), ribbon]]:
+			var bm: BoxMesh = BoxMesh.new()
+			bm.size = part[0]
+			bm.material = part[1]
+			var mi: MeshInstance3D = MeshInstance3D.new()
+			mi.mesh = bm
+			mi.position = Vector3.UP * (part[0] as Vector3).y * 0.5
+			root.add_child(mi)
+		if i == 2:
+			y = size.y
 
 
 ## A party balloon with its letter: a glossy latex sphere, a knot, a string and the letter on it.

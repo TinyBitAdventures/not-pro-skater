@@ -210,8 +210,8 @@ func _build_card() -> void:
 	card.anchor_right = 0.5
 	card.anchor_top = 0.2
 	card.anchor_bottom = 0.2
-	card.offset_left = -560.0
-	card.offset_right = 560.0
+	card.offset_left = -390.0          # clear of the goal panel on the left and the clock on the right
+	card.offset_right = 390.0
 	card.add_theme_constant_override("separation", 6)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(card)
@@ -456,7 +456,9 @@ static func _fill_goals(box_parent: VBoxContainer, items: Array) -> void:
 func announce(text: String, color: Color = PAPER, seconds: float = 1.6) -> void:
 	card_label.text = text.to_upper()
 	var w: float = get_viewport().get_visible_rect().size.x if is_inside_tree() else 1600.0
-	card_label.add_theme_font_size_override("font_size", int(clampf(minf(w, 1120.0) * 1.9 / maxf(text.length(), 1.0), 34.0, 64.0)))
+	# short titles big; long lines smaller and wrapped onto two lines within the card
+	var fit: float = 780.0 * 1.9 * (2.0 if text.length() > 26 else 1.0) / maxf(text.length(), 1.0)
+	card_label.add_theme_font_size_override("font_size", int(clampf(fit, 34.0, 64.0)))
 	card_label.add_theme_color_override("font_color", color)
 	card_rule.color = ACCENT if color == PAPER else color
 	card_rule.custom_minimum_size.x = 40.0
