@@ -81,6 +81,8 @@ var _vert_up0: Vector3 = Vector3.UP
 var _vert_fwd0: Vector3 = Vector3.FORWARD
 var _vert_yaw0: float = 0.0
 var vert_air: bool = false               # left a steep face: the air stays in the wall's plane
+var floor_vert: bool = false             # the board is on a quarter / half pipe transition (Level tags them)
+var _vert_gs: float = 1.0                # gravity scale for this vert air (the float grows with the wall's steepness)
 var vert_out: Vector3 = Vector3.ZERO     # horizontal, pointing away from that wall
 var _vert_plane: float = 0.0
 var _vert_turn_left: float = 0.0         # automatic turn still to do in vert air (signed radians)
@@ -550,6 +552,8 @@ func _probe_floor(up: Vector3, contact_n: Vector3) -> Vector3:
 	var n: Vector3 = hit["normal"]
 	if n.angle_to(up) > 0.7 and n.angle_to(contact_n) > 0.7:
 		return contact_n                      # the ray found a wall face, not the floor
+	var col: Object = hit.get("collider")
+	floor_vert = col != null and bool(col.get_meta("vert", false))
 	return n
 
 
@@ -653,12 +657,15 @@ func _enter_air() -> void:
 	air_fwd = heading_h()
 
 
-## Leaving a steep face going up (the top of a quarter pipe or vert wall) locks the air to the wall's plane,
-## so the skater comes back down the same ramp, turning 180 on the way. Riding across the face at an angle
-## (a hip) skips the lock, and the transfer button (manual) at the lip breaks it (see _air).
+## Leaving a quarter or half pipe going up locks the air to the wall's plane, so the skater comes back down
+## the same ramp, turning 180 on the way, like a skate game: at any angle of approach (riders rarely hit a wall
+## dead straight) and from a pop partway up the face. Only riding almost along the coping skips it. On other
+## steep faces (not tagged as a transition by Level) riding across at an angle skips the lock, so hips still
+## send you across. The transfer button (manual) at the lip breaks it (see _air).
 func _maybe_vert(_popped: bool) -> void:
 	var n: Vector3 = floor_n
-	if n.y > tune.vert_normal_y or velocity.y <= 0.5:
+	var steep_y: float = tune.vert_face_y if floor_vert else tune.vert_normal_y
+	if n.y > steep_y or velocity.y <= 0.5:
 		return
 	var out: Vector3 = Vector3(n.x, 0.0, n.z)
 	if out.length() < 0.2:
@@ -666,9 +673,13 @@ func _maybe_vert(_popped: bool) -> void:
 	out = out.normalized()
 	var h: Vector3 = Vector3(hdg.x, 0.0, hdg.z)
 	var fall: Vector3 = -out                  # up the face, horizontally
-	if h.length() > 0.1 and rad_to_deg(h.normalized().angle_to(fall)) > tune.transfer_angle \
-			and rad_to_deg(h.normalized().angle_to(out)) > tune.transfer_angle:
+	var limit: float = tune.vert_along_angle if floor_vert else tune.transfer_angle
+	if h.length() > 0.1 and rad_to_deg(h.normalized().angle_to(fall)) > limit \
+			and rad_to_deg(h.normalized().angle_to(out)) > limit:
 		return
+	# the float and the lip's pop damping belong to steep take-offs: a hop from low on the face stays a hop
+	var steep: float = clampf((0.8 - n.y) / (0.8 - tune.vert_normal_y), 0.0, 1.0)
+	_vert_gs = lerpf(1.0, tune.vert_gravity_scale, steep)
 	vert_air = true
 	vert_out = out
 	_vert_plane = global_position.dot(out)
@@ -683,7 +694,7 @@ func _maybe_vert(_popped: bool) -> void:
 	air_fwd = _vert_fwd0
 	velocity -= out * velocity.dot(out)
 	var vy: float = maxf(velocity.y, 0.5)
-	var gs: float = tune.vert_gravity_scale
+	var gs: float = _vert_gs
 	var t_total: float = vy / (tune.air_gravity_up * gs) + sqrt(vy * vy / (tune.air_gravity_up * tune.air_gravity_down * gs * gs))
 	var side: float = inp.world_dir.dot(out.cross(Vector3.UP))
 	if absf(side) < 0.2:
@@ -727,7 +738,7 @@ func _air(dt: float) -> void:
 	if absf(velocity.y) < tune.apex_hang_speed:
 		grav *= tune.apex_hang_gravity        # a little float at the top of every jump
 	if vert_air:
-		grav *= tune.vert_gravity_scale       # vert airs hang: that is where the big tricks happen
+		grav *= _vert_gs                      # vert airs hang: that is where the big tricks happen
 	velocity.y -= grav * dt
 	var d: Vector3 = inp.world_dir
 	d.y = 0.0

@@ -22,6 +22,7 @@ const HEAD_LOOK: float = 70.0            # head turned from the chest toward the
 const CAPSULE_TO_CONTACT: float = 0.02
 const GETUP_TIME: float = 0.75
 const SETTLE_SPEED: float = 0.45
+const WALK_TURN: float = 5.0             # rad/s: turning round toward the board before walking to it
 const CARRY_OFFSET: Vector3 = Vector3(0.36, -0.4, 0.0)   # shoulders' midpoint -> the carried thing (chest is +X)
 const CARRY_HALF_W: float = 0.17
 
@@ -497,8 +498,10 @@ func _apply_rig(sk: Skater) -> void:
 		var phk: float = _gait
 		var on_k: float = _step_on
 		var lift_k: float = 0.14 + (_stride - 0.28) * 0.5
-		front = Vector3(cos(phk) * _stride, maxf(0.0, sin(phk)) * lift_k, -0.1).lerp(front, on_k)
-		back = Vector3(-cos(phk) * _stride, maxf(0.0, -sin(phk)) * lift_k, 0.1).lerp(back, on_k)
+		# a foot lifts while it swings forward (x rising) and is planted while it pushes back: the lift used to
+		# come in the backward half, which read as walking backwards
+		front = Vector3(cos(phk) * _stride, maxf(0.0, -sin(phk)) * lift_k, -0.1).lerp(front, on_k)
+		back = Vector3(-cos(phk) * _stride, maxf(0.0, sin(phk)) * lift_k, 0.1).lerp(back, on_k)
 		front_ang = lerpf(0.0, front_ang, on_k)
 		back_ang = lerpf(0.0, back_ang, on_k)
 	# feet ride the board's tilt on the ground and on rails (manuals, boardslides), not its flips in the air
@@ -516,8 +519,9 @@ func _apply_rig(sk: Skater) -> void:
 	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
 	if _walk_mode:
 		var sw: float = 0.12 + (_stride - 0.28) * 0.8
-		free_l = sh_l + Vector3(0.1, -0.42, -0.05 + cos(_gait) * sw)
-		free_r = sh_r + Vector3(-0.08, -0.42, 0.05 - cos(_gait) * sw)
+		# arms swing forward and back (walking is chest first, +X), each against its own leg
+		free_l = sh_l + Vector3(0.04 - cos(_gait) * sw, -0.44, -0.06)
+		free_r = sh_r + Vector3(0.04 + cos(_gait) * sw, -0.44, 0.06)
 	var hand_l: Vector3 = free_l
 	var hand_r: Vector3 = free_r
 	if carry_item != null and is_instance_valid(carry_item) and not _walk_mode:
@@ -659,8 +663,15 @@ func _walk(sk: Skater, dt: float) -> void:
 		_gait += dt * 7.0
 		_stride = 0.28
 		if dist > 0.02:
-			_walk_dir = _walk_dir.slerp(to / dist, 1.0 - exp(-8.0 * dt)).normalized()
-			_walk_pos += (to / dist) * minf(pace * dt, dist)
+			# turn to face the board first (it is often behind: the run-out carried the rider past it), then
+			# walk; slerping toward a direction right behind never turned, so the rider walked backwards
+			var want: Vector3 = to / dist
+			var ang: float = _walk_dir.signed_angle_to(want, Vector3.UP)
+			if absf(ang) > PI - 0.05:
+				ang = PI - 0.05                 # straight behind: pick a side and turn
+			_walk_dir = _walk_dir.rotated(Vector3.UP, clampf(ang, -WALK_TURN * dt, WALK_TURN * dt)).normalized()
+			var facing: float = clampf(_walk_dir.dot(want), 0.0, 1.0)
+			_walk_pos += want * minf(pace * dt * facing * facing, dist)
 			_walk_pos = _ground_under(_walk_pos + Vector3.UP * 0.5)
 		_step_on = 1.0 - clampf(dist / 0.6, 0.0, 1.0)
 		if dist < 0.06:

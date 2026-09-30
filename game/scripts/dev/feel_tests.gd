@@ -8,7 +8,7 @@ const DT: float = 1.0 / 120.0
 const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert", "transfer", "curve_rail", "kink",
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
 	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
-	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish"]
+	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate"]
 
 var level: Level
 var sk: Skater
@@ -57,7 +57,7 @@ func _run() -> void:
 
 # ------------------------------------------------------------------ helpers
 
-func _spawn(start: String, v0: float = 0.0, offset: Vector3 = Vector3.ZERO) -> void:
+func _spawn(start: String, v0: float = 0.0, offset: Vector3 = Vector3.ZERO, turn_deg: float = 0.0) -> void:
 	if sk != null:
 		sk.queue_free()
 		await get_tree().physics_frame
@@ -75,6 +75,8 @@ func _spawn(start: String, v0: float = 0.0, offset: Vector3 = Vector3.ZERO) -> v
 	sk.score.trick_added.connect(func(t: String, _p: int) -> void: tricks.append(t))
 	var xf: Transform3D = level.starts[start]
 	xf.origin += offset
+	if turn_deg != 0.0:
+		xf.basis = xf.basis.rotated(Vector3.UP, deg_to_rad(turn_deg))
 	sk.place_at(xf)
 	await get_tree().physics_frame
 	if offset.y < 0.5:
@@ -603,3 +605,73 @@ func _t_land(deg: float, name: String) -> void:
 		want = "rolls away fakie"
 	_result(name, ok, "board %.0f deg off travel -> bailed=%s, board vs travel after %.1f deg, fakie=%s (want: %s)" % [
 		deg, bailed, off, fakie, want])
+
+
+## Up a half pipe wall at an angle: the air must stay in the ramp (come back down the same transition, rolling
+## back toward the flat), not fly off over the deck. Riders rarely hit a wall dead straight.
+func _t_mini_angle() -> void:
+	await _mini_run("mini_angle", 20.0, false, Vector3(3.0, 0, 0))
+
+
+## A pop partway up the face (jump released early): straight up and back down the transition, like a skate game.
+func _t_mini_pop() -> void:
+	await _mini_run("mini_pop", 10.0, true, Vector3(0.6, 0, 0))
+
+
+func _mini_run(test_name: String, turn: float, pop_on_face: bool, offset: Vector3) -> void:
+	await _spawn("mini", 10.5, offset, turn)
+	_coast()
+	var start_z: float = sk.global_position.z
+	var into: float = -signf(sk.hdg.z)          # heading toward the wall along z
+	var took_off: bool = false
+	var popped: bool = false
+	var landed_y: float = INF
+	var landed_n: float = 1.0
+	var back: bool = false
+	var max_y: float = 0.0
+	for i in 600:
+		if pop_on_face and not popped and sk.state == Skater.State.GROUND and sk.floor_n.y < 0.8 and sk.velocity.y > 0.5:
+			sk.inp.ollie_pressed = true
+			popped = true
+		var was: int = sk.state
+		await _tick()
+		if sk.state == Skater.State.AIR and sk.global_position.y > 0.8:
+			took_off = true
+		if sk.state == Skater.State.AIR:
+			max_y = maxf(max_y, sk.global_position.y)
+		if took_off and was == Skater.State.AIR and sk.state != Skater.State.AIR:
+			landed_y = sk.global_position.y
+			landed_n = sk.floor_n.y
+			await _tick(30)
+			back = (sk.global_position.z - start_z) * into < 1.6 and sk.state == Skater.State.GROUND   # back down toward the flat
+			break
+	# landed back on the curved transition (not the deck, not out on the flat), then rolled back down it
+	var on_curve: bool = landed_n < 0.97 and landed_y > 0.1 and landed_y < 1.72
+	var ok: bool = took_off and on_curve and back and bails.is_empty() and (not pop_on_face or popped)
+	_result(test_name, ok, "%s: air up to %.2f m, landed at y %.2f on a %.0f deg slope (want the transition, not the deck or the flat), rolled back %s, bails=%s" % [
+		"pop on the face" if pop_on_face else "%d deg approach" % int(turn), max_y, landed_y,
+		rad_to_deg(acos(clampf(landed_n, -1.0, 1.0))), back, bails])
+
+
+## Full stick in the air: a 360 should take most of a second, not a flick (it was 630 deg/s in 0.18 s).
+func _t_spin_rate() -> void:
+	await _spawn("flat", 0.0, Vector3(0, 3.0, 0))
+	sk._enter_air()
+	sk.inp.move = Vector2(1, 0)
+	sk.inp.world_dir = sk.hdg.cross(Vector3.UP)     # screen steering: the stick points right
+	var t: float = 0.0
+	var start_yaw: float = sk.yaw
+	var t360: float = -1.0
+	var t_half: float = -1.0
+	for i in 240:
+		await _tick()
+		t += 1.0 / 120.0
+		var turned: float = absf(sk.yaw - start_yaw)
+		if t_half < 0.0 and absf(sk.spin_vel) >= sk.tune.spin_max * 0.5:
+			t_half = t
+		if turned >= TAU:
+			t360 = t
+			break
+		sk.velocity.y = 0.0                     # hold it in the air
+	_result("spin_rate", t360 > 0.75 and t360 < 1.2 and t_half > 0.08, "360 in %.2f s (want 0.75 - 1.2), half speed after %.2f s" % [t360, t_half])
+

@@ -124,6 +124,9 @@ func _watch_run(label: String, secs: float) -> Dictionary:
 	var run_dist: float = 0.0
 	var start: Vector3 = Vector3.ZERO
 	var kind0: String = ""
+	var back_steps: int = 0          # frames walking against the way the rider faces (moonwalking)
+	var walk_steps: int = 0
+	var last_walk: Vector3 = Vector3.INF
 	while t < secs:
 		await get_tree().physics_frame
 		t += 1.0 / 120.0
@@ -137,6 +140,16 @@ func _watch_run(label: String, secs: float) -> Dictionary:
 				phases.append(rig.phys_phase)
 			if sk.run_state == "run":
 				run_dist = start.distance_to(sk.global_position)
+			if rig.phys_phase == "walk":
+				if last_walk != Vector3.INF:
+					var mv: Vector3 = rig._walk_pos - last_walk
+					mv.y = 0.0
+					if mv.length() > 0.004:
+						walk_steps += 1
+						if mv.normalized().dot(rig._walk_dir) < 0.0:
+							back_steps += 1
+				last_walk = rig._walk_pos
 		elif bailed:
-			return {"started_as": kind0, "phases": phases, "ran_m": snappedf(run_dist, 0.01), "back_on_after_s": snappedf(t, 0.01), "done": true}
+			return {"started_as": kind0, "phases": phases, "ran_m": snappedf(run_dist, 0.01), "back_on_after_s": snappedf(t, 0.01),
+				"done": true, "walking_backwards": "%d / %d frames" % [back_steps, walk_steps]}
 	return {"started_as": kind0, "phases": phases, "ran_m": snappedf(run_dist, 0.01), "done": false}

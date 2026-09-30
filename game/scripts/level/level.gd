@@ -48,6 +48,7 @@ func load_glb(path: String, look: String = "real") -> void:
 		var sname: String = _surface_of(b)
 		b.reparent(collision_root, true)
 		b.set_meta("surface", sname)
+		b.set_meta("vert", _is_transition(b))
 		b.collision_layer = 1
 		b.collision_mask = 0
 
@@ -111,6 +112,26 @@ func link_rails() -> void:
 					var into_b: Vector3 = b.dir_at(0.0) if end_b == "start" else -b.dir_at(b.length)
 					if out_a.angle_to(into_b) <= LINK_ANGLE:
 						a.links[end_a] = [b, end_b == "start"]
+
+
+## A quarter pipe, half pipe or vert wall: its riding surface curves up past VERT_TAG_ANGLE. Kickers, hips,
+## banks and pyramids stay shallower (a kicker tops out around 35 degrees), so they still launch you.
+const VERT_TAG_ANGLE: float = 57.0
+
+static func _is_transition(b: StaticBody3D) -> bool:
+	var limit: float = cos(deg_to_rad(VERT_TAG_ANGLE))
+	for c in b.get_children():
+		var cs: CollisionShape3D = c as CollisionShape3D
+		if cs == null or not (cs.shape is ConcavePolygonShape3D):
+			continue
+		var basis: Basis = cs.global_transform.basis
+		var faces: PackedVector3Array = (cs.shape as ConcavePolygonShape3D).get_faces()
+		for i in range(0, faces.size(), 3):
+			var n: Vector3 = (basis * (faces[i + 1] - faces[i]).cross(faces[i + 2] - faces[i])).normalized()
+			var ny: float = absf(n.y)
+			if ny > 0.05 and ny < limit:          # a sloped face (not a floor, not a wall) steeper than the limit
+				return true
+	return false
 
 
 func _surface_of(b: Node) -> String:

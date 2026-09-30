@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Feel fixes (Austin's playtest)
+- **Half pipes keep you in the ramp:** Level tags quarter and half pipe transitions (a sloped face steeper than 57 degrees; kickers top out around 35), and leaving one going up locks the air to the ramp at any angle of approach and from a pop partway up the face; only riding almost along the coping skips it. Before, a diagonal line or releasing the jump before the lip launched you off the ramp (out over the flat or onto the deck). The float and the lip's pop damping scale with how steep the take-off was, so a hop from low on the face stays a hop. Hips and kickers still launch you across. Feel tests `mini_angle`, `mini_pop`.
+- **Spins are calmer:** 460 degrees a second at most, wound up over a quarter second (was 630 in under a fifth): a 360 takes about 0.9 s. Feel test `spin_rate`.
+- **No more moonwalking after a small bail:** the walking gait lifted each foot while it moved backwards, and the arms swung across the body; feet now lift on the forward swing and arms swing fore and aft. The rider also turns to face the board before walking to it when it is behind.
+
 ### Polish: gamepad hints
 - Hints follow the last device used: pick up a gamepad and the HUD, title and results show STICK, A, BACK, START (keyboard-only extras like the warp keys drop out); press a key and they switch back. The controls card lists keys and gamepad buttons side by side.
 

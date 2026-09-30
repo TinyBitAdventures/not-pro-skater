@@ -59,14 +59,16 @@ static var _shared: SkateTuning = null
 @export_range(5.0, 60.0, 0.5) var air_gravity_up: float = 26.0
 @export_range(5.0, 60.0, 0.5) var air_gravity_down: float = 34.0
 @export_range(0.0, 20.0, 0.1) var air_control: float = 3.0
-@export_range(1.0, 25.0, 0.5) var spin_max: float = 11.0
-@export_range(5.0, 200.0, 1.0) var spin_accel: float = 60.0
+@export_range(1.0, 25.0, 0.5) var spin_max: float = 8.0      ## rad/s: a 360 takes about 0.9 s (11 felt twitchy)
+@export_range(5.0, 200.0, 1.0) var spin_accel: float = 30.0    ## how quickly the spin winds up and settles
 @export_range(0.15, 1.2, 0.01) var flip_time: float = 0.44
 @export_range(0.0, 5.0, 0.1) var apex_hang_speed: float = 1.5   ## |vertical speed| below this counts as the top of a jump
 @export_range(0.1, 1.0, 0.05) var apex_hang_gravity: float = 0.55 ## gravity multiplier at the top: a little float
 
 @export_group("Vert")
 @export_range(0.0, 0.9, 0.01) var vert_normal_y: float = 0.45   ## leaving a face steeper than this (normal.y) locks the air to the wall
+@export_range(0.3, 0.99, 0.01) var vert_face_y: float = 0.93     ## on a quarter / half pipe, leaving the face anywhere steeper than this (normal.y) going up locks the air
+@export_range(40.0, 89.0, 1.0) var vert_along_angle: float = 78.0 ## on a quarter / half pipe, only riding this close to along the coping skips the lock
 @export_range(10.0, 90.0, 1.0) var transfer_angle: float = 50.0  ## riding across a face at more than this many degrees skips the lock (hips)
 @export_range(0.0, 6.0, 0.1) var transfer_push: float = 2.5    ## speed toward the deck when the transfer button breaks the lock
 @export_range(0.5, 20.0, 0.5) var vert_hold: float = 6.0        ## how hard the air is pulled back to the wall plane
