@@ -55,8 +55,8 @@ func _make_dust(amount: int, life: float, speed: float, size: float) -> CPUParti
 	sc.add_point(Vector2(1.0, 1.2))
 	p.scale_amount_curve = sc
 	var ramp: Gradient = Gradient.new()
-	ramp.set_color(0, Color(0.95, 0.93, 0.88, 0.75))
-	ramp.set_color(1, Color(0.95, 0.93, 0.88, 0.0))
+	ramp.set_color(0, Color(0.72, 0.68, 0.6, 0.38))     # grey-tan grit, faint: white puffs read as smoke
+	ramp.set_color(1, Color(0.72, 0.68, 0.6, 0.0))
 	p.color_ramp = ramp
 	var q: QuadMesh = QuadMesh.new()
 	q.size = Vector2(1, 1)

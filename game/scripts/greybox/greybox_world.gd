@@ -141,6 +141,11 @@ func _process(delta: float) -> void:
 		if skater.scripted:
 			skater.inp.move = Vector2(0, -1)
 			skater.inp.world_dir = skater.hdg if skater.state == Skater.State.GROUND else Vector3.ZERO
+			if OS.get_environment("GRAB_IN_AIR") != "":
+				skater.inp.grab_held = skater.state == Skater.State.AIR and skater.air_time > 0.12
+				if skater.state == Skater.State.AIR:
+					skater.inp.world_dir = Vector3.ZERO
+					skater.inp.move = Vector2.ZERO
 			if OS.get_environment("SHOT_WHEN") == "lip":
 				# lip trick: grind at the top of the air; LIP_STICK = forward/back/left/right picks the stall
 				var stick: String = OS.get_environment("LIP_STICK")
