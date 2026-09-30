@@ -626,14 +626,22 @@ func _apply_rig(sk: Skater) -> void:
 	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
 	var elbow_out: float = 0.3
 	if walking:
-		# arms hang and swing against the legs (walking is chest first, +X); jogging bends the elbows
+		# arms swing from the shoulder against the legs (walking is chest first, +X), worked out from joint angles:
+		# the upper arm swings, the elbow bends more as it comes forward (a jog holds it near 90 degrees). A hand
+		# target on a circle round the shoulder kept walking arms all but still and folded jogging forearms up in
+		# front like carrying a tray
 		var run_k: float = float(_gait_now["run"])
-		var arm: float = _arm_len * lerpf(0.93, 0.64, run_k)
-		var bias: float = lerpf(0.02, 0.12, run_k)
-		var al: float = deg_to_rad(float(_gait_now["arm_l"]))
-		var ar: float = deg_to_rad(float(_gait_now["arm_r"]))
-		free_l = free_l.lerp(sh_l + Vector3(sin(al) * arm + bias, -cos(al) * arm, -0.03), off_k)
-		free_r = free_r.lerp(sh_r + Vector3(sin(ar) * arm + bias, -cos(ar) * arm, 0.03), off_k)
+		var up_l: float = float(_up_len["upperarm_l"])
+		var lo_l: float = float(_up_len["lowerarm_l"])
+		var hands: Array = []
+		for side in [0, 1]:
+			var th: float = deg_to_rad(float(_gait_now["arm_l" if side == 0 else "arm_r"]))
+			var bend: float = deg_to_rad(lerpf(14.0, 78.0, run_k)) + maxf(0.0, th) * lerpf(0.9, 0.35, run_k)
+			var sh: Vector3 = sh_l if side == 0 else sh_r
+			var out: float = (-1.0 if side == 0 else 1.0) * lerpf(0.07, 0.04, run_k) * (1.0 - 0.5 * maxf(0.0, sin(th)))
+			hands.append(sh + Vector3(sin(th) * up_l + sin(th + bend) * lo_l, -cos(th) * up_l - cos(th + bend) * lo_l, out))
+		free_l = free_l.lerp(hands[0], off_k)
+		free_r = free_r.lerp(hands[1], off_k)
 		elbow_out = lerpf(0.3, 0.1, off_k)
 	var hand_l: Vector3 = free_l
 	var hand_r: Vector3 = free_r
@@ -1218,7 +1226,10 @@ func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
 			var q_yaw: float = rad_to_deg(wrapf(float(_plant[i][1]) - heading, -PI, PI))
 			var q_pitch: float = strike * (1.0 - smoothstep(0.0, 0.2, sg)) - roll * smoothstep(0.6, 1.0, sg)
 			# how high the pelvis can be over this foot with the knee all but straight (a little softer mid-stance)
-			var k: float = lerpf(lerpf(0.996, 0.97, run_k), lerpf(0.988, 0.9, run_k), sin(PI * sg))
+			# walking: a dip just after heel strike (the knee takes the weight), nearly straight mid-stance; a jog is
+			# softest mid-stance
+			var k_walk: float = 0.996 - 0.022 * sin(PI * clampf(sg / 0.4, 0.0, 1.0)) - 0.004 * sin(PI * sg)
+			var k: float = lerpf(k_walk, lerpf(0.988, 0.9, sin(PI * sg)), run_k)
 			var ankle: Vector3 = _foot_pose(q, Basis(Vector3.UP, deg_to_rad(q_yaw)), q_pitch)[0]
 			var hj: Vector3 = Vector3(_hip_joint.x, _hip_joint.y, absf(_hip_joint.z) * (1.0 if i == 1 else -1.0))
 			var dx: float = hj.x - ankle.x
@@ -1270,11 +1281,11 @@ func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
 		"hip": _hip_s,
 		"run": run_k,
 		# the pelvis turns the forward leg's hip forward; the shoulders turn back against it
-		"yaw": -ahead * lerpf(6.0, 9.0, run_k),
+		"yaw": -ahead * lerpf(9.0, 12.0, run_k),
 		# weight over the standing foot
 		"sway": -width * 0.45 * cos(TAU * (_gait - duty * 0.5)) * (1.0 - 0.6 * run_k) * move,
-		"arm_l": -ahead * lerpf(16.0, 40.0, run_k),
-		"arm_r": ahead * lerpf(16.0, 40.0, run_k),
+		"arm_l": -ahead * lerpf(24.0, 38.0, run_k) - lerpf(4.0, 10.0, run_k),     # (a little behind the body at rest:
+		"arm_r": ahead * lerpf(24.0, 38.0, run_k) - lerpf(4.0, 10.0, run_k),      # the swing is more back than forward)
 	}
 
 
