@@ -141,6 +141,7 @@ The feel tests cover coasting momentum, tile seams, rolling over a curb, being s
 ```bash
 godot --headless --path . --fixed-fps 120 res://scenes/dev_event.tscn      # plays every Birthday goal
 godot --headless --path . --fixed-fps 120 res://scenes/dev_jumptap.tscn    # quick taps always jump
+godot --headless --path . --fixed-fps 60 res://scenes/dev_jumphold.tscn    # a held Space never jumps until it is let go
 RIDER=dev godot --path . res://scenes/dev_rig.tscn --resolution 960x720     # pose tour -> ../shots/rig_*.png
 CHAR=dad godot --path . res://scenes/dev_char.tscn --resolution 1280x720    # character turnaround -> ../shots
 godot --path . res://scenes/dev_perf.tscn --resolution 1600x900             # fps, draw calls, judder (FPS=144 caps; DUMP=1, COST=1)

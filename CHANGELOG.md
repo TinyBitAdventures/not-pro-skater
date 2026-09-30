@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fix: holding Space never jumps by itself
+- In hold-to-jump mode, pressing Space on a grind or during a lip stall popped you off at once, on the press, which read as the jump letting go by itself while Space was still held (and the rail magnet can put you on a rail without you noticing). Those pops now wait for the release like every other jump; a release left over from just before a grind or stall no longer bounces you straight off. Tap mode is unchanged, and the wall plant still fires on the press.
+- `scenes/dev_jumphold.tscn` holds Space through real key events (with key repeat) while riding, pushing, tapping other keys, over seams and a curb, up a quarter pipe, onto a kicker, in a manual and on a grind: no jump until the release, and the POP charge never resets under a held key.
+
 ### Renamed: Not Pro Skater
 - The game is **Not Pro Skater** (was the working title Not Pro Skaters): title screen logo, window and browser tab title (`config/name`), docs. The repo folder is `~/Code/not-pro-skater`. Saves move to `user://not_pro_skater.cfg`; the old `not_pro_skaters.cfg` is still read when there is no new one.
 

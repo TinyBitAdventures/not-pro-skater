@@ -1223,6 +1223,7 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 	vert_air = false
 	_magnet_t = 0.0
 	_ollie_buf = 0.0
+	_release_buf = 0.0
 	_grind_buf = 0.0
 	flip_kind = ""
 	grab_kind = ""
@@ -1265,8 +1266,14 @@ func _grind(dt: float) -> void:
 		return
 	global_position = grind_line.point_at(grind_dist) + Vector3.UP * GRIND_ORIGIN_DY
 	velocity = d * grind_speed
-	if _ollie_buf > 0.0:
+	if _pop_asked():
 		_end_grind(true)
+
+
+## A jump off a rail or a lip stall: on the press in tap mode, on the release in hold mode (the jump is always
+## the release there: popping on the press read as the jump letting go by itself while Space was held).
+func _pop_asked() -> bool:
+	return _release_buf > 0.0 if charge_mode else _ollie_buf > 0.0
 
 
 ## Right of the travel direction along a rail, level (steep stair rails included).
@@ -1309,6 +1316,7 @@ func _end_grind(pop: bool) -> void:
 	if score != null:
 		score.release_hold("grind")
 	_ollie_buf = 0.0
+	_release_buf = 0.0
 	_grind_cd = 0.35
 	grind_line = null
 	grind_kind = ""
@@ -1385,6 +1393,7 @@ func _start_lip(line: GrindLine, c: Dictionary, out: Vector3) -> void:
 	_vert_turn_left = 0.0
 	_magnet_t = 0.0
 	_ollie_buf = 0.0
+	_release_buf = 0.0
 	_grind_buf = 0.0
 	flip_kind = ""
 	grab_kind = ""
@@ -1414,7 +1423,7 @@ func _lip(dt: float) -> void:
 		_end_lip(false)
 		_start_bail("lip")
 		return
-	if _ollie_buf > 0.0 or _lip_time >= tune.lip_max_time:
+	if _pop_asked() or _lip_time >= tune.lip_max_time:
 		_end_lip(true)
 
 
@@ -1431,6 +1440,7 @@ func _end_lip(pop: bool) -> void:
 	grind_line = null
 	grind_kind = ""
 	_ollie_buf = 0.0
+	_release_buf = 0.0
 	_grind_cd = 0.35
 	state = State.AIR
 	floor_snap_length = 0.0
