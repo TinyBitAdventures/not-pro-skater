@@ -50,7 +50,11 @@ func _ready() -> void:
 	layer.add_child(_fade)
 	_loading = UiKit.label("LOADING", 22, UiKit.MUTED, "bold")
 	_loading.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_loading.position = Vector2(-150, -64)
+	_loading.grow_horizontal = Control.GROW_DIRECTION_BEGIN     # right-aligned: "DOWNLOADING ... 42%" grows left
+	_loading.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_loading.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_loading.offset_right = -64.0
+	_loading.offset_bottom = -40.0
 	_loading.visible = false
 	layer.add_child(_loading)
 	load_save()
@@ -87,6 +91,14 @@ func go(path: String) -> void:
 	_loading.visible = true
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# web: a level that isn't in the main package comes as its own resource pack, fetched the first time
+	var level: String = Events.level_of_scene(path)
+	if level != "" and not ResourceLoader.exists(level):
+		if not await _fetch_pack(level):
+			_loading.text = "COULDN'T LOAD %s. CHECK THE CONNECTION." % Events.level_name(level).to_upper()
+			await get_tree().create_timer(2.5).timeout
+			_loading.text = "LOADING"
+			path = "res://scenes/title.tscn"
 	if path == "":
 		get_tree().reload_current_scene()
 	else:
@@ -97,6 +109,53 @@ func go(path: String) -> void:
 	var back: Tween = create_tween()
 	back.tween_property(_fade, "color:a", 0.0, 0.4)
 	_going = false
+
+
+## Download levels/<level>.pck (next to index.html) and mount it. Shows progress on the loading note.
+func _fetch_pack(level_gltf: String) -> bool:
+	var pack: String = level_gltf.get_file().get_basename()
+	var base: String = "levels/"
+	if OS.has_feature("web"):
+		var b: Variant = JavaScriptBridge.eval("new URL('levels/', document.baseURI).href")
+		if typeof(b) == TYPE_STRING:
+			base = String(b)
+	var url: String = base + pack + ".pck?v=" + String(ProjectSettings.get_setting("application/config/version", "0"))
+	var http: HTTPRequest = HTTPRequest.new()
+	http.use_threads = false
+	http.download_chunk_size = 4 * 1024 * 1024      # read per frame: the default 64 KB caps a 15 MB pack at ~4 MB/s
+	add_child(http)
+	var result: Array = []
+	http.request_completed.connect(func(r: int, code: int, _h: PackedStringArray, body: PackedByteArray) -> void:
+		result.append_array([r, code, body]))
+	if http.request(url) != OK:
+		http.queue_free()
+		return false
+	var label: String = Events.level_name(level_gltf).to_upper()
+	while result.is_empty():
+		var total: int = http.get_body_size()
+		var got: int = http.get_downloaded_bytes()
+		_loading.text = ("DOWNLOADING %s  %d%%" % [label, int(100.0 * got / total)]) if total > 0 else "DOWNLOADING " + label
+		await get_tree().process_frame
+	http.queue_free()
+	_loading.text = "LOADING"
+	var data: PackedByteArray = result[2]
+	if int(result[0]) != HTTPRequest.RESULT_SUCCESS or int(result[1]) != 200 or data.is_empty():
+		push_warning("level pack %s: request result %d, HTTP %d, %d bytes" % [url, int(result[0]), int(result[1]), data.size()])
+		return false
+	# the body comes in memory and is written out here: HTTPRequest.download_file left an empty file on the web's
+	# filesystem
+	DirAccess.make_dir_recursive_absolute("user://packs")
+	var file: String = "user://packs/%s.pck" % pack
+	var f: FileAccess = FileAccess.open(file, FileAccess.WRITE)
+	if f == null:
+		push_warning("level pack %s: can't write (%d)" % [file, FileAccess.get_open_error()])
+		return false
+	f.store_buffer(data)
+	f.close()
+	if not ProjectSettings.load_resource_pack(file) or not ResourceLoader.exists(level_gltf):
+		push_warning("level pack %s (%d bytes) didn't mount %s" % [file, data.size(), level_gltf])
+		return false
+	return true
 
 
 func is_dev_run() -> bool:
