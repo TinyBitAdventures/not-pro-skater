@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Polish: carrying the cake
+- The rider carries the birthday cake in both hands, held out in front of the belly (`RiderRig.carry_item`), instead of the cake floating by the chest while the arms balance; a crash lets go of it and it goes back to the table at the street, as before. The pose tour has a `carry` pose.
+
 ### Polish: grind sparks
 - Grinding metal (rails, coping) throws real sparks: thin streaks stretched along their flight, hot yellow to orange, thrown back off the trucks and falling fast. They used to be little yellow cubes. Concrete ledges and curbs kick up grit instead.
 

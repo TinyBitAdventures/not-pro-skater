@@ -22,6 +22,8 @@ const HEAD_LOOK: float = 70.0            # head turned from the chest toward the
 const CAPSULE_TO_CONTACT: float = 0.02
 const GETUP_TIME: float = 0.75
 const SETTLE_SPEED: float = 0.45
+const CARRY_OFFSET: Vector3 = Vector3(0.36, -0.4, 0.0)   # shoulders' midpoint -> the carried thing (chest is +X)
+const CARRY_HALF_W: float = 0.17
 
 var char_key: String = "dev"
 var model: Node3D
@@ -52,6 +54,7 @@ var feet_lift: float = 0.0
 var grab_amt: float = 0.0
 var vis_n: Vector3 = Vector3.UP
 var _t: float = 0.0
+var carry_item: Node3D = null            # something held in both hands in front of the belly (the cake)
 
 # physical bails: ragdoll fall -> get up (blend from the fallen pose) -> walk to the loose board -> step on
 var ragdoll: Ragdoll
@@ -509,7 +512,13 @@ func _apply_rig(sk: Skater) -> void:
 		free_r = sh_r + Vector3(-0.08, -0.42, 0.05 - cos(_gait) * sw)
 	var hand_l: Vector3 = free_l
 	var hand_r: Vector3 = free_r
-	if grab_amt > 0.01 and sk.grab_kind != "":
+	if carry_item != null and is_instance_valid(carry_item) and not _walk_mode:
+		# both hands under the sides of whatever is carried, held out in front of the belly
+		var c: Vector3 = (sh_l + sh_r) * 0.5 + CARRY_OFFSET
+		hand_l = c + Vector3(-0.03, -0.02, -CARRY_HALF_W)
+		hand_r = c + Vector3(-0.03, -0.02, CARRY_HALF_W)
+		carry_item.global_transform = global_transform * Transform3D(Basis.IDENTITY, c + Vector3(0.0, -0.06, 0.0))
+	elif grab_amt > 0.01 and sk.grab_kind != "":
 		var gp: Array = _grab_targets(sk.grab_kind, bt)
 		hand_l = free_l.lerp(gp[0], grab_amt * float(gp[2]))
 		hand_r = free_r.lerp(gp[1], grab_amt * float(gp[3]))

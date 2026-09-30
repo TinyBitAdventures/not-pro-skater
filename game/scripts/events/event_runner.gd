@@ -159,16 +159,18 @@ func _cake_tick() -> void:
 			var d: Vector2 = Vector2(skater.global_position.x - from.x, skater.global_position.z - from.z)
 			if d.length() < PICK_RADIUS and skater.state != Skater.State.BAIL:
 				_cake_state = "carried"
+				if skater.visual != null:
+					skater.visual.carry_item = _cake        # the rider holds it in both hands from now on
 				Sound.play("grab")
 				changed.emit()
 		"carried":
-			# held in front of the chest (the chest faces the board's +X in the rider's frame)
-			var v: Node3D = skater.visual
-			if v != null:
-				_cake.global_transform = v.global_transform * Transform3D(Basis.IDENTITY, Vector3(0.32, 1.15, -0.05))
+			if skater.visual == null:            # headless tests: no rider to hold it
+				_cake.global_position = skater.global_position + Vector3.UP * 1.1
 			var d2: Vector2 = Vector2(skater.global_position.x - to.x, skater.global_position.z - to.z)
 			if d2.length() < PICK_RADIUS + 0.4:
 				_cake_state = "delivered"
+				if skater.visual != null:
+					skater.visual.carry_item = null
 				_cake.global_transform = Transform3D(Basis.IDENTITY, to)
 				_complete(goal["id"])
 		"delivered":
@@ -178,6 +180,8 @@ func _cake_tick() -> void:
 func _on_bailed(_reason: String) -> void:
 	if _cake_state == "carried":
 		_cake_state = "waiting"          # dropped it: it goes back to the table at the street
+		if skater.visual != null:
+			skater.visual.carry_item = null
 		changed.emit()
 		goal_done.emit("", "CAKE DROPPED!  BACK TO THE STREET")
 

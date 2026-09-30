@@ -73,12 +73,17 @@ func _tour() -> void:
 		["manual", Skater.State.GROUND, {"manual_on": true}],
 		["runout", Skater.State.BAIL, {"bail_kind": "runout", "bail_time": 0.35, "bail_duration": 0.85}],
 		["slam", Skater.State.BAIL, {"bail_kind": "slam", "bail_time": 0.6, "bail_duration": 1.3}],
+		["carry", Skater.State.GROUND, {"velocity": Vector3(0, 0, -3)}],
 	]
+	var cake: Node3D = (load("res://assets/models/cake.glb") as PackedScene).instantiate()
+	add_child(cake)
 	var dir: String = ProjectSettings.globalize_path("res://").path_join("../shots")
 	for p in poses:
 		if only != "" and not String(p[0]).begins_with(only):
 			continue
 		_pose_as(p[1], p[2])
+		sk.visual.carry_item = cake if p[0] == "carry" else null
+		cake.visible = p[0] == "carry"
 		for i in 40:                      # let the smoothed pose settle
 			if sk.state == Skater.State.BAIL:
 				sk.bail_time = float(p[2]["bail_time"])
