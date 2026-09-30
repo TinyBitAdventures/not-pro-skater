@@ -1,58 +1,54 @@
 extends Node3D
-## Attract-mode title: the park with a few AI skaters, a slowly turning camera and a chunky menu.
+## Title: Neighborhood Park under a slowly circling camera, the chosen rider standing on the board, and the menu.
 
-const PARK_SCENE: String = "res://scenes/park.tscn"
+const EVENT_SCENE: String = "res://scenes/birthday.tscn"
+const FREE_SCENE: String = "res://scenes/neighborhood.tscn"
+const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
+const RIDERS: Array[String] = ["dev", "musician", "vlogger", "dad", "actor"]
+const CENTRE: Vector3 = Vector3(-12.0, 0.0, 4.0)
 
 var level: Level
-var cam: IsoCamera
-var star: Skater
+var cam: Camera3D
+var rider: Skater
 var ui: CanvasLayer
 var menu_panels: Array[PanelContainer] = []
 var menu_labels: Array[Label] = []
 var selected: int = 0
 var controls_panel: PanelContainer
 var best_label: Label
+var _orbit: float = 0.6
 
 
 func _ready() -> void:
-	WorldEnv.build(self)
 	level = Level.new()
 	add_child(level)
-	level.load_glb("res://assets/levels/community_park.glb")
-	cam = IsoCamera.new()
-	cam.ortho_size = 17.0
+	level.load_glb("res://assets/levels/neighborhood.glb", "real")
+	RealEnv.build(self, level.lightmap_info)
+	cam = Camera3D.new()
+	cam.fov = 50.0
 	add_child(cam)
-	for i in 4:
-		var s: Skater = Skater.new()
-		s.is_player = (i == 0)
-		s.look = {} if i == 0 else SkaterVisual.random_look(200 + i)
-		var lane: float = [36.0, 34.6, 37.4, 35.4][i]
-		var dir: float = 1.0 if i != 2 else -1.0
-		s.brain = SkaterBrain.new(lane, dir)
-		s.steer_mode = "screen"
-		s.brain.trick_every = Vector2(1.6, 4.0) if i == 0 else Vector2(3.0, 7.0)
-		s.grind_lines = level.grind_lines
-		add_child(s)
-		var a: float = deg_to_rad(-70.0 + i * 95.0)
-		var tangent: Vector3 = Vector3(-sin(a), 0.0, -cos(a)) * dir
-		s.place_at(Transform3D(Basis.looking_at(tangent, Vector3.UP), Vector3(lane * cos(a), 0.1, -lane * sin(a))))
-		if i == 0:
-			star = s
-	cam.target = star
-	cam.jump_to(star.global_position)
-	add_child(PostFx.new())
-	add_child(AmbientLife.new())
-	add_child(WorldLife.new(level))
+	_spawn_rider()
 	_build_ui()
 	Sound.play_music("boardwalk_morning")
 
 
+func _spawn_rider() -> void:
+	if rider != null:
+		rider.queue_free()
+	rider = Skater.new()
+	rider.rider = Game.rider
+	rider.use_blob = false
+	rider.scripted = true
+	rider.is_player = false
+	add_child(rider)
+	rider.place_at(Transform3D(Basis(Vector3.UP, 0.5), Vector3(-12.0, 0.02, 6.0)))
+
+
 func _process(delta: float) -> void:
-	cam.yaw_target += delta * 0.07
-	cam.yaw = cam.yaw_target
-	var v: Vector3 = star.velocity
-	v.y = 0.0
-	cam.look_ahead = cam.look_ahead.lerp((v * 0.3).limit_length(4.0), 1.0 - exp(-2.0 * delta))
+	_orbit += delta * 0.05
+	var at: Vector3 = rider.global_position + Vector3.UP * 1.0
+	var pos: Vector3 = at + Vector3(sin(_orbit) * 5.5, 1.2, cos(_orbit) * 5.5)
+	cam.global_transform = Transform3D(Basis.looking_at(at - pos + Vector3(-1.2, 0.0, 0.0), Vector3.UP), pos)
 
 
 func _build_ui() -> void:
@@ -82,32 +78,28 @@ func _build_ui() -> void:
 	var lv: VBoxContainer = VBoxContainer.new()
 	lv.add_theme_constant_override("separation", -8)
 	logo.add_child(lv)
-	var t1: Label = UiKit.label("SKATE", 84, UiKit.YELLOW, 12)
-	var t2: Label = UiKit.label("PARK", 84, UiKit.WHITE, 12)
-	lv.add_child(t1)
-	lv.add_child(t2)
-	lv.add_child(UiKit.label("an isometric skateboarding game", 20, UiKit.BLUE, 4))
+	lv.add_child(UiKit.label("NOT PRO", 72, UiKit.YELLOW, 12))
+	lv.add_child(UiKit.label("SKATERS", 72, UiKit.WHITE, 12))
+	lv.add_child(UiKit.label("skating for everyone else", 20, UiKit.BLUE, 4))
 	col.add_child(logo)
 
-	var items: Array[String] = ["PLAY  2:00 SESSION", "FREE SKATE", "", "", "", "", "CONTROLS"]
+	var items: Array[String] = ["BIRTHDAY AT THE PARK", "FREE SKATE", "PRACTICE", "", "", "", "", "CONTROLS"]
 	for i in items.size():
 		var p: PanelContainer = UiKit.panel(UiKit.NAVY, 14)
 		p.mouse_filter = Control.MOUSE_FILTER_STOP
-		var l: Label = UiKit.label(items[i], 28, UiKit.WHITE, 5)
+		var l: Label = UiKit.label(items[i], 26, UiKit.WHITE, 5)
 		p.add_child(l)
 		p.mouse_entered.connect(_hover.bind(i))
 		p.gui_input.connect(_click.bind(i))
 		col.add_child(p)
 		menu_panels.append(p)
 		menu_labels.append(l)
-	_refresh_labels()
 
 	var bp: PanelContainer = UiKit.panel(UiKit.NAVY, 12)
-	best_label = UiKit.label("", 20, UiKit.YELLOW, 4)
+	best_label = UiKit.label("", 18, UiKit.YELLOW, 4)
 	bp.add_child(best_label)
 	col.add_child(bp)
-	var best: int = int(Game.best.get("community_park", {}).get("score", 0))
-	best_label.text = "BEST SCORE  %s" % Hud._commas(best)
+	_refresh_labels()
 
 	controls_panel = UiKit.panel(UiKit.NAVY, 20)
 	controls_panel.set_anchors_preset(Control.PRESET_CENTER)
@@ -124,19 +116,27 @@ func _build_ui() -> void:
 	var hint: PanelContainer = UiKit.panel(UiKit.NAVY, 12)
 	hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	hint.position = Vector2(24, -64)
-	hint.add_child(UiKit.label("UP / DOWN choose     ENTER go", 16, UiKit.WHITE, 4))
+	hint.add_child(UiKit.label("UP / DOWN choose     ENTER go     LEFT / RIGHT change rider", 16, UiKit.WHITE, 4))
 	root.add_child(hint)
 
 
+func _rider_name(key: String) -> String:
+	return "THE " + key.to_upper()
+
+
 func _refresh_labels() -> void:
-	menu_labels[2].text = "STEERING:  %s" % ("SKATER" if Game.steer_mode == "tank" else "SCREEN")
-	menu_labels[3].text = "CAMERA:  %s" % ("FOLLOW" if Game.camera_mode == "follow" else "FIXED")
-	menu_labels[4].text = "JUMP:  %s" % ("HOLD, RELEASE" if Game.jump_mode == "hold" else "TAP")
-	menu_labels[5].text = "MUSIC:  %s" % {"cruise": "CRUISE", "hype": "HYPE", "off": "OFF"}[Game.music_choice]
+	menu_labels[3].text = "RIDER:  %s" % _rider_name(Game.rider)
+	menu_labels[4].text = "STEERING:  %s" % ("SKATER" if Game.steer_mode == "tank" else "SCREEN")
+	menu_labels[5].text = "JUMP:  %s" % ("HOLD, RELEASE" if Game.jump_mode == "hold" else "TAP")
+	menu_labels[6].text = "MUSIC:  %s" % {"cruise": "CRUISE", "hype": "HYPE", "off": "OFF"}[Game.music_choice]
 	for i in menu_panels.size():
 		var on: bool = i == selected
 		menu_panels[i].add_theme_stylebox_override("panel", UiKit.style(UiKit.BLUE if on else UiKit.NAVY, 14))
 		menu_labels[i].add_theme_color_override("font_color", UiKit.YELLOW if on else UiKit.WHITE)
+	var done: int = Game.event_goals("birthday").size()
+	var goals: int = (Events.get_event("birthday")["goals"] as Array).size()
+	var best: int = int(Game.best.get("birthday", {}).get("score", 0))
+	best_label.text = "BIRTHDAY GOALS  %d/%d     BEST  %s" % [done, goals, Hud._commas(best)]
 
 
 func _hover(i: int) -> void:
@@ -164,43 +164,48 @@ func _input(event: InputEvent) -> void:
 		selected = (selected - 1 + menu_panels.size()) % menu_panels.size()
 		_refresh_labels()
 		Sound.play("ui_ok", -4.0, 0.9)
+	elif event.is_action_pressed("move_left") or event.is_action_pressed("ui_left"):
+		_cycle_rider(-1)
+	elif event.is_action_pressed("move_right") or event.is_action_pressed("ui_right"):
+		_cycle_rider(1)
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ollie"):
 		# Space is the jump key: it only starts a session, it never flips a setting (use Enter or the mouse)
 		var is_space: bool = event is InputEventKey and (event as InputEventKey).physical_keycode == KEY_SPACE
-		if is_space and selected >= 2:
+		if is_space and selected >= 3:
 			return
 		_activate()
-	elif event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).physical_keycode == KEY_T:
-		_toggle_steer()
 
 
-func _toggle_steer() -> void:
-	Game.steer_mode = "tank" if Game.steer_mode == "screen" else "screen"
+func _cycle_rider(step: int) -> void:
+	var i: int = RIDERS.find(Game.rider)
+	Game.rider = RIDERS[posmod(i + step, RIDERS.size())]
 	Game.save()
+	_spawn_rider()
 	_refresh_labels()
+	Sound.play("ui_ok", -4.0, 1.1)
 
 
 func _activate() -> void:
 	Sound.play("ui_ok")
 	match selected:
 		0:
-			Game.free_skate = false
-			get_tree().change_scene_to_file(PARK_SCENE)
+			get_tree().change_scene_to_file(EVENT_SCENE)
 		1:
-			Game.free_skate = true
-			get_tree().change_scene_to_file(PARK_SCENE)
+			get_tree().change_scene_to_file(FREE_SCENE)
 		2:
-			_toggle_steer()
+			get_tree().change_scene_to_file(PRACTICE_SCENE)
 		3:
-			Game.camera_mode = "fixed" if Game.camera_mode == "follow" else "follow"
-			Game.save()
-			_refresh_labels()
+			_cycle_rider(1)
 		4:
-			Game.jump_mode = "tap" if Game.jump_mode == "hold" else "hold"
+			Game.steer_mode = "tank" if Game.steer_mode == "screen" else "screen"
 			Game.save()
 			_refresh_labels()
 		5:
-			Sound.cycle_music_choice()
+			Game.jump_mode = "tap" if Game.jump_mode == "hold" else "hold"
+			Game.save()
 			_refresh_labels()
 		6:
+			Sound.cycle_music_choice()
+			_refresh_labels()
+		7:
 			controls_panel.visible = true

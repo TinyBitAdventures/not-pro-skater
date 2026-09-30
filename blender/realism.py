@@ -37,6 +37,14 @@ SETS = {
     "grass": ("Grass004", 2.5, (1.0, 1.0, 1.0), 0.0, True),
     "metal": ("Metal032", 0.6, (1.0, 1.0, 1.0), 1.0, False),
     "paint_red": ("PaintedMetal004", 0.8, (1.0, 1.0, 1.0), 0.0, False),
+    "bark": ("Bark012", 1.0, (1.0, 1.0, 1.0), 0.0, False),
+    "siding": ("WoodSiding009", 2.0, (0.95, 0.93, 0.88), 0.0, True),
+    "siding_blue": ("WoodSiding009", 2.0, (0.55, 0.68, 0.82), 0.0, True),
+    "siding_sage": ("WoodSiding009", 2.0, (0.62, 0.72, 0.58), 0.0, True),
+    "roof": ("RoofingTiles006", 2.5, (1.0, 1.0, 1.0), 0.0, True),
+    "brick": ("Bricks101", 1.5, (1.0, 1.0, 1.0), 0.0, True),
+    "paving": ("PavingStones128", 2.0, (1.0, 1.0, 1.0), 0.0, True),
+    "dirt": ("Ground037", 3.0, (1.0, 1.0, 1.0), 0.0, True),
 }
 
 # flat kit material name -> set
@@ -49,6 +57,8 @@ KIT = {
     "Grass": "grass", "GrassB": "grass",
     "Metal": "metal", "MetalDk": "metal", "Coping": "metal",
     "Red": "paint_red", "Yellow": "paint_red", "Orange": "paint_red", "Blue": "paint_red",
+    "Siding": "siding", "SidingBlue": "siding_blue", "SidingSage": "siding_sage", "Roof": "roof", "Brick": "brick",
+    "Paving": "paving", "Dirt": "dirt", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
 }
 
 _mats = {}
@@ -181,14 +191,30 @@ def split_collision():
             ob.name = "Vis_" + ob.name[:-4]
 
 
-def join_static(name="Baked"):
-    """Merge every visible mesh whose materials all take baked light into one object with a lightmap UV set."""
+def group_of(ob):
+    """Bake group: the nearest `bake_group` custom property up the parent chain (default "world")."""
+    o = ob
+    while o is not None:
+        if "bake_group" in o:
+            return o["bake_group"]
+        o = o.parent
+    return "world"
+
+
+def join_static(name="Baked", group=None):
+    """Merge every visible mesh whose materials all take baked light into one object with a lightmap UV set.
+    With `group`, only objects in that bake group (group_of) are merged: each group gets its own lightmap."""
     bakeable = []
     for ob in bpy.context.scene.objects:
-        if ob.type != "MESH" or ob.name.endswith("-colonly") or not ob.data.materials:
+        if ob.type != "MESH" or ob.name.endswith("-colonly") or not ob.data.materials or ob.get("library") \
+                or ob.name.startswith("Baked"):
+            continue
+        if group is not None and group_of(ob) != group:
             continue
         if all(m is not None and m.get("bake", False) for m in ob.data.materials):
             bakeable.append(ob)
+    if not bakeable:
+        return None
     bpy.ops.object.select_all(action="DESELECT")
     for ob in bakeable:
         ob.select_set(True)
@@ -349,14 +375,27 @@ def bake(ob, out_png, size=2048, samples=128):
             m.node_tree.nodes.remove(n)
     for o in hidden:
         o.hide_render = False
+    json_path = os.path.splitext(out_png)[0] + ".json"
+    group = None
+    if ".lightmap." in os.path.basename(out_png):
+        # <level>.lightmap.<group>.png: one JSON for the level lists every group
+        stem, group = os.path.basename(out_png)[:-4].split(".lightmap.")
+        json_path = os.path.join(os.path.dirname(out_png), stem + ".lightmap.json")
+    groups = []
+    if group is not None and os.path.exists(json_path):
+        with open(json_path) as f:
+            groups = json.load(f).get("groups", [])
+    if group is not None and group not in groups:
+        groups.append(group)
     info = {
         "range": RANGE,
+        "groups": groups,
         "sun_dir": [round(sun_dir.x, 4), round(sun_dir.z, 4), round(-sun_dir.y, 4)],   # Godot axes, toward the sun
         "sun_energy": 1.0,
         "sky_energy": round(s, 6),
         "hdri": os.path.basename(HDRI).replace("_2k", "_1k"),
     }
-    with open(os.path.splitext(out_png)[0] + ".json", "w") as f:
+    with open(json_path, "w") as f:
         json.dump(info, f, indent=1)
     print(f"[realism] baked {out_png}")
     return info

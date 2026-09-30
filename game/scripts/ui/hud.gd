@@ -22,6 +22,8 @@ var trick_panel: PanelContainer
 var trick_label: Label
 var pending_label: Label
 var level_label: Label
+var goals_panel: PanelContainer
+var goals_box: VBoxContainer
 var timer_label: Label
 var best_label: Label
 var letters: Array[Label] = []
@@ -115,6 +117,12 @@ func _build_top_left() -> void:
 	level_label = _label("LVL 01 - COMMUNITY PARK", 20)
 	lp.add_child(level_label)
 	col.add_child(lp)
+	goals_panel = _panel(NAVY, 12)
+	goals_box = VBoxContainer.new()
+	goals_box.add_theme_constant_override("separation", 2)
+	goals_panel.add_child(goals_box)
+	goals_panel.visible = false
+	col.add_child(goals_panel)
 	chip.modulate.a = 0.0
 	trick_panel.modulate.a = 0.0
 
@@ -228,10 +236,15 @@ func _build_bottom() -> void:
 
 func _build_center() -> void:
 	center_label = _label("", 72, YELLOW, 10)
-	center_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	center_label.position = Vector2(-300, 150)
-	center_label.custom_minimum_size = Vector2(600, 0)
+	# the full width of the screen, text centred and wrapped: long lines never run off the edge
+	center_label.anchor_left = 0.0
+	center_label.anchor_right = 1.0
+	center_label.offset_left = 380.0             # clear of the score and goal panels on the left
+	center_label.offset_right = -40.0
+	center_label.anchor_top = 0.27              # below the score and goal panels, above the rider
+	center_label.anchor_bottom = 0.27
 	center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	center_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(center_label)
 	toast_layer = Control.new()
 	toast_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -327,6 +340,19 @@ func set_balance(v: float, active: bool) -> void:
 	balance_marker.color = GREEN.lerp(RED, clampf((absf(c) - 0.4) / 0.5, 0.0, 1.0))
 
 
+## The event's goal list: [{"text": String, "done": bool}, ...]. Empty hides it.
+func set_goals(items: Array) -> void:
+	goals_panel.visible = not items.is_empty()
+	for c in goals_box.get_children():
+		c.queue_free()
+	for g in items:
+		var done: bool = g.get("done", false)
+		var l: Label = _label(("[x] " if done else "[  ] ") + String(g["text"]), 17, GREEN if done else WHITE, 4)
+		if done:
+			l.modulate.a = 0.75
+		goals_box.add_child(l)
+
+
 func set_charge(v: float) -> void:
 	charge_panel.visible = v > 0.02
 	charge_bar.value = v
@@ -343,6 +369,9 @@ func set_letters(have: Array) -> void:
 
 func announce(text: String, color: Color = YELLOW, seconds: float = 1.6) -> void:
 	center_label.text = text
+	# long lines shrink to fit the screen
+	var w: float = get_viewport().get_visible_rect().size.x if is_inside_tree() else 1600.0
+	center_label.add_theme_font_size_override("font_size", int(clampf((w - 420.0) * 1.6 / maxf(text.length(), 1.0), 30.0, 72.0)))
 	center_label.add_theme_color_override("font_color", color)
 	center_label.modulate.a = 1.0
 	_center_t = seconds + 0.5

@@ -10,6 +10,7 @@ const SURFACES: Dictionary = {
 
 var spawn: Transform3D = Transform3D.IDENTITY
 var grind_lines: Array[GrindLine] = []
+var markers: Dictionary = {}             # Event_<name> markers (goals, props, NPCs): name -> Transform3D
 var starts: Dictionary = {}              # Start_<name> markers (greybox test spots): name -> Transform3D
 var pickups: Array[Dictionary] = []
 var collision_root: Node3D
@@ -53,6 +54,8 @@ func load_glb(path: String, look: String = "toon") -> void:
 				if not grind_pts.has(gid):
 					grind_pts[gid] = []
 				grind_pts[gid].append([parts[1].to_int(), (n as Node3D).global_position])
+			elif nm.begins_with("Event_"):
+				markers[nm.trim_prefix("Event_")] = (n as Node3D).global_transform
 			elif nm.begins_with("Start_"):
 				starts[nm.trim_prefix("Start_")] = (n as Node3D).global_transform
 			elif nm.begins_with("Spawn_Player"):
@@ -100,10 +103,16 @@ func load_glb(path: String, look: String = "toon") -> void:
 		return
 	if look == "real":
 		var base: String = path.get_basename()
-		var lm: Texture2D = load(base + ".lightmap.png") if ResourceLoader.exists(base + ".lightmap.png") else null
 		if FileAccess.file_exists(base + ".lightmap.json"):
 			lightmap_info = JSON.parse_string(FileAccess.get_file_as_string(base + ".lightmap.json"))
-		RealLook.apply(scene, lm, lightmap_info)
+		var maps: Dictionary = {}
+		if ResourceLoader.exists(base + ".lightmap.png"):
+			maps[""] = load(base + ".lightmap.png")
+		for g in lightmap_info.get("groups", []):
+			var gp: String = "%s.lightmap.%s.png" % [base, g]
+			if ResourceLoader.exists(gp):
+				maps[String(g)] = load(gp)
+		RealLook.apply(scene, maps, lightmap_info)
 		stats = {"bodies": bodies.size(), "grind": grind_lines.size(), "ms": Time.get_ticks_msec() - t0}
 		return
 
@@ -222,7 +231,7 @@ func _process(_delta: float) -> void:
 		l.modulate.a = 1.0 - hole
 
 
-const SPECTATOR: PackedScene = preload("res://assets/models/spectator.glb")
+const SPECTATOR_PATH: String = "res://assets/models/spectator.glb"   # old park only (not in the web build)
 
 
 ## Instance a posed, tinted person on every crowd marker. They join the level bake (a few draws in total)
@@ -240,7 +249,7 @@ func _build_crowd(scene: Node3D) -> void:
 		rng.seed = seed_v
 		var look: Dictionary = SkaterVisual.random_look(seed_v)
 		var tints: Dictionary = {"Skin": look["Skin"], "Shirt": look["Shirt"], "ShirtB": look["ShirtB"], "Pants": look["Pants"], "Hair": look["Hair"]}
-		var person: Node3D = SPECTATOR.instantiate()
+		var person: Node3D = (load(SPECTATOR_PATH) as PackedScene).instantiate()
 		crowd_root.add_child(person)
 		person.global_transform = sp["xf"]
 		var sit: bool = sp["sit"]

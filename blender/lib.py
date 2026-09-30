@@ -388,10 +388,31 @@ def write_rails(glb_path):
 # export
 # --------------------------------------------------------------------------
 
+DETAIL_MAX = 512     # normal / roughness / packed ARM maps
+COLOR_MAX = 1024
+
+
+def shrink_images():
+    """The web build cannot afford every map at 1K: detail maps (normal, roughness, packed AO/rough/metal)
+    go to 512, colour maps stay at 1K. Only the loaded copies change; the source files are untouched."""
+    for img in bpy.data.images:
+        if img.size[0] == 0 or img.source not in ("FILE", "GENERATED"):
+            continue
+        n = img.name.lower()
+        detail = any(k in n for k in ("normal", "rough", "_arm", "_nor", "metal", "opacity", "displace"))
+        cap = DETAIL_MAX if detail else COLOR_MAX
+        w, h = img.size
+        if max(w, h) > cap:
+            k = cap / max(w, h)
+            img.scale(max(1, int(w * k)), max(1, int(h * k)))
+
+
 def export(path, selection=None, images=False):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
     rails = set(write_rails(path))
+    if images:
+        shrink_images()
     objs = selection if selection is not None else list(bpy.context.scene.objects)
     for ob in objs:
         if ob in rails:

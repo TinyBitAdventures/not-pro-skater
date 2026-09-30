@@ -10,7 +10,9 @@ static var bake_energy: float = 1.0
 static var _made: Array[ShaderMaterial] = []
 
 
-static func apply(root: Node, lightmap: Texture2D, info: Dictionary) -> void:
+## `lightmaps`: group name -> texture ("" = the level's single lightmap). A baked mesh belongs to the group in
+## its node name (Blender's join_static names it "Baked_<group>").
+static func apply(root: Node, lightmaps: Dictionary, info: Dictionary) -> void:
 	_made.clear()
 	var cache: Dictionary = {}
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
@@ -23,11 +25,22 @@ static func apply(root: Node, lightmap: Texture2D, info: Dictionary) -> void:
 			if src == null:
 				continue
 			var has_uv2: bool = (mesh.surface_get_format(s) & Mesh.ARRAY_FORMAT_TEX_UV2) != 0
+			var lightmap: Texture2D = lightmaps.get(_group_of(inst), lightmaps.get("", null))
 			if not has_uv2 or lightmap == null:
 				continue
-			if not cache.has(src):
-				cache[src] = _baked(src, lightmap, info)
-			inst.set_surface_override_material(s, cache[src])
+			var key: String = "%d|%d" % [src.get_instance_id(), lightmap.get_instance_id()]
+			if not cache.has(key):
+				cache[key] = _baked(src, lightmap, info)
+			inst.set_surface_override_material(s, cache[key])
+
+
+static func _group_of(n: Node) -> String:
+	while n != null:
+		var nm: String = String(n.name)
+		if nm.begins_with("Baked_"):
+			return nm.trim_prefix("Baked_")
+		n = n.get_parent()
+	return ""
 
 
 static func _baked(src: BaseMaterial3D, lightmap: Texture2D, info: Dictionary) -> ShaderMaterial:

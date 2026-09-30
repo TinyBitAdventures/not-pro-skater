@@ -78,6 +78,34 @@ ARCHETYPES = {
         "hair": "short03",
         "clothes": ["namuhekam_male_polo_shirt", "cortu_cargo_pants", "shoes02"],
     },
+    # the birthday party's kids (they watch your tricks; not playable)
+    "kid_maya": {
+        "title": "Maya", "npc": True,
+        "macro": {"gender": 0.0, "age": 0.16, "muscle": 0.5, "weight": 0.45, "proportions": 0.5,
+                  "height": 0.5, "cupsize": 0.0, "firmness": 0.5,
+                  "race": {"asian": 0.2, "caucasian": 0.3, "african": 0.5}},
+        "stylize": {"head-scale-vert-incr": 0.15, "head-scale-horiz-incr": 0.15},
+        "skin": "young_african_female", "eyes": "brown", "eyebrows": "eyebrow010", "eyelashes": "eyelashes02",
+        "hair": "bob01", "clothes": ["female_casualsuit02", "shoes05"],
+    },
+    "kid_leo": {
+        "title": "Leo", "npc": True,
+        "macro": {"gender": 1.0, "age": 0.15, "muscle": 0.5, "weight": 0.5, "proportions": 0.5,
+                  "height": 0.5, "cupsize": 0.5, "firmness": 0.5,
+                  "race": {"asian": 0.1, "caucasian": 0.8, "african": 0.1}},
+        "stylize": {"head-scale-vert-incr": 0.15, "head-scale-horiz-incr": 0.15},
+        "skin": "young_caucasian_male", "eyes": "blue", "eyebrows": "eyebrow001", "eyelashes": "eyelashes01",
+        "hair": "short01", "clothes": ["male_casualsuit04", "shoes06"],
+    },
+    "kid_sam": {
+        "title": "Sam", "npc": True,
+        "macro": {"gender": 1.0, "age": 0.17, "muscle": 0.5, "weight": 0.55, "proportions": 0.5,
+                  "height": 0.55, "cupsize": 0.5, "firmness": 0.5,
+                  "race": {"asian": 0.8, "caucasian": 0.2, "african": 0.0}},
+        "stylize": {"head-scale-vert-incr": 0.15, "head-scale-horiz-incr": 0.15},
+        "skin": "young_asian_male", "eyes": "brown", "eyebrows": "eyebrow002", "eyelashes": "eyelashes01",
+        "hair": "short04", "clothes": ["male_casualsuit06", "shoes05"],
+    },
     "actor": {
         "title": "The Actor",
         "macro": {"gender": 1.0, "age": 0.62, "muscle": 0.4, "weight": 0.66, "proportions": 0.5,
@@ -157,7 +185,7 @@ def build(key):
     es.bake_modifiers_remove_helpers(basemesh, bake_masks=True, bake_subdiv=False, remove_helpers=True)
     rig = basemesh.parent
     _fix_materials(rig)
-    _shrink_textures(rig)
+    _shrink_textures(rig, npc=spec.get("npc", False))
     rig.name = "Rig"
     basemesh.name = "Body"
     _report(rig)
@@ -203,7 +231,7 @@ def _fix_materials(rig):
                 m.surface_render_method = "DITHERED"
 
 
-def _shrink_textures(rig):
+def _shrink_textures(rig, npc=False):
     done = set()
     for ob in rig.children_recursive:
         if ob.type != "MESH":
@@ -217,8 +245,13 @@ def _shrink_textures(rig):
                     continue
                 done.add(img.name)
                 w, h = img.size
-                if max(w, h) > TEXTURE_MAX:
-                    k = TEXTURE_MAX / max(w, h)
+                # faces need the skin at 1K; clothes, hair, eyes and normal maps read fine at 512 at play distance;
+                # bystanders (npc) are 512 throughout
+                cap = 512
+                if "skin" in img.name.lower() and not npc:
+                    cap = TEXTURE_MAX
+                if max(w, h) > cap:
+                    k = cap / max(w, h)
                     img.scale(max(1, int(w * k)), max(1, int(h * k)))
 
 

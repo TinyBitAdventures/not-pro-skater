@@ -10,8 +10,8 @@ config_version=5
 
 [application]
 
-config/name="Skate Park"
-config/description="An isometric skateboarding game. Cruise the park, learn the lines, land big combos."
+config/name="Not Pro Skaters"
+config/description="A skateboarding game about everyone else: community events, real parks, real crashes."
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/version="0.1.0"
@@ -71,4 +71,12 @@ focus_pos={
 haze_depth={
 "type": "float",
 "value": 20.0
+}
+
+[importer_defaults]
+
+texture={
+"compress/mode": 2,
+"detect_3d/compress_to": 1,
+"mipmaps/generate": true
 }

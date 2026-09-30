@@ -40,7 +40,7 @@ func _ready() -> void:
 	cam = _make_camera(sun)
 	skater = Skater.new()
 	skater.use_blob = false
-	skater.rider = OS.get_environment("RIDER") if OS.get_environment("RIDER") != "" else "dev"
+	skater.rider = OS.get_environment("RIDER") if OS.get_environment("RIDER") != "" else Game.rider
 	if skater.rider == "toon":
 		skater.rider = ""
 	skater.score = score
@@ -122,6 +122,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		warp(k.physical_keycode - KEY_1)
 	elif k.physical_keycode == KEY_0:
 		warp(9)
+	elif k.physical_keycode == KEY_ESCAPE:
+		get_tree().change_scene_to_file("res://scenes/title.tscn")
 	elif k.physical_keycode == KEY_TAB:
 		warp(start_i + (-1 if k.shift_pressed else 1))
 	elif k.physical_keycode == KEY_P:

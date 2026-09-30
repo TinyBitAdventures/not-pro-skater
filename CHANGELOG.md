@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Not Pro Skaters: first level and event
+- **Neighborhood Park** (`blender/neighborhood.py`, `scenes/neighborhood.tscn`): a real-scale suburban park. A concrete skate plaza (mini ramp with guard rails, two ledges, a manual pad, a flat rail, a four-stair set with handrails and a bank feed, a quarter pipe, a bank), a paved picnic area with bunting, lawn and paths, a street with sidewalks and curbs, fourteen houses (siding, brick, tiled roofs, glossy windows) and 23 trees. Two lightmaps: a sharp one for the plaza and picnic area, one for everything else.
+- **CC0 props** from Poly Haven (`blender/park_props.py`): picnic tables, a bench, bins, street lamps, planters, shrubs, a boombox, a cake. Imported once, shared by every copy, with box colliders. `tools/fetch_assets.py` fetches all CC0 sources (ambientCG textures and Poly Haven models) into `art/`.
+- **Trees** (`blender/trees.py`): a tapered, bent trunk and branches in oak bark, a crown of alpha-cut leaf cards from a leaf-cluster texture composited out of CC0 Leaf001, with normals pointing out of the crown for soft foliage shading. About 1-2k triangles each.
+- **Houses** (`blender/houses.py`).
+- **Events** (`scripts/events/`): an event is a level plus goals (`Events.get_event`), run by `EventRunner`, shown in a HUD goal list, saved when done. Goal kinds: balloon letters, deliver an item without bailing, a named grind on one rail, show the kids a trick, a big combo, a session score.
+- **Birthday at the Park** (`scenes/birthday.tscn`): grab the P-A-R-T-Y balloons (some only in the air), bring the cake from the street table to the party (bail and it goes back), boardslide the party bench, land a trick near each of the three kids, a 10,000 combo, 25,000 points. Two-minute session with results.
+- **Kids** (Maya, Leo, Sam) from the character pipeline, as `Npc` bystanders: relaxed stance, heads following the skater, cheering with arms up when shown a trick.
+- **Title screen** for Not Pro Skaters: the park behind a slowly circling camera with the chosen rider on the board; Birthday at the Park, Free Skate, Practice, rider select (left / right), settings. The project is renamed; ESC in a level goes back to the title.
+
 ### Rebuild: skating feel (Not Pro Skaters)
 - Every skating value lives in one `SkateTuning` resource (`game/tuning/default.tres`); **F3** opens live sliders with Save / Reset.
 - **Greybox test level** (`scenes/greybox.tscn`): tile seams, curb, step, three quarter pipes up to a vert wall, a mini ramp, flat / kinked / curved rails, a ledge, stairs, funbox, hip and kicker, with a world grid; number keys warp between lanes.

@@ -9,3 +9,14 @@ __pycache__/
 game/assets/levels/*_1K-JPG_*
 game/assets/characters/*.png
 game/assets/characters/*.png.import
+game/assets/levels/*.jpg
+game/assets/levels/*.jpg.import
+game/assets/levels/*_*.png
+game/assets/levels/*_*.png.import
+game/assets/models/*_*.jpg
+game/assets/models/*_*.jpg.import
+game/assets/models/*_*.png
+game/assets/models/*_*.png.import
+# CC0 sources: python3 tools/fetch_assets.py downloads them again
+art/textures/
+art/models/

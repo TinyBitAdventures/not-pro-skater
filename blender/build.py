@@ -39,6 +39,25 @@ def build_looktest():
     lib.export(out, images=True)
 
 
+def build_neighborhood():
+    import neighborhood
+    lib.reset_scene()
+    out = os.path.join(GAME, "levels", "neighborhood.glb")
+    neighborhood.build(out, bake=os.environ.get("NOBAKE", "") == "", samples=int(os.environ.get("SAMPLES", "128")))
+    lib.export(out, images=True)
+
+
+def build_items():
+    """Runtime items the events move around (the birthday cake)."""
+    import park_props
+    lib.reset_scene()
+    ob = park_props._import("carrot_cake")
+    ob.location = (0, 0, 0)
+    ob["library"] = False
+    ob.name = "Cake"
+    lib.export(os.path.join(GAME, "models", "cake.glb"), images=True)
+
+
 def build_board():
     import board
     lib.reset_scene()
@@ -103,3 +122,7 @@ if __name__ == "__main__":
         build_looktest()
     if "board" in targets:
         build_board()
+    if "neighborhood" in targets:
+        build_neighborhood()
+    if "items" in targets:
+        build_items()

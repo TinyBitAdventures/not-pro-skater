@@ -57,14 +57,12 @@ static func label(text: String, size: int, color: Color = WHITE, outline: int = 
 
 
 const CONTROL_LINES: Array[String] = [
-	"W push    S brake    A / D turn        (STEERING: SKATER)",
-	"or point the stick where you want to go   (STEERING: SCREEN)",
-	"SPACE / A  hold to crouch, release to jump (hold longer = higher)",
-	"at the top of a ramp: hold up the face, release at the lip for big air",
-	"SHIFT / LT  brake",
-	"J / X  flip     K / B  hold to grab     M / RT  manual",
-	"L / Y  grind: press near a rail, ledge or coping",
+	"W push    S brake    A / D turn        (T: screen-relative steering instead)",
+	"SPACE  hold to crouch, release to jump (longer = higher); at a ramp lip for big air",
+	"J  flip     K  hold to grab     L  grind (press near or toward a rail, ledge or coping)",
 	"IN THE AIR  A / D spin, then J or K for tricks",
-	"Q / E  turn camera     C  camera follow / fixed",
-	"T  steering   Y  jump hold / tap   R  reset   N  music (cruise / hype / off)",
+	"W then S (quick taps)  manual     S then W  nose manual     keep the BALANCE meter centred",
+	"M  manual too; at a ramp lip: transfer; just after a ramp landing: revert",
+	"SPACE as you hit a wall  wall plant",
+	"R  reset     ESC  back to the title     F3  tuning",
 ]
