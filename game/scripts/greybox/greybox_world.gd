@@ -11,7 +11,7 @@ extends Node3D
 @export var look: String = "grey"          # "grey" or "real" (PBR + baked light: scenes/looktest.tscn)
 const RIDERS: Array[String] = ["dev", "musician", "vlogger", "dad", "actor", ""]
 const ORDER: Array[String] = ["flat", "seam", "curb", "miniqp", "qp", "vert", "mini", "rail", "rail_side", "kink",
-	"curve", "ledge", "stairs", "funbox", "hip", "kicker"]
+	"curve", "ledge", "stairs", "funbox", "hip", "kicker", "wall"]
 
 var level: Level
 var skater: Skater
@@ -131,6 +131,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	hud.set_speed(skater.velocity.length())
 	hud.set_charge(skater.charge_frac())
+	hud.set_balance(skater.manual_balance, skater.manual_on)
 	hud.set_combo(score.mult, score.combo_text(), score.pending, score.live)
 	Sound.set_rolling(skater.velocity.length(), skater.surface, skater.state == Skater.State.GROUND, delta)
 	Sound.set_grinding(skater.state == Skater.State.GRIND, skater.grind_speed, delta)

@@ -32,6 +32,7 @@ var _vert_lip: Vector3 = Vector3.ZERO
 var vert_back: float = 4.8         # how far out from the wall the vert shot sits
 var vert_rise: float = 0.2         # and how far above the lip
 var vert_side: float = 2.8         # and how far to the side along the coping
+var min_distance: float = 1.7      # closer than this to the rider (a wall behind), rise over instead
 var _swing_boost: float = 0.0      # extra swing speed just after a vert landing
 var _was_state: int = -1
 
@@ -79,7 +80,7 @@ func _travel_dir() -> Vector3:
 
 func _desired() -> Dictionary:
 	var sk: Skater = target
-	var focus: Vector3 = sk.global_position
+	var focus: Vector3 = sk.rider_position()      # in a bail: the rider, not the board rolling away
 	if sk.state == Skater.State.AIR:
 		focus.y = lerpf(_ground_y, focus.y, 0.55)
 	var v_h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
@@ -90,7 +91,23 @@ func _desired() -> Dictionary:
 	if sk.vert_air and _vert_hold:
 		pos = _vert_anchor
 		look = _vert_lip.lerp(sk.global_position + Vector3.UP * 0.8, 0.5)
-	return {"pos": _collide(look, pos), "look": look}
+		return {"pos": _collide(look, pos), "look": look}
+	return {"pos": _clear_of_rider(focus, look, _collide(look, pos)), "look": look}
+
+
+## A wall close behind pulls the camera in; closer than min_distance it would end up inside the rider.
+## Instead it rises up and over (looking down past the head), and never sits within the body.
+func _clear_of_rider(focus: Vector3, look: Vector3, pos: Vector3) -> Vector3:
+	var d: float = pos.distance_to(look)
+	if d < min_distance:
+		var back: Vector3 = Vector3(pos.x - look.x, 0.0, pos.z - look.z)
+		back = back.normalized() if back.length() > 0.01 else Vector3(sin(_yaw), 0.0, cos(_yaw))
+		var over: Vector3 = look + back * maxf(d, 0.35) + Vector3.UP * (min_distance - d + 0.6)
+		pos = _collide(look, over)
+	var axis: Vector3 = Vector3(pos.x - focus.x, 0.0, pos.z - focus.z)
+	if axis.length() < 0.55 and pos.y < focus.y + 2.1:
+		pos = _collide(look, Vector3(pos.x, focus.y + 2.3, pos.z))
+	return pos
 
 
 ## Keep a clear line from the skater to the camera: if a wall is in the way, sit just in front of it.

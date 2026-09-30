@@ -18,7 +18,7 @@ Row 1 (features from y = 0, starts near y = -12), left to right:
     curve     curved rail (a quarter circle, radius 8 m)
     ledge     hubba-height ledge, 0.45 m
     stairs    8-stair set with handrails, fed by a bank
-Row 2 (y ~ 40): funbox, hip, kicker.
+Row 2 (y ~ 40): funbox, hip, kicker, a 3.5 m wall (wall plants, camera tests).
 """
 
 import math
@@ -123,3 +123,7 @@ def build():
     start("hip", 24.0, 30.0)
     kicker(root("Kicker", 40.0, 40.0), W=3.0, R=5.0, H=0.9)
     start("kicker", 40.0, 28.0)
+
+    # a tall wall to wall plant off (and to test the camera against)
+    box("Wall_Plant-col", (8.0, 0.6, 3.5), (60.0, 38.3, 1.75), G("GreyDark", "#7c7c7c"))
+    start("wall", 60.0, 30.0)

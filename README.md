@@ -45,6 +45,10 @@ Two steering styles (toggle with T, or in the title menu; both are saved):
 
 **Vert:** going straight up a steep ramp locks the air to the wall, so you come back down the same face, turning 180 on your own; that air floats longer than a flat ollie. Hold **M** as you leave the lip to transfer over the coping onto the deck instead. Tap **M** just after landing on a ramp to **revert** (spin 180 and keep the combo going). Landing a little crooked lines the board up for you; more crooked is *sketchy* (you lose some speed); sideways bails; backwards rolls away fakie.
 
+**Manuals:** tap up then down (W, S) for a manual, down then up for a nose manual (or press M). Keep the BALANCE meter in the middle with up / down.
+
+**Wall plants:** jump at a wall and press Space as you hit it.
+
 **Grinds:** press L in the air when you are heading for a rail; the air path bends onto rails up to about 1.2 m to the side.
 
 Combos: every trick adds points and, if it is new to the combo, one to the multiplier. Land cleanly and keep going within about a second; stop and the combo is banked. Bail and you lose it.

@@ -183,43 +183,53 @@ func _apply_rig(sk: Skater) -> void:
 	var bail_u: float = clampf(sk.bail_time / maxf(sk.bail_duration, 0.1), 0.0, 1.0)
 	var bailing: bool = sk.state == Skater.State.BAIL
 	if bailing:
-		match sk.bail_kind:
-			"runout":
-				bt = Transform3D(Basis(Vector3.UP, sin(sk.bail_time * 5.0) * 0.15 * (1.0 - bail_u)), Vector3(0, 0, -sin(bail_u * PI) * 1.3))
-			"slam":
-				var p2: float = 1.0 - pow(1.0 - minf(sk.bail_time / 0.6, 1.0), 2.0)
-				var back_on: float = clampf((bail_u - 0.7) / 0.3, 0.0, 1.0)
-				bt = Transform3D(Basis(Vector3.UP, p2 * 1.4 * (1.0 - back_on)), Vector3(0.7 * p2, 0.0, -0.9 * p2) * (1.0 - back_on))
-			_:
-				var p: float = clampf(sk.bail_time / 1.0, 0.0, 1.0)
-				bt = Transform3D(Basis.from_euler(Vector3(p * 5.0, p * 3.0, p * 2.0)), Vector3(0.5 * p, sin(p * PI) * 0.9, -0.9 * p))
-	board.transform = bt
-	if bailing and sk.bail_kind != "runout":
-		# the body rolls, the board stays on the ground under where the rider went down
+		# the loose board IS the physics body: it sits where the skater's position is (rolling on and
+		# stopping), skids round a little and, after a big crash, flips over in the air first; its spin
+		# always settles back to straight so the rider steps onto it with nothing snapping
+		var t: float = sk.bail_time
+		var settle: float = clampf(t / maxf(sk.bail_duration * 0.8, 0.1), 0.0, 1.0)
+		var skid: float = sin(settle * PI) * (0.25 if sk.bail_kind == "runout" else 1.1)
+		var b_rot: Basis = Basis(Vector3.UP, skid)
+		var hop: float = 0.0
+		if sk.bail_kind == "tumble":
+			var f: float = clampf(t / 0.7, 0.0, 1.0)
+			b_rot = b_rot * Basis(Vector3(0, 0, 1), f * TAU)
+			hop = sin(f * PI) * 0.6
+		bt = Transform3D(b_rot, pivot - b_rot * pivot + Vector3(0, hop, 0))
 		board.transform = model.global_transform.affine_inverse() * upright_xf * bt
+	else:
+		board.transform = bt
 
 	# hips: SkaterVisual's hip_h (cartoon units, deck 0.145, legs 0.665) -> a share of this leg
+	var walking: bool = bailing and sk.bail_kind != "runout" and sk.bail_time > _getup_at(sk)
 	var frac: float = clampf((hip_h - 0.145) / 0.665, 0.45, 1.05)
 	var hip_y: float = DECK + frac * LEG_FRAC * (_leg_len - _ankle_off.y) + _ankle_off.y * 0.2
-	if bailing and sk.bail_kind == "runout":
+	if (bailing and sk.bail_kind == "runout") or walking:
 		hip_y = frac * LEG_FRAC * _leg_len + 0.02
+	var stride: Array = []
+	var push_amt: float = 0.0              # 0..1 through a stride: the body turns to face the nose to push
+	if sk.push_anim >= 0.0 and sk.state == Skater.State.GROUND and not sk.manual_on:
+		stride = _push_stride(sk.push_anim)
+		hip_y -= float(stride[2])            # the standing leg bends as the other reaches the ground
+		push_amt = clampf(1.0 - absf(sk.push_anim - 0.42) / 0.42, 0.0, 1.0)
+		push_amt = push_amt * push_amt * (3.0 - 2.0 * push_amt)
 	for i in [_b["Root"]]:
 		_rest_follow(i)
 	var pelvis: int = _b["pelvis"]
-	var q_body: Basis = Basis(Vector3(0, 0, 1), deg_to_rad(-sway)) * Basis(Vector3.UP, deg_to_rad(twist * 0.3))
+	var q_body: Basis = Basis(Vector3(0, 0, 1), deg_to_rad(-sway)) * Basis(Vector3.UP, deg_to_rad(twist * 0.3 + 30.0 * push_amt))
 	var pg: Transform3D = _rotated(pelvis, q_body)
 	pg.origin = Vector3(-0.03, hip_y, 0.0)
 	_pose_bone(pelvis, pg)
 
 	# spine: lean toward the chest and twist toward the nose, spread over three bones
-	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7)) * Basis(Vector3(0, 0, 1), deg_to_rad(-lean))
+	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7 + 25.0 * push_amt)) * Basis(Vector3(0, 0, 1), deg_to_rad(-lean))
 	var spine: Array[String] = ["spine_01", "spine_02", "spine_03"]
 	for k in spine.size():
 		var i: int = _b[spine[k]]
 		var part: Basis = Basis(Quaternion.IDENTITY.slerp(q_torso.get_rotation_quaternion(), 1.0 / spine.size()))
 		_pose_bone(i, _rotated(i, part))
 	# head: look along the board toward the nose (and down at it in the air)
-	var look: float = HEAD_LOOK - twist
+	var look: float = (HEAD_LOOK if sk.stance != "fakie" else -HEAD_LOOK) - twist
 	var nod: float = 10.0 if sk.state == Skater.State.AIR else 4.0
 	var neck: int = _b["neck_01"]
 	_pose_bone(neck, _rotated(neck, Basis(Vector3.UP, deg_to_rad(look * 0.4))))
@@ -234,12 +244,10 @@ func _apply_rig(sk: Skater) -> void:
 	var back: Vector3 = Vector3(0.0, DECK + lift, FOOT_BACK)
 	var front_ang: float = FRONT_FOOT_ANGLE
 	var back_ang: float = BACK_FOOT_ANGLE
-	if sk.pushing and not sk.braking and sk.state == Skater.State.GROUND and sk.velocity.length() < 6.5 and not sk.manual_on:
-		var ph: float = fposmod(sk.push_phase, 1.0)
-		if ph < 0.55:
-			var k2: float = ph / 0.55
-			back = Vector3(-0.06, maxf(0.0, sin(k2 * PI) * 0.2), FOOT_BACK + 0.55 * sin(k2 * PI * 0.5))
-			back_ang = -60.0 * sin(k2 * PI * 0.5)
+	if not stride.is_empty():
+		back = stride[0]
+		back_ang = stride[1]
+		front_ang = lerpf(FRONT_FOOT_ANGLE, 65.0, push_amt)   # front foot swivels to point up the board
 	if bailing and sk.bail_kind == "runout":
 		var phr: float = sk.bail_time * 10.0
 		var on: float = clampf((bail_u - 0.75) / 0.25, 0.0, 1.0)
@@ -247,6 +255,16 @@ func _apply_rig(sk: Skater) -> void:
 		back = Vector3(-0.12, maxf(0.0, -sin(phr)) * 0.25, -0.05 + cos(phr) * 0.42).lerp(back, on)
 		front_ang = lerpf(80.0, front_ang, on)
 		back_ang = lerpf(80.0, back_ang, on)
+	elif walking:
+		# up and walking to the board; the last steps land on the deck
+		var span: float = maxf(sk.bail_duration - _getup_at(sk), 0.05)
+		var wu: float = clampf((sk.bail_time - _getup_at(sk)) / span, 0.0, 1.0)
+		var phw: float = sk.bail_time * 7.0
+		var on2: float = clampf((wu - 0.7) / 0.3, 0.0, 1.0)
+		front = Vector3(0.1, maxf(0.0, sin(phw)) * 0.15, -0.05 - cos(phw) * 0.3).lerp(front, on2)
+		back = Vector3(-0.1, maxf(0.0, -sin(phw)) * 0.15, -0.05 + cos(phw) * 0.3).lerp(back, on2)
+		front_ang = lerpf(85.0, front_ang, on2)
+		back_ang = lerpf(85.0, back_ang, on2)
 	elif bailing:
 		var amp: float = 0.15 if sk.bail_kind == "slam" else 0.3
 		var w: float = sin(sk.bail_time * 11.0)
@@ -265,10 +283,11 @@ func _apply_rig(sk: Skater) -> void:
 	# balance arms: out and a little forward, elbows soft, never a stiff T
 	var free_l: Vector3 = sh_l + Vector3(0.12 + 0.1 * spread, -0.52 + 0.4 * spread, -0.18 - 0.24 * spread)
 	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
-	if bailing and sk.bail_kind == "runout":
-		var ph2: float = sk.bail_time * 10.0
-		free_l = sh_l + Vector3(0.15, -0.35, -0.05 + cos(ph2) * 0.35)
-		free_r = sh_r + Vector3(-0.1, -0.35, 0.05 - cos(ph2) * 0.35)
+	if (bailing and sk.bail_kind == "runout") or walking:
+		var ph2: float = sk.bail_time * (10.0 if not walking else 7.0)
+		var sw: float = 0.35 if not walking else 0.2
+		free_l = sh_l + Vector3(0.1, -0.42, -0.05 + cos(ph2) * sw)
+		free_r = sh_r + Vector3(-0.08, -0.42, 0.05 - cos(ph2) * sw)
 	elif bailing:
 		var w2: float = sin(sk.bail_time * 9.0)
 		free_l = sh_l + Vector3(0.15, 0.35 + w2 * 0.2, -0.55)
@@ -289,6 +308,39 @@ func _apply_rig(sk: Skater) -> void:
 		var nm: String = skel.get_bone_name(i)
 		if nm.begins_with("index") or nm.begins_with("middle") or nm.begins_with("ring") or nm.begins_with("pinky") or nm.begins_with("thumb"):
 			_rest_follow(i)
+
+
+## The back foot through one push: lift off the deck, plant on the ground beside the board ahead of the back
+## truck, push back along the ground, then swing up and back onto the tail. Returns [foot, angle, hip drop].
+func _push_stride(ph: float) -> Array:
+	var deck: Vector3 = Vector3(0.0, DECK, FOOT_BACK)
+	var plant: Vector3 = Vector3(0.2, 0.0, -0.02)
+	var reach: Vector3 = Vector3(0.2, 0.0, 0.55)
+	var foot: Vector3
+	var ang: float
+	if ph < 0.18:                                   # lift and step down beside the board
+		var k: float = ph / 0.18
+		var e: float = k * k * (3.0 - 2.0 * k)
+		foot = deck.lerp(plant, e) + Vector3(0, sin(k * PI) * 0.08, 0)
+		ang = lerpf(BACK_FOOT_ANGLE, -75.0, e)
+	elif ph < 0.62:                                 # push back along the ground
+		var k2: float = (ph - 0.18) / 0.44
+		foot = plant.lerp(reach, k2 * k2 * (3.0 - 2.0 * k2))
+		ang = -75.0
+	elif ph < 0.88:                                 # swing back up onto the tail
+		var k3: float = (ph - 0.62) / 0.26
+		var e3: float = k3 * k3 * (3.0 - 2.0 * k3)
+		foot = reach.lerp(deck, e3) + Vector3(0, sin(k3 * PI) * 0.16, 0)
+		ang = lerpf(-75.0, BACK_FOOT_ANGLE, e3)
+	else:
+		foot = deck
+		ang = BACK_FOOT_ANGLE
+	var on_ground: float = clampf(1.0 - absf(ph - 0.4) / 0.3, 0.0, 1.0)
+	return [foot, ang, on_ground * 0.06]
+
+
+func _bail_body_offset(sk: Skater) -> Vector3:
+	return sk.rider_position() - sk.global_position
 
 
 ## The rest pose's knee (or elbow) side, in model space: knees bend toward the chest (+X), elbows behind.

@@ -164,10 +164,17 @@ func sync_from(sk: Skater, dt: float) -> void:
 	upright_xf = xf
 	if sk.state == Skater.State.BAIL and sk.bail_kind != "runout":
 		xf = _slam_transform(sk, basis_v, pos) if sk.bail_kind == "slam" else _tumble_transform(sk, basis_v, pos)
+	if sk.state == Skater.State.BAIL:
+		xf.origin += _bail_body_offset(sk)
 	global_transform = xf
 	_apply_rig(sk)
 	if sk.state == Skater.State.BAIL:
 		_keep_above(pos)
+
+
+## Where the body is relative to the board during a bail (the cartoon rider stays with its board).
+func _bail_body_offset(_sk: Skater) -> Vector3:
+	return Vector3.ZERO
 
 
 ## Measure the posed rig and push it out along the surface normal until nothing is below the ground.
@@ -193,7 +200,7 @@ func _tumble_transform(sk: Skater, basis_v: Basis, pos: Vector3) -> Transform3D:
 	const THICK: float = 0.3                             # half thickness when lying down
 	var t: float = sk.bail_time
 	var get_up: float = 0.5
-	var roll_end: float = sk.bail_duration - get_up
+	var roll_end: float = _getup_at(sk) - get_up
 	var phi: float
 	if t < roll_end:
 		var p: float = clampf(t / 0.85, 0.0, 1.0)
@@ -210,6 +217,10 @@ func _tumble_transform(sk: Skater, basis_v: Basis, pos: Vector3) -> Transform3D:
 	return Transform3D(m, center_world - m * CENTER)
 
 
+func _getup_at(sk: Skater) -> float:
+	return sk.bail_getup if sk.bail_getup > 0.0 else sk.bail_duration
+
+
 ## A slam: the rider goes down onto a hip (rolling ~80 degrees about the direction of travel), slides, and
 ## gets back up. Lowest point kept on the surface like the tumble.
 func _slam_transform(sk: Skater, basis_v: Basis, pos: Vector3) -> Transform3D:
@@ -219,7 +230,7 @@ func _slam_transform(sk: Skater, basis_v: Basis, pos: Vector3) -> Transform3D:
 	var t: float = sk.bail_time
 	var get_up: float = 0.45
 	var down: float = clampf(t / 0.28, 0.0, 1.0)
-	var up: float = clampf((t - (sk.bail_duration - get_up)) / get_up, 0.0, 1.0)
+	var up: float = clampf((t - (_getup_at(sk) - get_up)) / get_up, 0.0, 1.0)
 	var amt: float = (1.0 - pow(1.0 - down, 2.0)) * (1.0 - up * up * (3.0 - 2.0 * up))
 	var side: float = 1.0 if int(sk.stats["bails"]) % 2 == 0 else -1.0   # alternate hips
 	var phi: float = deg_to_rad(80.0) * amt * side
@@ -243,6 +254,7 @@ func _pose(sk: Skater, dt: float) -> void:
 	var sway_t: float = 0.0
 	var grab_t: float = 0.0
 	var speed: float = sk.velocity.length()
+	var fakie: bool = sk.stance == "fakie"
 	match st:
 		Skater.State.GROUND:
 			hip_t = 0.72 - 0.17 * sk.crouch
@@ -250,10 +262,14 @@ func _pose(sk: Skater, dt: float) -> void:
 			sway_t = sk.lean * 14.0
 			arms_t = 0.5 + absf(sk.lean) * 0.4
 			if sk.manual_on:
-				pitch_t = 24.0
 				hip_t = 0.66
-				lean_t = -8.0
 				arms_t = 0.95
+				if sk.manual_kind == "nose":
+					pitch_t = -20.0 - sk.manual_balance * 6.0
+					lean_t = 20.0
+				else:
+					pitch_t = 24.0 + sk.manual_balance * 6.0
+					lean_t = -8.0 - sk.manual_balance * 6.0
 			if sk.pushing and not sk.braking and speed < 7.0:
 				lean_t += 8.0
 		Skater.State.AIR:
@@ -298,11 +314,18 @@ func _pose(sk: Skater, dt: float) -> void:
 			sway_t = sin(_t * 9.0) * 3.0
 		Skater.State.BAIL:
 			hip_t = 0.5
+			if sk.bail_time > _getup_at(sk) and sk.bail_kind != "runout":
+				hip_t = 0.82               # up and walking back to the board
 			arms_t = 1.2
 			if sk.bail_kind == "runout":
 				hip_t = 0.86
 				lean_t = 16.0
 				arms_t = 0.7
+	if sk.wallplant_t > 0.12:
+		pitch_t = -70.0              # tail up, wheels on the wall
+		hip_t = 0.62
+	if fakie:
+		twist_t = -twist_t           # turned toward the way it is going (over the other shoulder)
 	hip_h = _approach(hip_h, hip_t, 30.0 if st == Skater.State.AIR else 16.0, dt)
 	lean = _approach(lean, lean_t, 12.0, dt)
 	twist = _approach(twist, twist_t, 10.0, dt)

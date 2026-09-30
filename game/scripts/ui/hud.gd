@@ -27,6 +27,10 @@ var best_label: Label
 var letters: Array[Label] = []
 var speed_bar: ProgressBar
 var charge_panel: PanelContainer
+var balance_panel: PanelContainer
+var balance_marker: ColorRect
+var balance_track: Control
+const BALANCE_W: float = 220.0
 var charge_bar: ProgressBar
 var center_label: Label
 var toast_layer: Control
@@ -194,6 +198,33 @@ func _build_bottom() -> void:
 	charge_panel.visible = false
 	root.add_child(charge_panel)
 
+	# manual balance: the marker drifts toward an end; up / down bring it back
+	balance_panel = _panel(NAVY, 12)
+	balance_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	balance_panel.position = Vector2(-150, -175)
+	var bh: HBoxContainer = HBoxContainer.new()
+	bh.add_theme_constant_override("separation", 8)
+	balance_panel.add_child(bh)
+	bh.add_child(_label("BALANCE", 16, YELLOW, 4))
+	balance_track = Control.new()
+	balance_track.custom_minimum_size = Vector2(BALANCE_W, 18)
+	var trk: ColorRect = ColorRect.new()
+	trk.color = NAVY_DK
+	trk.size = Vector2(BALANCE_W, 18)
+	balance_track.add_child(trk)
+	var mid: ColorRect = ColorRect.new()
+	mid.color = Color(1, 1, 1, 0.35)
+	mid.size = Vector2(2, 18)
+	mid.position = Vector2(BALANCE_W * 0.5 - 1.0, 0)
+	balance_track.add_child(mid)
+	balance_marker = ColorRect.new()
+	balance_marker.size = Vector2(10, 18)
+	balance_marker.color = GREEN
+	balance_track.add_child(balance_marker)
+	bh.add_child(balance_track)
+	balance_panel.visible = false
+	root.add_child(balance_panel)
+
 
 func _build_center() -> void:
 	center_label = _label("", 72, YELLOW, 10)
@@ -284,6 +315,16 @@ func set_timer(seconds: float, running: bool) -> void:
 
 func set_speed(v: float) -> void:
 	speed_bar.value = v
+
+
+## Manual balance, -1..1 (0 = perfect). Hidden when not in a manual.
+func set_balance(v: float, active: bool) -> void:
+	balance_panel.visible = active
+	if not active:
+		return
+	var c: float = clampf(v, -1.0, 1.0)
+	balance_marker.position.x = (c * 0.5 + 0.5) * (BALANCE_W - 10.0)
+	balance_marker.color = GREEN.lerp(RED, clampf((absf(c) - 0.4) / 0.5, 0.0, 1.0))
 
 
 func set_charge(v: float) -> void:

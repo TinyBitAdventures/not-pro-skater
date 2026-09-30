@@ -24,6 +24,16 @@ static var _shared: SkateTuning = null
 @export_range(0.0, 8.0, 0.1) var grass_drag: float = 2.8
 @export_range(1.0, 10.0, 0.1) var grass_push_speed: float = 4.2
 @export_range(0.0, 2.0, 0.01) var manual_drag: float = 0.25
+@export_range(0.1, 3.0, 0.05) var push_rate: float = 0.85         ## push strides per second at a standstill
+@export_range(0.0, 0.3, 0.01) var push_rate_speed: float = 0.06   ## extra strides per second per m/s
+
+@export_group("Manual")
+@export_range(0.1, 0.6, 0.01) var combo_window: float = 0.35     ## up-then-down (or down-then-up) within this
+@export_range(0.1, 0.6, 0.01) var combo_tap: float = 0.3         ## the first press must be a tap shorter than this
+@export_range(0.0, 0.8, 0.05) var manual_request: float = 0.45   ## a combo pressed in the air lands in a manual
+@export_range(0.0, 10.0, 0.1) var manual_wobble: float = 1.8     ## how fast a manual tips away from balance
+@export_range(0.0, 1.0, 0.01) var manual_wobble_growth: float = 0.25 ## ...and how much harder each second
+@export_range(0.0, 20.0, 0.1) var manual_control: float = 5.5    ## how hard up / down push the balance back
 @export_range(0.05, 1.0, 0.01) var floor_snap: float = 0.35
 
 @export_group("Steering")
@@ -64,6 +74,12 @@ static var _shared: SkateTuning = null
 @export_range(0.2, 1.0, 0.05) var vert_gravity_scale: float = 0.55 ## vert airs float longer than flat ollies
 @export_range(0.0, 1.5, 0.05) var vert_pop_mult: float = 0.55    ## pops at a vert lip are scaled by this (the float already adds height)
 
+@export_group("Wall plant")
+@export_range(0.0, 0.5, 0.01) var wallplant_window: float = 0.25 ## after touching a wall in the air, a pop plants
+@export_range(0.0, 0.3, 0.01) var wallplant_hold: float = 0.08   ## the stick against the wall before the push off
+@export_range(0.0, 12.0, 0.1) var wallplant_push: float = 4.5    ## speed away from the wall
+@export_range(0.0, 16.0, 0.1) var wallplant_pop: float = 8.0     ## speed up
+
 @export_group("Landing")
 @export_range(10.0, 90.0, 1.0) var bail_angle: float = 58.0    ## degrees off the travel direction
 @export_range(0.0, 60.0, 1.0) var assist_angle: float = 35.0   ## within this, landings are clean and the board lines up
@@ -75,6 +91,8 @@ static var _shared: SkateTuning = null
 @export_range(0.3, 2.0, 0.05) var runout_time: float = 0.85
 @export_range(0.5, 3.0, 0.05) var slam_time: float = 1.3
 @export_range(0.5, 3.0, 0.05) var tumble_time: float = 1.6
+@export_range(0.5, 8.0, 0.1) var board_roll_damp: float = 3.2    ## how quickly a loose board rolls to a stop
+@export_range(0.5, 5.0, 0.1) var walk_speed: float = 2.4         ## the rider walks back to the board at this pace
 
 @export_group("Grinding")
 @export_range(0.2, 2.5, 0.05) var grind_snap_h: float = 0.9    ## horizontal reach to a rail

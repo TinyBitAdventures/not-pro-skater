@@ -7,7 +7,8 @@ extends Node
 const DT: float = 1.0 / 120.0
 const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert", "transfer", "curve_rail", "kink",
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
-	"vert_frame", "bail_small", "bail_big"]
+	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
+	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish"]
 
 var level: Level
 var sk: Skater
@@ -398,6 +399,168 @@ func _t_bail_big() -> void:
 		if sk.state == Skater.State.BAIL:
 			break
 	_result("bail_big", sk.bail_kind != "runout", "a sideways landing from 4 m at 16 m/s is a %s (want slam or tumble)" % sk.bail_kind)
+
+
+# ------------------------------------------------------------------ manuals
+
+## Taps the stick: `seq` = list of [move.y, ticks]. Keeps rolling straight meanwhile.
+func _stick(seq: Array) -> void:
+	for step in seq:
+		for i in int(step[1]):
+			sk.inp.world_dir = sk.hdg if sk.state == Skater.State.GROUND and false else Vector3.ZERO
+			sk.inp.move = Vector2(0, float(step[0]))
+			await _tick()
+	sk.inp.move = Vector2.ZERO
+
+
+func _t_manual_combo() -> void:
+	await _spawn("flat", 6.0)
+	await _stick([[-1.0, 6], [1.0, 6], [0.0, 2]])
+	_result("manual_combo", sk.manual_on and sk.manual_kind == "manual", "up then down: manual_on=%s kind=%s" % [sk.manual_on, sk.manual_kind])
+
+
+func _t_nose_combo() -> void:
+	await _spawn("flat", 6.0)
+	await _stick([[1.0, 6], [-1.0, 6], [0.0, 2]])
+	_result("nose_combo", sk.manual_on and sk.manual_kind == "nose", "down then up: manual_on=%s kind=%s" % [sk.manual_on, sk.manual_kind])
+
+
+## Holding W to push and then braking with S must not start a manual.
+func _t_push_no_combo() -> void:
+	await _spawn("flat", 4.0)
+	await _stick([[-1.0, 90], [1.0, 20], [0.0, 2]])
+	_result("push_no_combo", not sk.manual_on, "push 0.75 s then brake: manual_on=%s (want false)" % sk.manual_on)
+
+
+## A player who corrects the balance keeps the manual going; letting go of the stick loses it.
+func _t_manual_hold() -> void:
+	await _spawn("flat", 8.0)
+	await _stick([[-1.0, 6], [1.0, 6], [0.0, 1]])
+	var held: float = 0.0
+	for i in 480:
+		sk.inp.move = Vector2(0, clampf(sk.manual_balance * 3.0 + sk._balance_vel * 0.6, -1.0, 1.0))
+		await _tick()
+		if not sk.manual_on:
+			break
+		held += DT
+	_result("manual_hold", held >= 3.0 and bails.is_empty(), "balancing keeps the manual %.1f s (want >= 3), bails=%s" % [held, bails])
+
+
+func _t_manual_drop() -> void:
+	await _spawn("flat", 8.0)
+	await _stick([[-1.0, 6], [1.0, 6], [0.0, 1]])
+	var t: float = 0.0
+	for i in 600:
+		await _tick()
+		t += DT
+		if not sk.manual_on:
+			break
+	var kind: String = sk.bail_kind if not bails.is_empty() else "-"
+	_result("manual_drop", not bails.is_empty() and kind == "runout" and t < 4.0, "no balancing: fell off after %.1f s as a %s (want a run-out)" % [t, kind])
+
+
+## The combo pressed while still in the air lands straight into a manual.
+func _t_manual_air() -> void:
+	await _spawn("flat", 7.0)
+	sk.inp.ollie_pressed = true
+	await _tick()
+	for i in 200:
+		await _tick()
+		if sk.state == Skater.State.AIR and sk.velocity.y < -2.0:
+			break
+	await _stick([[-1.0, 5], [1.0, 5], [0.0, 1]])
+	for i in 120:
+		await _tick()
+		if sk.state == Skater.State.GROUND:
+			break
+	await _tick(3)
+	_result("manual_air", sk.manual_on, "combo in the air, landed in a manual: %s" % sk.manual_on)
+
+
+# ------------------------------------------------------------------ wall plant
+
+func _t_wallplant() -> void:
+	await _spawn("wall", 7.0)
+	var planted: bool = false
+	var popped: bool = false
+	var away: float = 0.0
+	for i in 300:
+		if sk.state == Skater.State.GROUND and not popped:
+			_push()
+		if not popped and sk.global_position.z < -34.6:
+			sk.inp.ollie_pressed = true
+			popped = true
+		if popped and sk.state == Skater.State.AIR and sk._wall_t > 0.0:
+			sk.inp.ollie_pressed = true
+		await _tick()
+		if tricks.has("Wallplant"):
+			planted = true
+		if planted:
+			away = maxf(away, sk.velocity.z)
+		if planted and sk.state == Skater.State.GROUND:
+			break
+	_result("wallplant", planted and away > 2.0 and bails.is_empty(), "jump at the wall, pop on contact: wallplant=%s, off the wall at %.1f m/s, bails=%s" % [planted, away, bails])
+
+
+# ------------------------------------------------------------------ bails and camera
+
+## The loose board rolls on; the rider gets up and walks to it: no jump when the bail ends.
+func _t_bail_no_snap() -> void:
+	await _spawn("flat", 0.0, Vector3(0, 2.0, 0))
+	sk.velocity = sk.hdg * 9.0 + Vector3.UP * 2.0
+	sk._enter_air()
+	sk.yaw += deg_to_rad(80.0)
+	sk.hdg = sk.heading_h()
+	var last: Vector3 = sk.rider_position()
+	var max_jump: float = 0.0
+	var gap_end: float = -1.0
+	var was_bail: bool = false
+	for i in 600:
+		await _tick()
+		var p: Vector3 = sk.rider_position()
+		max_jump = maxf(max_jump, p.distance_to(last))
+		last = p
+		if sk.state == Skater.State.BAIL:
+			was_bail = true
+			gap_end = sk.rider_position().distance_to(sk.global_position)
+		elif was_bail:
+			break
+	_result("bail_no_snap", was_bail and max_jump < 0.2 and gap_end < 0.05, "%s: rider moved at most %.2f m in a tick (want < 0.2), %.2f m from the board as the bail ends" % [
+		sk.bail_kind, max_jump, gap_end])
+
+
+## Back to a wall: the chase camera must stay out of the rider's body.
+func _t_camera_wall() -> void:
+	await _spawn("wall", 0.0, Vector3(0, 0, -7.4))
+	sk.hdg = Vector3(0, 0, 1)                     # facing away from the wall (it is right behind)
+	sk.yaw = PI
+	var cam: ChaseCamera = ChaseCamera.new()
+	add_child(cam)
+	cam.attach(sk)
+	var worst: float = 99.0
+	for i in 60:
+		await get_tree().process_frame
+		var c: Vector3 = cam.global_position
+		var f: Vector3 = sk.global_position
+		var inside: bool = Vector2(c.x - f.x, c.z - f.z).length() < 0.5 and c.y < f.y + 2.0
+		worst = minf(worst, 0.0 if inside else Vector2(c.x - f.x, c.z - f.z).length())
+	cam.queue_free()
+	_result("camera_wall", worst > 0.0, "camera with a wall right behind the rider: inside the body=%s" % [worst == 0.0])
+
+
+## Let go of W mid-push: the stride finishes (foot back on the deck) instead of snapping.
+func _t_push_finish() -> void:
+	await _spawn("flat", 0.0)
+	for i in 30:
+		_push()
+		await _tick()
+	var mid: float = sk.push_anim
+	_coast()
+	var frames: int = 0
+	while sk.push_anim >= 0.0 and frames < 240:
+		await _tick()
+		frames += 1
+	_result("push_finish", mid > 0.0 and mid < 0.9 and frames > 5 and sk.push_anim < 0.0, "released at stride %.2f: the stride ran on %d ticks, then ended" % [mid, frames])
 
 
 # ------------------------------------------------------------------ landing

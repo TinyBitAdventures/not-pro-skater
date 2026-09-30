@@ -57,6 +57,25 @@ var bail_kind: String = "slam"           # "runout" (step off), "slam" (onto the
 var bail_duration: float = BAIL_TIME
 var bail_severity: float = 0.0
 var _land_jump: float = 0.0              # a jump tapped while falling, waiting for touchdown
+var manual_kind: String = ""             # "manual" (nose up) or "nose" (nose manual) while manual_on
+var manual_balance: float = 0.0          # -1..1: past either end the rider falls off (HUD meter)
+var _balance_vel: float = 0.0
+var _manual_time: float = 0.0
+var _manual_req: String = ""             # a manual combo pressed in the air, waiting for the landing
+var _manual_req_t: float = 0.0
+var _clock: float = 0.0
+var _y_zone: int = 0                     # stick: -1 up, 0 middle, 1 down
+var _zone_since: float = 0.0
+var _last_up: Vector2 = Vector2(-9, 0)   # (time the stick went up, how long it stayed up)
+var _last_down: Vector2 = Vector2(-9, 0)
+var push_anim: float = -1.0              # push stride phase 0..1 while a stride is under way (the visual reads it)
+var wallplant_t: float = 0.0             # >0 just after a wall plant (the visual plants the board)
+var _wall_t: float = 0.0
+var _wall_n: Vector3 = Vector3.ZERO
+var _plant_hold: float = 0.0
+var _plant_v: Vector3 = Vector3.ZERO
+var bail_origin: Vector3 = Vector3.ZERO  # where the rider went down (the board rolls on from here)
+var bail_getup: float = 0.0              # seconds into the bail when the rider is back up and walks to the board
 var _vert_up0: Vector3 = Vector3.UP
 var _vert_fwd0: Vector3 = Vector3.FORWARD
 var _vert_yaw0: float = 0.0
@@ -238,6 +257,24 @@ func speed() -> float:
 	return velocity.length()
 
 
+## Where the rider's body is: normally on the board; in a bail it goes down where the fall happened while the
+## board (the physics body) rolls on, then walks to it (a run-out runs just behind it).
+func rider_position() -> Vector3:
+	if state != State.BAIL:
+		return global_position
+	var t: float = bail_time
+	if bail_kind == "runout":
+		var u: float = clampf(t / maxf(bail_duration, 0.1), 0.0, 1.0)
+		var back: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+		back = back.normalized() if back.length() > 0.3 else hdg
+		return global_position - back * sin(u * PI) * 0.9
+	var slide: Vector3 = (global_position - bail_origin) * clampf(t / 0.5, 0.0, 1.0) * 0.2
+	var walk: float = clampf((t - bail_getup) / maxf(bail_duration - bail_getup, 0.05), 0.0, 1.0)
+	walk = walk * walk * (3.0 - 2.0 * walk)
+	var down_at: Vector3 = bail_origin + slide
+	return down_at.lerp(global_position, walk)
+
+
 ## The way the rider (and the board's nose) points: along the travel heading, or against it when fakie.
 func facing() -> Vector3:
 	return -hdg if stance == "fakie" else hdg
@@ -298,10 +335,27 @@ func _physics_process(delta: float) -> void:
 	_revert_t = maxf(0.0, _revert_t - delta)
 	_magnet_t = maxf(0.0, _magnet_t - delta)
 	_land_jump = maxf(0.0, _land_jump - delta)
+	_manual_req_t = maxf(0.0, _manual_req_t - delta)
+	_wall_t = maxf(0.0, _wall_t - delta)
+	wallplant_t = maxf(0.0, wallplant_t - delta)
+	_clock += delta
+	var combo: String = _stick_combo()
+	if combo != "" and not manual_on:
+		if state == State.AIR:
+			_manual_req = combo
+			_manual_req_t = tune.manual_request
+		elif state == State.GROUND:
+			_start_manual(combo)
 	var manual_edge: bool = inp.manual and not _prev_manual
 	_prev_manual = inp.manual
 	if manual_edge and _revert_t > 0.0 and state == State.GROUND:
 		_revert()
+	elif manual_edge and not manual_on:
+		if state == State.GROUND:
+			_start_manual("manual")
+		elif state == State.AIR:
+			_manual_req = "manual"
+			_manual_req_t = tune.manual_request
 	if inp.ollie_pressed:
 		_ollie_buf = tune.buffer
 	# One release must give exactly one pop. Detect it from the held state ourselves; the engine's
@@ -395,17 +449,19 @@ func _ground(dt: float) -> void:
 	hdg = (hdg - n * hdg.dot(n)).normalized()
 	lean = lerpf(lean, clampf(turn_applied / maxf(dt, 0.0001) * spd * 0.03, -1.0, 1.0), 1.0 - exp(-8.0 * dt))
 
-	# manual: hold on the flat with some speed
-	var was_manual: bool = manual_on
-	manual_on = inp.manual and n.y > 0.92 and (spd > 2.0 or (was_manual and spd > 1.2))
-	if manual_on and not was_manual:
-		if score != null:
-			score.add_trick("Manual", 150)
-		sfx.emit("manual")
-	if manual_on and score != null:
-		score.hold("manual", dt, Tricks.MANUAL_HOLD_RATE)
-	elif was_manual and score != null:
-		score.release_hold("manual")
+	# manual: started by the stick combo (up then down, or down then up for a nose manual) or M, then kept
+	# up by balancing with up / down until the rider stops, leaves the flat, pops or loses it
+	if manual_on:
+		braking = false
+		pushing = false
+		if n.y < 0.92 or spd < 1.2:
+			_end_manual()
+		else:
+			_balance_manual(dt)
+			if state != State.GROUND:
+				return
+			if score != null:
+				score.hold("manual", dt, Tricks.MANUAL_HOLD_RATE)
 
 	var fwd: float = velocity.dot(hdg)
 	var lat: Vector3 = velocity - hdg * fwd
@@ -431,8 +487,14 @@ func _ground(dt: float) -> void:
 	velocity = hdg * fwd + lat
 	velocity += (Vector3.DOWN - n * Vector3.DOWN.dot(n)) * tune.gravity * dt
 
-	if pushing and not braking:
-		push_phase += dt * (1.6 + spd * 0.25)
+	# a stride, once started, finishes (the foot comes back onto the deck) even if the push is let go
+	if (pushing and not braking) or push_anim >= 0.0:
+		var before: float = push_phase
+		push_phase += dt * (tune.push_rate + spd * tune.push_rate_speed)
+		push_anim = fposmod(push_phase, 1.0)
+		if not (pushing and not braking) and floorf(push_phase) > floorf(before):
+			push_anim = -1.0
+			push_phase = floorf(push_phase)
 	if charge_mode:
 		if inp.ollie_held:
 			charge = minf(charge + dt, tune.charge_max)
@@ -575,9 +637,7 @@ func _ollie(n: Vector3, speed: float) -> void:
 	_enter_air()
 	_maybe_vert(true)
 	_air_popped = true
-	if manual_on and score != null:
-		score.release_hold("manual")
-	manual_on = false
+	_end_manual()
 
 
 func _enter_air() -> void:
@@ -750,10 +810,52 @@ func _air(dt: float) -> void:
 			return
 		_magnet(dt)
 
+	if _plant_hold > 0.0:
+		_plant_hold -= dt
+		velocity = Vector3.ZERO
+		if _plant_hold <= 0.0:
+			velocity = _plant_v
+		return
 	floor_snap_length = 0.0
+	var v_before: Vector3 = velocity
 	move_and_slide()
+	for i in get_slide_collision_count():
+		var wn: Vector3 = get_slide_collision(i).get_normal()
+		if absf(wn.y) < 0.35 and v_before.dot(wn) < -2.0:
+			_wall_t = tune.wallplant_window
+			_wall_n = Vector3(wn.x, 0.0, wn.z).normalized()
+			_plant_v = v_before
+	if _wall_t > 0.0 and _ollie_buf > 0.0:
+		_wallplant()
+		return
 	if is_on_floor():
 		_land()
+
+
+## Pop off a wall you jump into: a short stick, then back out the way you came, turned around (Tony Hawk's
+## wall plant). Any buffered pop within the window counts, before or just after the touch.
+func _wallplant() -> void:
+	_ollie_buf = 0.0
+	_release_buf = 0.0
+	_land_jump = 0.0
+	_wall_t = 0.0
+	vert_air = false
+	var along: Vector3 = _plant_v - _wall_n * _plant_v.dot(_wall_n)
+	along.y = 0.0
+	_plant_v = _wall_n * tune.wallplant_push + along * 0.3 + Vector3.UP * tune.wallplant_pop
+	_plant_hold = tune.wallplant_hold
+	velocity = Vector3.ZERO
+	var away: Vector3 = Vector3(_plant_v.x, 0.0, _plant_v.z).normalized()
+	yaw = atan2(-away.x, -away.z)
+	hdg = heading_h()
+	_air_ref = hdg
+	_air_popped = true
+	wallplant_t = 0.3
+	air_time = maxf(air_time, 0.3)
+	if score != null:
+		score.add_trick("Wallplant", 250)
+	sfx.emit("ollie")
+	sfx.emit("trick")
 
 
 ## Grind pressed in the air: look along the coming air path for a rail within magnet_reach and steer onto it,
@@ -852,12 +954,74 @@ func _land() -> void:
 	crouch = 1.0
 	charge = 0.0
 	_reset_air()
+	if _manual_req != "" and _manual_req_t > 0.0 and state == State.GROUND:
+		_start_manual(_manual_req)
+		_manual_req = ""
 	if _land_jump > 0.0:
 		_land_jump = 0.0
 		if charge_mode:
 			_release_buf = tune.buffer
 		else:
 			_ollie_buf = tune.buffer
+
+
+## Tony Hawk's manual input: tap up then down (manual) or down then up (nose manual) on the stick / W and S.
+## The first press must be a tap (so holding W to push and then braking does not count).
+func _stick_combo() -> String:
+	var y: float = inp.move.y
+	var zone: int = -1 if y < -0.5 else (1 if y > 0.5 else (0 if absf(y) < 0.3 else _y_zone))
+	var found: String = ""
+	if zone != _y_zone:
+		var held: float = _clock - _zone_since
+		if _y_zone == -1:
+			_last_up = Vector2(_zone_since, held)
+		elif _y_zone == 1:
+			_last_down = Vector2(_zone_since, held)
+		if zone == 1 and _clock - (_last_up.x + _last_up.y) < tune.combo_window and _last_up.y < tune.combo_tap:
+			found = "manual"
+		elif zone == -1 and _clock - (_last_down.x + _last_down.y) < tune.combo_window and _last_down.y < tune.combo_tap:
+			found = "nose"
+		_y_zone = zone
+		_zone_since = _clock
+	if found != "":
+		_last_up = Vector2(-9, 0)
+		_last_down = Vector2(-9, 0)
+	return found
+
+
+func _start_manual(kind: String) -> void:
+	if velocity.length() < 2.0 or floor_n.y < 0.92:
+		return
+	manual_on = true
+	manual_kind = kind
+	_manual_time = 0.0
+	manual_balance = randf_range(-0.12, 0.12)
+	_balance_vel = 0.25 * (1.0 if randf() < 0.5 else -1.0)
+	_manual_req = ""
+	if score != null:
+		score.add_trick("Manual" if kind == "manual" else "Nose Manual", 150 if kind == "manual" else 200)
+	sfx.emit("manual")
+
+
+func _end_manual() -> void:
+	if manual_on and score != null:
+		score.release_hold("manual")
+	manual_on = false
+	manual_kind = ""
+	manual_balance = 0.0
+
+
+## The balance tips away from the middle faster and faster; up / down push it back (down lowers the nose in a
+## manual; in a nose manual up lowers the tail). Past either end the rider falls off: a small bail.
+func _balance_manual(dt: float) -> void:
+	_manual_time += dt
+	var wobble: float = tune.manual_wobble * (1.0 + _manual_time * tune.manual_wobble_growth)
+	var input: float = inp.move.y if manual_kind == "manual" else -inp.move.y
+	_balance_vel += (manual_balance * wobble - input * tune.manual_control) * dt
+	manual_balance += _balance_vel * dt
+	if absf(manual_balance) > 1.0:
+		_end_manual()
+		_start_bail("manual")
 
 
 ## Manual right after landing on a ramp: spin the board 180 and keep the combo going (Tony Hawk's revert).
@@ -1018,6 +1182,15 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 	var travel: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
 	if travel.length() > 1.0:
 		hdg = travel.normalized()             # fall (and run it out) the way the body was going
+	# the physics body is the board from here: it rolls on and stops; the rider goes down where it fell,
+	# gets up and walks to the board (a run-out runs with it), so nothing snaps back at the end
+	bail_origin = global_position
+	bail_getup = bail_duration
+	if bail_kind != "runout":
+		var roll: float = travel.length() / tune.board_roll_damp
+		bail_duration += clampf(roll / tune.walk_speed, 0.25, 1.4)
+	_plant_hold = 0.0
+	_end_manual()
 	state = State.BAIL
 	bail_time = 0.0
 	stats["bails"] += 1
@@ -1035,7 +1208,7 @@ func _bail(dt: float) -> void:
 	bail_time += dt
 	velocity.y -= tune.gravity * dt
 	# a run-out keeps moving on foot; slams and rolls slide to a stop
-	var ground_damp: float = 1.6 if bail_kind == "runout" else 2.6
+	var ground_damp: float = 1.6 if bail_kind == "runout" else tune.board_roll_damp
 	var damp: float = exp(-(ground_damp if is_on_floor() else 0.4) * dt)
 	velocity.x *= damp
 	velocity.z *= damp

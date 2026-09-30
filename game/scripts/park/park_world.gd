@@ -147,6 +147,7 @@ func _process(delta: float) -> void:
 		cam.v_offset = 0.0
 	hud.set_speed(skater.velocity.length())
 	hud.set_charge(skater.charge_frac())
+	hud.set_balance(skater.manual_balance, skater.manual_on)
 	_update_audio(delta)
 	hud.set_combo(score.mult, score.combo_text(), score.pending, score.live)
 

@@ -39,13 +39,28 @@ func _pose_as(state: int, fields: Dictionary) -> void:
 	sk.air_fwd = Vector3(0, 0, -1)
 	sk.hdg = Vector3(0, 0, -1)
 	sk.yaw = 0.0
+	sk.stance = "regular"
+	sk.push_anim = -1.0
+	sk.wallplant_t = 0.0
+	sk.manual_kind = ""
 	sk.global_position = Vector3(0, 0.0, -4)
 	for k in fields:
 		sk.set(k, fields[k])
 
 
 func _tour() -> void:
+	var only: String = OS.get_environment("POSES")
 	var poses: Array = [
+		["push0", Skater.State.GROUND, {"pushing": true, "push_anim": 0.0, "push_phase": 0.0}],
+		["push1", Skater.State.GROUND, {"pushing": true, "push_anim": 0.12, "push_phase": 0.12}],
+		["push2", Skater.State.GROUND, {"pushing": true, "push_anim": 0.3, "push_phase": 0.3}],
+		["push3", Skater.State.GROUND, {"pushing": true, "push_anim": 0.5, "push_phase": 0.5}],
+		["push4", Skater.State.GROUND, {"pushing": true, "push_anim": 0.7, "push_phase": 0.7}],
+		["push5", Skater.State.GROUND, {"pushing": true, "push_anim": 0.82, "push_phase": 0.82}],
+		["fakie", Skater.State.GROUND, {"stance": "fakie"}],
+		["nosemanual", Skater.State.GROUND, {"manual_on": true, "manual_kind": "nose"}],
+		["wallplant", Skater.State.AIR, {"wallplant_t": 0.28, "global_position": Vector3(0, 0.8, -4)}],
+		["walkback", Skater.State.BAIL, {"bail_kind": "slam", "bail_time": 1.6, "bail_duration": 2.2, "bail_getup": 1.3, "bail_origin": Vector3(0, 0, -2.5)}],
 		["idle", Skater.State.GROUND, {}],
 		["push", Skater.State.GROUND, {"pushing": true, "push_phase": 0.25, "velocity": Vector3(0, 0, -3)}],
 		["crouch", Skater.State.GROUND, {"crouch": 1.0}],
@@ -58,10 +73,16 @@ func _tour() -> void:
 	]
 	var dir: String = ProjectSettings.globalize_path("res://").path_join("../shots")
 	for p in poses:
+		if only != "" and not String(p[0]).begins_with(only):
+			continue
 		_pose_as(p[1], p[2])
 		for i in 40:                      # let the smoothed pose settle
 			if sk.state == Skater.State.BAIL:
 				sk.bail_time = float(p[2]["bail_time"])
+			if p[2].has("push_anim"):
+				sk.push_anim = float(p[2]["push_anim"])
+			if p[2].has("wallplant_t"):
+				sk.wallplant_t = float(p[2]["wallplant_t"])
 			await get_tree().process_frame
 		var target: Vector3 = sk.global_position + Vector3(0, 0.9, 0)
 		cam.global_transform = Transform3D(Basis.looking_at(Vector3(-0.75, -0.12, -0.65), Vector3.UP), target + Vector3(0.75, 0.12, 0.65).normalized() * 3.0)
