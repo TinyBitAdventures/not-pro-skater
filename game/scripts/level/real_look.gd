@@ -6,6 +6,7 @@ extends RefCounted
 
 const SHADER: Shader = preload("res://shaders/baked_pbr.gdshader")
 const LEAVES: Shader = preload("res://shaders/leaf_sway.gdshader")
+const GLASS: Shader = preload("res://shaders/window_glass.gdshader")
 
 static var bake_energy: float = 1.15       # a touch above the physical bake: cameras lift shade
 const WALL_FILL: float = 2.2
@@ -45,6 +46,15 @@ static func apply(root: Node, lightmaps: Dictionary, info: Dictionary) -> void:
 		for s in mesh.get_surface_count():
 			var src: BaseMaterial3D = mesh.surface_get_material(s) as BaseMaterial3D
 			if src == null:
+				continue
+			if src.resource_name == "Glass":                 # house windows: sky reflection over a dark room
+				if not cache.has("glass"):
+					var gm: ShaderMaterial = ShaderMaterial.new()
+					gm.shader = GLASS
+					var sd: Array = info.get("sun_dir", [0.76, 0.33, 0.56])
+					gm.set_shader_parameter("sun_dir", Vector3(sd[0], sd[1], sd[2]))
+					cache["glass"] = gm
+				mesh.surface_set_material(s, cache["glass"])
 				continue
 			if src.resource_name == "TreeLeaves":
 				if not cache.has("leaves"):
