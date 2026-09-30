@@ -47,6 +47,7 @@ const MARK_SPEED: float = 1.2          # standing (near enough) still on a mark 
 var _run_shown: int = -1
 const GATE_RADIUS: float = 3.2
 
+var _occl_i: int = 0
 var active: bool = true                # false once the session is over: nothing more completes or saves
 var _kids_pending: Dictionary = {}     # kids a trick was shown to in the live combo: they count when it lands
 var _zone_hit: Dictionary = {}         # zone_combo goal id -> a trick of the live combo was done in its zone
@@ -138,6 +139,16 @@ func goal_list() -> Array:
 	return out
 
 
+## Seconds left in the one-take run's current take, or -1 when no take is running.
+func take_left() -> float:
+	if _run_t < 0.0 or not active:
+		return -1.0
+	for g in ev["goals"]:
+		if g["kind"] == "timed_run":
+			return maxf(0.0, float(g["limit"]) - _run_t)
+	return -1.0
+
+
 ## The letters goal's word ("PARTY"), or "" when the event has none.
 func letters_word() -> String:
 	for g in ev.get("goals", []):
@@ -191,6 +202,7 @@ func _process(dt: float) -> void:
 				if g["kind"] == "letters" and _letter_progress(String(g["letters"])).find("_") < 0:
 					_complete(g["id"])
 	_thermo_tick()
+	_letters_occlusion()
 	if not active:
 		return
 	for g in ev["goals"]:                    # the "(in the zone!)" note follows the rider in and out
@@ -343,10 +355,9 @@ func _zone_ring(at: Vector3, radius: float, text: String) -> void:
 	add_child(ring)
 	ring.global_position = at + Vector3.UP * 0.03
 	if text != "":
-		var sign: Label3D = _sign_text(text, 64, UiKit.ACCENT)
+		var sign: Label3D = _float_text(text, 0.0045)
 		add_child(sign)
-		sign.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-		sign.global_position = at + Vector3(0.0, 2.6, 0.0)
+		sign.global_position = at + Vector3(0.0, 2.8, 0.0)
 
 
 const PARTY_COLORS: Array[Color] = [Color(0.92, 0.2, 0.25), Color(0.2, 0.5, 0.95), Color(1.0, 0.78, 0.15),
@@ -468,6 +479,25 @@ func _banner(bd: Dictionary) -> void:
 	back.global_transform = Transform3D(Basis.looking_at(facing, Vector3.UP), mid - facing * 0.012)
 
 
+## A balloon's letter draws over everything (so it reads through its own balloon); behind a wall it would float
+## on the wall's face, so it hides while the world blocks the camera's view of the balloon.
+func _letters_occlusion() -> void:
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	if cam == null or _letters.is_empty():
+		return
+	_occl_i = (_occl_i + 1) % 3                  # a third of the letters each frame
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var i: int = 0
+	for l in _letters:
+		i += 1
+		if i % 3 != _occl_i:
+			continue
+		var b: Node3D = _letters[l]
+		var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(cam.global_position, b.global_position, 1)
+		var lab: Label3D = b.get_meta("label")
+		lab.visible = space.intersect_ray(q).is_empty()
+
+
 ## A little pile of presents: wrapped boxes with a ribbon each way.
 func _gifts(at: Vector3, rng: RandomNumberGenerator) -> void:
 	var ribbon: StandardMaterial3D = StandardMaterial3D.new()
@@ -539,10 +569,11 @@ func _balloon(letter: String, at: Vector3) -> Node3D:
 	l.modulate = Color(1, 1, 1)
 	l.outline_modulate = Color(0.1, 0.1, 0.15)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true                 # always readable, even through its own balloon
-	l.render_priority = 5
+	l.no_depth_test = true                 # always readable, even through its own balloon (hidden behind walls:
+	l.render_priority = 5                  # _letters_occlusion)
 	l.position = Vector3(0, 0.02, 0)
 	root.add_child(l)
+	root.set_meta("label", l)
 	return root
 
 
@@ -693,21 +724,21 @@ func _build_marks() -> void:
 		root.global_position = marks[mi] + Vector3.UP * 0.02
 		var m: StandardMaterial3D = StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = Color(0.95, 0.93, 0.85, 0.9)
+		m.albedo_color = Color(UiKit.ACCENT, 0.95)      # gaffer tape
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		for a in [PI / 4.0, -PI / 4.0]:
 			var bar: MeshInstance3D = MeshInstance3D.new()
 			var bm: BoxMesh = BoxMesh.new()
-			bm.size = Vector3(1.3, 0.004, 0.12)
+			bm.size = Vector3(1.9, 0.004, 0.16)
 			bar.mesh = bm
 			bar.material_override = m
 			bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			bar.rotation.y = a
 			root.add_child(bar)
-		var num: Label3D = _sign_text(str(mi + 1), 72, UiKit.ACCENT)
-		num.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+		var num: Label3D = _float_text("MARK %d" % (mi + 1), 0.0035)
 		root.add_child(num)
 		num.position = Vector3(0.0, 1.9, 0.0)
+		root.set_meta("num", num)
 		root.set_meta("mat", m)
 		_mark_nodes.append(root)
 
@@ -722,8 +753,11 @@ func _marks_tick(rider: Vector3) -> void:
 		if marks_hit.has(mi) or skater.state != Skater.State.GROUND:
 			continue
 		var d: Vector2 = Vector2(rider.x - marks[mi].x, rider.z - marks[mi].z)
+		var num: Label3D = node.get_meta("num")
+		num.text = "STOP!" if d.length() < MARK_RADIUS * 1.6 else "MARK %d" % (mi + 1)   # on it but still rolling
 		if d.length() < MARK_RADIUS and Vector2(skater.velocity.x, skater.velocity.z).length() < MARK_SPEED:
 			marks_hit[mi] = true
+			num.visible = false                       # hit: only the marks still to hit float a label
 			(node.get_meta("mat") as StandardMaterial3D).albedo_color = Color(UiKit.GOOD, 0.95)
 			Sound.play("pickup", -4.0, 1.0 + 0.1 * marks_hit.size())
 			changed.emit()
@@ -800,6 +834,21 @@ func _thermometer(td: Dictionary) -> void:
 		root.add_child(tick)
 	_thermo = {"fill": fill_mi, "amount": amount, "goal": float(td["goal"]), "shown": 0.0}
 	_thermo_tick()
+
+
+## A label that floats over a goal's spot: faces the camera, unlit, outlined, readable from across the level.
+func _float_text(text: String, px: float) -> Label3D:
+	var l: Label3D = Label3D.new()
+	l.text = text
+	l.font = UiKit.FONT_DISPLAY
+	l.font_size = 96
+	l.pixel_size = px
+	l.modulate = UiKit.ACCENT
+	l.outline_size = 14
+	l.outline_modulate = Color(0, 0, 0, 0.6)
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.shaded = false
+	return l
 
 
 func _sign_text(text: String, size: int, color: Color) -> Label3D:

@@ -30,6 +30,7 @@ var goals_box: VBoxContainer
 var clock_box: VBoxContainer
 var timer_label: Label
 var best_label: Label
+var take_label: Label                         # a timed take's own countdown, under the session clock
 var trick_box: VBoxContainer
 var trick_names: Label
 var trick_points: Label
@@ -138,6 +139,10 @@ func _build_clock() -> void:
 	best_label = UiKit.label("", 19, MUTED, "bold")
 	best_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	clock_box.add_child(best_label)
+	take_label = UiKit.label("", 40, ACCENT, "display")
+	take_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	take_label.visible = false
+	clock_box.add_child(take_label)
 	clock_box.visible = false
 
 
@@ -403,6 +408,15 @@ func amount(points: int) -> String:
 	if money > 0.0:
 		return "$" + UiKit.commas(int(round(points * money)))
 	return UiKit.commas(points)
+
+
+## The one-take run's clock (seconds left), or < 0 to hide it. Red for the last ten seconds.
+func set_take(left: float) -> void:
+	take_label.visible = left >= 0.0
+	if left < 0.0:
+		return
+	take_label.text = "TAKE  0:%02d" % ceili(left)
+	take_label.add_theme_color_override("font_color", BAD if left < 10.0 else ACCENT)
 
 
 func set_score(v: int) -> void:

@@ -72,6 +72,7 @@ func _on_goal(id: String, text: String) -> void:
 
 func _process(delta: float) -> void:
 	super._process(delta)
+	hud.set_take(runner.take_left())
 	if finished:
 		return
 	if not running and skater.velocity.length() > 1.0:
