@@ -806,8 +806,16 @@ func _maybe_vert(_popped: bool) -> void:
 	var side: float = inp.world_dir.dot(out.cross(Vector3.UP))
 	if absf(side) < 0.2:
 		side = velocity.dot(out.cross(Vector3.UP))
-	_vert_turn_left = PI * (1.0 if side >= 0.0 else -1.0)
-	_vert_turn_rate = PI / maxf(0.25, t_total * tune.vert_turn_share)
+	# turn to face straight down the face, the short way round: a flat 180 brought a rider who went up at an
+	# angle down at the same angle, and anything past bail_angle off the fall line always bailed. Straight up
+	# the face it's a 180 either way: the stick (or the drift) picks the side
+	var turn: float = PI * (1.0 if side >= 0.0 else -1.0)
+	if h.length() > 0.1:
+		var to_out: float = h.normalized().signed_angle_to(out, Vector3.UP)
+		if absf(absf(to_out) - PI) > 0.35:
+			turn = to_out
+	_vert_turn_left = turn
+	_vert_turn_rate = absf(turn) / maxf(0.25, t_total * tune.vert_turn_share)
 
 
 func _break_vert() -> void:
