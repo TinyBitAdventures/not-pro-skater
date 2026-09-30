@@ -16,6 +16,7 @@ signal sfx(kind: String)
 signal bailed(reason: String)
 signal landed(air_time: float)
 signal landing(kind: String)         # "clean", "sketchy", "fakie", "revert"
+signal warped()                      # put back inside the level (it neared the edge or fell out)
 
 enum State { GROUND, AIR, GRIND, BAIL }
 
@@ -24,6 +25,8 @@ const BAIL_TIME: float = 1.5
 const CAPSULE_R: float = 0.32
 const CAPSULE_H: float = 1.35
 const SNAP_EASE: float = 0.045            # seconds: how fast the drawn rider catches up after a snap
+const EDGE_MARGIN: float = 2.0            # this close to the level's edge the skater is warped back inside
+const SAFE_INSET: float = 6.0             # warp-back spots are remembered at least this far inside the edge
 ## How quickly each grind tips off balance (x SkateTuning.grind_wobble): a 50-50 sits on both trucks, a nose or
 ## tail slide balances on one end of the board.
 const GRIND_TIP: Dictionary = {"50-50": 0.85, "Lip Slide": 0.9, "Boardslide": 1.0, "Noseslide": 1.3, "Tailslide": 1.3}
@@ -35,6 +38,7 @@ var scripted: bool = false
 var score: ScoreKeeper = null
 var cam: Camera3D = null
 var grind_lines: Array[GrindLine] = []
+var bounds: Rect2 = Rect2()               # the level's ground from above (x, z); no area = no edge (Level.bounds)
 var visual: RiderRig = null
 var fx: SkaterFx = null
 var with_visual: bool = true
@@ -226,6 +230,28 @@ func respawn() -> void:
 	place_at(_spawn)
 
 
+## How far inside the level's ground the skater is (negative past its edge).
+func _edge_distance() -> float:
+	var p: Vector3 = global_position
+	return minf(minf(p.x - bounds.position.x, bounds.end.x - p.x), minf(p.z - bounds.position.y, bounds.end.y - p.z))
+
+
+## Riding off the edge of the world would show the ground end and a long fall: instead, just before the edge,
+## the skater is put back on the last safe spot, stopped and facing away from that edge (the world blinks the
+## screen over the cut). A combo in progress is lost, as after a reset.
+func _warp_back() -> void:
+	var p: Vector3 = global_position
+	var inward: Vector3 = Vector3(-hdg.x, 0.0, -hdg.z)
+	if bounds.has_area():
+		var gaps: Array[float] = [p.x - bounds.position.x, bounds.end.x - p.x, p.z - bounds.position.y, bounds.end.y - p.z]
+		var normals: Array[Vector3] = [Vector3.RIGHT, Vector3.LEFT, Vector3.BACK, Vector3.FORWARD]
+		inward = normals[gaps.find(gaps.min())]
+	var keep: Transform3D = _spawn
+	place_at(Transform3D(Basis.looking_at(inward.normalized(), Vector3.UP), _last_safe + Vector3.UP * 0.05))
+	_spawn = keep                              # R still goes back to the start, not here
+	warped.emit()
+
+
 func speed() -> float:
 	return velocity.length()
 
@@ -390,15 +416,14 @@ func _step(delta: float) -> void:
 		cam_y = lerpf(cam_y, global_position.y, 1.0 - exp(-8.0 * delta))
 	if score != null:
 		score.tick(delta, state == State.GRIND or manual_on or state == State.AIR)
-	if state == State.GROUND and surface != "grass":
+	if state == State.GROUND and floor_n.y > 0.97 and (not bounds.has_area() or _edge_distance() > SAFE_INSET):
 		_safe_timer += delta
 		if _safe_timer > 0.5:
 			_safe_timer = 0.0
 			_last_safe = global_position
-	if global_position.y < -8.0:
-		global_position = _last_safe + Vector3.UP * 0.5
-		velocity = Vector3.ZERO
-		_enter_ground()
+	var loose: bool = state != State.BAIL or run_state == "run"     # a ragdoll stays where it fell
+	if global_position.y < -8.0 or (loose and bounds.has_area() and _edge_distance() < EDGE_MARGIN):
+		_warp_back()
 	if scripted:
 		inp.clear_edges()
 

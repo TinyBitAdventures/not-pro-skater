@@ -9,7 +9,7 @@ const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert"
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
 	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
 	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate", "lip_stall", "lip_arm",
-	"grind_hold", "grind_drop", "grind_lean"]
+	"grind_hold", "grind_drop", "grind_lean", "edge_warp"]
 
 var level: Level
 var sk: Skater
@@ -803,3 +803,26 @@ func _t_grind_lean() -> void:
 	_result("grind_lean", bails == ["grind"] and r["lean"] > 0.9 and r["t"] < 1.2,
 		"stick held right: fell off after %.2f s (want < 1.2), leaning %.2f (want > 0.9, right), bails=%s" % [r["t"], r["lean"], bails])
 
+
+# ------------------------------------------------------------------ level edge
+
+## Rolling at the edge of the level: warped back to the last safe spot before reaching it (never falls off),
+## stopped and facing back in.
+func _t_edge_warp() -> void:
+	await _spawn("flat", 0.0, Vector3.ZERO, 90.0)          # facing -x: the west edge is 20 m away
+	sk.bounds = level.bounds
+	var start: Vector3 = sk.global_position
+	var warps: Array[int] = [0]
+	sk.warped.connect(func() -> void: warps[0] += 1)
+	sk.velocity = sk.hdg * 10.0
+	_coast()
+	var low: float = INF
+	var closest: float = INF
+	for i in 360:
+		await _tick()
+		low = minf(low, sk.global_position.y)
+		closest = minf(closest, sk._edge_distance())
+	var back: float = sk.global_position.distance_to(start)
+	var ok: bool = warps[0] == 1 and low > -0.2 and closest > 1.5 and back < 1.0 and sk.hdg.x > 0.9
+	_result("edge_warp", ok, "bounds %s: warped %d time(s) (want 1), closest to the edge %.2f m (want > 1.5), lowest y %.2f, back %.2f m from the safe spot, facing (%.2f, %.2f) (want +x)" % [
+		level.bounds, warps[0], closest, low, back, sk.hdg.x, sk.hdg.z])

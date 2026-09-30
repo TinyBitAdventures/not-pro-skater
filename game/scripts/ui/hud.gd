@@ -30,6 +30,8 @@ var trick_points: Label
 var charge_bar: ProgressBar
 var balance_box: VBoxContainer
 var balance_marker: ColorRect
+var _blink: ColorRect = null
+var _blink_tw: Tween = null
 var speed_box: HBoxContainer
 var speed_bar: ProgressBar
 var card: VBoxContainer
@@ -424,6 +426,25 @@ func set_balance(v: float, active: bool) -> void:
 	var c: float = clampf(v, -1.0, 1.0)
 	balance_marker.position.x = (c * 0.5 + 0.5) * (BALANCE_W - 6.0)
 	balance_marker.color = PAPER.lerp(BAD, clampf((absf(c) - 0.4) / 0.5, 0.0, 1.0))
+
+
+## A quick cut to black that fades back in: covers the skater being warped back from the level's edge.
+func blink(seconds: float = 0.45) -> void:
+	if _blink == null:
+		_blink = ColorRect.new()
+		_blink.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_blink.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_blink.color = Color(0.02, 0.02, 0.03)
+		root.add_child(_blink)
+		root.move_child(_blink, 0)                 # under the HUD's panels
+	_blink.modulate.a = 1.0
+	_blink.visible = true
+	if _blink_tw != null:
+		_blink_tw.kill()
+	_blink_tw = create_tween()
+	_blink_tw.tween_interval(0.06)
+	_blink_tw.tween_property(_blink, "modulate:a", 0.0, seconds).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	_blink_tw.tween_callback(func() -> void: _blink.visible = false)
 
 
 ## The event's goal list: [{"text": String, "done": bool}, ...]. Empty hides it.

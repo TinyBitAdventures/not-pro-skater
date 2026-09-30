@@ -16,6 +16,7 @@ var starts: Dictionary = {}              # Start_<name> markers (warp spots): na
 var collision_root: Node3D
 var stats: Dictionary = {}
 var lightmap_info: Dictionary = {}
+var bounds: Rect2 = Rect2()              # the rideable ground seen from above (Godot x, z): skaters warp back before its edge
 var grass: GrassField       # the bake's info (<level>.lightmap.json): sun direction, energies, groups
 
 
@@ -53,6 +54,7 @@ func load_glb(path: String, look: String = "real") -> void:
 		b.collision_layer = 1
 		b.collision_mask = 0
 
+	bounds = _ground_bounds(bodies)
 	_load_rails(path.get_basename() + ".rails.json")
 	link_rails()
 
@@ -77,6 +79,23 @@ func load_glb(path: String, look: String = "real") -> void:
 		add_child(grass)
 		add_child(Birds.new())                         # a few flocks wheeling overhead
 	stats = {"bodies": bodies.size(), "grind": grind_lines.size(), "ms": Time.get_ticks_msec() - t0}
+
+
+## The extent of the ground (lawn, paths, concrete) from the collision shapes. Past it there is only scenery.
+func _ground_bounds(bodies: Array[StaticBody3D]) -> Rect2:
+	var box: AABB = AABB()
+	var first: bool = true
+	for b in bodies:
+		if not ["grass", "asphalt", "concrete"].has(String(b.get_meta("surface"))):
+			continue
+		for c in b.get_children():
+			var cs: CollisionShape3D = c as CollisionShape3D
+			if cs == null or cs.shape == null:
+				continue
+			var a: AABB = cs.global_transform * cs.shape.get_debug_mesh().get_aabb()
+			box = a if first else box.merge(a)
+			first = false
+	return Rect2() if first else Rect2(box.position.x, box.position.z, box.size.x, box.size.z)
 
 
 ## Rails authored as Blender curves (blender/lib.py rail()) arrive as a JSON sidecar next to the glb.

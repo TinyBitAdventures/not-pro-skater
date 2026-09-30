@@ -42,6 +42,7 @@ func _ready() -> void:
 	skater.score = score
 	skater.cam = cam
 	skater.grind_lines = level.grind_lines
+	skater.bounds = level.bounds
 	add_child(skater)
 
 	hud = Hud.new()
@@ -62,6 +63,9 @@ func _ready() -> void:
 		hud.combo_lost()
 		Sound.play("combo_lost"))
 	skater.sfx.connect(_on_sfx)
+	skater.warped.connect(func() -> void:
+		(cam as ChaseCamera).snap_behind()
+		hud.blink())
 	Sound.play_ambience("park_ambience" if look == "real" else "")
 	Sound.play_music(Sound.gameplay_track())
 
