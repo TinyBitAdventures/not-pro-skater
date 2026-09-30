@@ -248,6 +248,51 @@ def join_static(name="Baked", group=None):
     return baked
 
 
+def join_live(cell=30.0, prefix="Live"):
+    """Merge every static visual that is lit live (one-off props, trees, house trim and glass, metal rails, bunting)
+    into one object per map cell. Godot then draws a map cell as one call per material instead of one per object:
+    the park had ~400 such objects. Props placed more than once keep sharing one mesh (copying them into the cells
+    would grow the file; Level turns them into MultiMeshes). Collision twins stay separate."""
+    cells = {}
+    for ob in bpy.context.scene.objects:
+        if ob.type != "MESH" or ob.get("library") or ob.hide_render or not ob.data.polygons:
+            continue
+        if ob.name.endswith("-colonly") or ob.name.startswith(("Baked", prefix)):
+            continue
+        if ob.data.users > 1:                     # repeated props stay shared: Godot draws them as one MultiMesh
+            continue
+        centre = ob.matrix_world @ (sum((Vector(c) for c in ob.bound_box), Vector()) / 8.0)
+        cells.setdefault((math.floor(centre.x / cell), math.floor(centre.y / cell)), []).append(ob)
+    joined = set(o for obs in cells.values() for o in obs)
+    for ob in bpy.context.scene.objects:          # colliders parented to a prop must not move with the join
+        if ob not in joined and ob.parent in joined:
+            mw = ob.matrix_world.copy()
+            ob.parent = None
+            ob.matrix_world = mw
+    out = []
+    for (cx, cy), obs in sorted(cells.items()):
+        for ob in obs:
+            mw = ob.matrix_world.copy()
+            ob.parent = None
+            ob.data = ob.data.copy()               # props share one mesh: joining needs their own copy
+            ob.matrix_world = mw
+            while len(ob.data.uv_layers) > 1:      # one UV set everywhere, so no merged mesh looks lightmapped
+                ob.data.uv_layers.remove(ob.data.uv_layers[-1])
+            if ob.data.uv_layers:
+                ob.data.uv_layers[0].name = "UVMap"
+        host = bpy.data.objects.new(f"{prefix}_{cx}_{cy}", bpy.data.meshes.new(f"{prefix}_{cx}_{cy}"))
+        bpy.context.scene.collection.objects.link(host)
+        host.location = ((cx + 0.5) * cell, (cy + 0.5) * cell, 0.0)
+        bpy.ops.object.select_all(action="DESELECT")
+        for ob in obs:
+            ob.select_set(True)
+        host.select_set(True)
+        bpy.context.view_layer.objects.active = host
+        bpy.ops.object.join()
+        out.append(host)
+    return out
+
+
 def sun_from_hdri(path=HDRI):
     """Direction to the brightest pixel (Blender axes) and the irradiance the sun disc delivers."""
     import numpy as np

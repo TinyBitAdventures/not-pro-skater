@@ -68,6 +68,7 @@ func load_glb(path: String, look: String = "real") -> void:
 			if ResourceLoader.exists(gp):
 				maps[String(g)] = load(gp)
 		RealLook.apply(scene, maps, lightmap_info)
+		_instance_repeats(scene)
 	stats = {"bodies": bodies.size(), "grind": grind_lines.size(), "ms": Time.get_ticks_msec() - t0}
 
 
@@ -118,3 +119,40 @@ func _surface_of(b: Node) -> String:
 			return SURFACES[head]
 		n = n.get_parent()
 	return "wall"
+
+
+## Props placed more than once share one mesh in the glb: draw all copies of each as a single MultiMesh (one
+## draw call per material for every street lamp in the park, instead of one per lamp).
+func _instance_repeats(scene: Node3D) -> void:
+	var by_mesh: Dictionary = {}
+	for mi in scene.find_children("*", "MeshInstance3D", true, false):
+		var m: MeshInstance3D = mi
+		if m.mesh == null or _has_override(m) or m.skeleton != NodePath(""):
+			continue
+		if not by_mesh.has(m.mesh):
+			by_mesh[m.mesh] = []
+		by_mesh[m.mesh].append(m)
+	for mesh in by_mesh:
+		var copies: Array = by_mesh[mesh]
+		if copies.size() < 2:
+			continue
+		var mm: MultiMesh = MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = copies.size()
+		for i in copies.size():
+			mm.set_instance_transform(i, global_transform.affine_inverse() * (copies[i] as MeshInstance3D).global_transform)
+		var mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
+		mmi.name = "Repeat_" + String((copies[0] as Node).name).rstrip("0123456789._")
+		mmi.multimesh = mm
+		add_child(mmi)
+		for c in copies:
+			(c as Node).queue_free()
+
+
+static func _has_override(m: MeshInstance3D) -> bool:
+	for s in m.get_surface_override_material_count():
+		if m.get_surface_override_material(s) != null:
+			return true
+	return false
+

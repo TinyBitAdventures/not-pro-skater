@@ -44,8 +44,13 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	sun.light_color = Color(1.0, 0.96, 0.9)
 	sun.shadow_enabled = true
 	sun.shadow_blur = 1.5
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	sun.directional_shadow_max_distance = 70.0
+	# two blended splits over 55 m: every split redraws the shadow casters, and four cost more than the sharpness
+	# they add at chase-camera distances
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_split_1 = 0.12
+	sun.directional_shadow_blend_splits = true
+	sun.directional_shadow_max_distance = 55.0
+	sun.directional_shadow_fade_start = 0.85
 	parent.add_child(sun)
 	var d: Array = info.get("sun_dir", [0.3, 0.8, 0.4])
 	var to_sun: Vector3 = Vector3(d[0], d[1], d[2]).normalized()

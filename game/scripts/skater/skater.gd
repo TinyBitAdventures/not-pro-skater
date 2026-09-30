@@ -51,6 +51,8 @@ var bail_kind: String = "slam"           # "runout" (step off), "slam" (onto the
 var bail_duration: float = BAIL_TIME
 var bail_severity: float = 0.0
 var _land_jump: float = 0.0              # a jump tapped while falling, waiting for touchdown
+var _render_prev: Vector3 = Vector3.ZERO  # physics positions at the last two ticks (see render_position)
+var _render_cur: Vector3 = Vector3.ZERO
 var manual_kind: String = ""             # "manual" (nose up) or "nose" (nose manual) while manual_on
 var manual_balance: float = 0.0          # -1..1: past either end the rider falls off (HUD meter)
 var _balance_vel: float = 0.0
@@ -183,6 +185,8 @@ func _process(delta: float) -> void:
 func place_at(xf: Transform3D) -> void:
 	_spawn = xf
 	global_position = xf.origin
+	_render_prev = xf.origin
+	_render_cur = xf.origin
 	cam_y = xf.origin.y
 	charge = 0.0
 	var f: Vector3 = -xf.basis.z
@@ -212,20 +216,20 @@ func speed() -> float:
 ## board (the physics body) rolls on, then walks to it (a run-out runs just behind it).
 func rider_position() -> Vector3:
 	if state != State.BAIL:
-		return global_position
+		return render_position()
 	if bail_mode == "physical":
-		return global_position if run_state == "run" else bail_focus
+		return render_position() if run_state == "run" else bail_focus
 	var t: float = bail_time
 	if bail_kind == "runout":
 		var u: float = clampf(t / maxf(bail_duration, 0.1), 0.0, 1.0)
 		var back: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
 		back = back.normalized() if back.length() > 0.3 else hdg
-		return global_position - back * sin(u * PI) * 0.9
-	var slide: Vector3 = (global_position - bail_origin) * clampf(t / 0.5, 0.0, 1.0) * 0.2
+		return render_position() - back * sin(u * PI) * 0.9
+	var slide: Vector3 = (render_position() - bail_origin) * clampf(t / 0.5, 0.0, 1.0) * 0.2
 	var walk: float = clampf((t - bail_getup) / maxf(bail_duration - bail_getup, 0.05), 0.0, 1.0)
 	walk = walk * walk * (3.0 - 2.0 * walk)
 	var down_at: Vector3 = bail_origin + slide
-	return down_at.lerp(global_position, walk)
+	return down_at.lerp(render_position(), walk)
 
 
 ## The way the rider (and the board's nose) points: along the travel heading, or against it when fakie.
@@ -274,6 +278,21 @@ func _read_input() -> void:
 # ------------------------------------------------------------------ main loop
 
 func _physics_process(delta: float) -> void:
+	_render_prev = _render_cur
+	_step(delta)
+	_render_cur = global_position
+	if _render_cur.distance_to(_render_prev) > 3.0:     # a reset or warp: no sweep across the map
+		_render_prev = _render_cur
+
+
+## Where to draw the skater this frame: between the last two physics positions. Physics runs at 120 Hz and the
+## screen at whatever rate it likes; drawing the raw physics position shows uneven steps (two ticks one frame,
+## one the next), so the rider and camera use this instead.
+func render_position() -> Vector3:
+	return _render_prev.lerp(_render_cur, Engine.get_physics_interpolation_fraction())
+
+
+func _step(delta: float) -> void:
 	if not scripted:
 		_read_input()
 	_ollie_buf = maxf(0.0, _ollie_buf - delta)
@@ -1232,10 +1251,10 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 		else:
 			run_state = "run"
 			velocity = flat_v
-	bail_focus = global_position
+	bail_focus = _render_cur          # where the rider was last drawn (render_position runs a tick behind)
 	# the physics body is the board from here: it rolls on and stops; the rider goes down where it fell,
 	# gets up and walks to the board (a run-out runs with it), so nothing snaps back at the end
-	bail_origin = global_position
+	bail_origin = _render_cur
 	bail_getup = bail_duration
 	if bail_kind != "runout":
 		var roll: float = travel.length() / tune.board_roll_damp

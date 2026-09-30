@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Polish: smoother and lighter
+- **Even motion at any frame rate:** physics runs at 120 Hz, and the rider and camera used to read the raw physics position, so on a 144 Hz screen (or a wobbly browser frame rate) some frames moved two ticks and some none. They now draw between the last two physics positions (`Skater.render_position()`): judder measured 0.33 before, 0.006 after.
+- **Draw calls 591 -> 260** on Birthday at the Park: Blender merges the live-lit scenery (house trim and glass, guard rails, bunting, trees, one-off props) into one object per 30 m map cell (`realism.join_live`); props placed more than once stay shared and Godot draws each kind as one MultiMesh; the board is one mesh instead of fifteen parts; eyes, brows and lashes no longer cast shadows; the sun uses two blended shadow splits over 55 m instead of four over 70 m.
+- `scenes/dev_perf.tscn`: frame times, draw calls, judder, and our own script costs (`COST=1`), scene breakdown (`DUMP=1`).
+
 ### Cleanup: the old cartoon park is gone
 - Removed the isometric cartoon prototype: the community park level and its scene, the cartoon rider, spectators, cars, ducks and backdrop (models, Blender scripts and glbs), the iso camera, the toon / outline / occlusion / blob / water / fence / post shaders, the level baker, the AI skater brain and eleven old test and screenshot scenes. The web export no longer needs an exclude list for them.
 - `RiderRig` stands on its own (it used to extend the cartoon `SkaterVisual`): the pose logic moved in, and its old kinematic bail poses are gone now that every crash is physical.

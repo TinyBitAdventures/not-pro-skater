@@ -187,3 +187,4 @@ def build(out_glb, bake=True, samples=128):
         realism.bake(plaza, base + ".lightmap.plaza.png", samples=samples)
         realism.bake(world, base + ".lightmap.world.png", samples=samples)
     props.remove_library()
+    realism.join_live()

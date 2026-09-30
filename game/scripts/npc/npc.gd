@@ -22,8 +22,7 @@ func _ready() -> void:
 	for i in skel.get_bone_count():
 		_b[skel.get_bone_name(i)] = i
 		_rest_g.append(skel.get_bone_global_rest(i))
-	for mi in ch.find_children("*", "MeshInstance3D", true, false):
-		(mi as MeshInstance3D).extra_cull_margin = 1.0
+	RiderRig.prepare_character(ch, 1.0)
 	_seed = randf() * 10.0
 	_root_y = ch.position.y
 

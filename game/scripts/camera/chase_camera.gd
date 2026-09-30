@@ -61,7 +61,7 @@ func snap_behind() -> void:
 		return
 	var d: Vector3 = _travel_dir()
 	_yaw = atan2(-d.x, -d.z)
-	_ground_y = target.global_position.y
+	_ground_y = target.render_position().y
 	_vert_hold = false
 	var r: Dictionary = _desired()
 	_pos = r["pos"]
@@ -90,7 +90,7 @@ func _desired() -> Dictionary:
 	var pos: Vector3 = focus + back * distance + Vector3.UP * height
 	if sk.vert_air and _vert_hold:
 		pos = _vert_anchor
-		look = _vert_lip.lerp(sk.global_position + Vector3.UP * 0.8, 0.5)
+		look = _vert_lip.lerp(sk.render_position() + Vector3.UP * 0.8, 0.5)
 		return {"pos": _collide(look, pos), "look": look}
 	return {"pos": _clear_of_rider(focus, look, _collide(look, pos)), "look": look}
 
@@ -136,17 +136,17 @@ func _process(dt: float) -> void:
 	if st == Skater.State.GROUND or st == Skater.State.GRIND:
 		var d: Vector3 = _travel_dir()
 		_yaw = lerp_angle(_yaw, atan2(-d.x, -d.z), 1.0 - exp(-rate * dt))
-		_ground_y = lerpf(_ground_y, sk.global_position.y, 1.0 - exp(-10.0 * dt))
+		_ground_y = lerpf(_ground_y, sk.render_position().y, 1.0 - exp(-10.0 * dt))
 	elif st == Skater.State.AIR and not sk.vert_air:
 		var v_h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
 		if v_h.length() > 3.0:
 			_yaw = lerp_angle(_yaw, atan2(-v_h.x, -v_h.z), 1.0 - exp(-1.5 * dt))
 	elif st == Skater.State.BAIL:
-		_ground_y = lerpf(_ground_y, sk.global_position.y, 1.0 - exp(-4.0 * dt))
+		_ground_y = lerpf(_ground_y, sk.render_position().y, 1.0 - exp(-4.0 * dt))
 
 	if sk.vert_air and not _vert_hold:
 		_vert_hold = true
-		_vert_lip = sk.global_position
+		_vert_lip = sk.render_position()
 		# off to one side of the ramp, so the rider (side-on to the wall) is seen full length as it turns
 		var along: Vector3 = sk.vert_out.cross(Vector3.UP).normalized()
 		var side: float = 1.0 if sk.velocity.dot(along) >= 0.0 else -1.0

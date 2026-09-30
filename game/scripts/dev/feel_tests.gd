@@ -518,6 +518,8 @@ func _t_bail_no_snap() -> void:
 	for i in 600:
 		await _tick()
 		var p: Vector3 = sk.rider_position()
+		if verbose and p.distance_to(last) > 0.12:
+			print("[feel]   tick %d state %d phase %s run %s jump %.3f" % [i, sk.state, sk.visual.phys_phase if sk.visual else "-", sk.run_state, p.distance_to(last)])
 		max_jump = maxf(max_jump, p.distance_to(last))
 		last = p
 		if sk.state == Skater.State.BAIL:

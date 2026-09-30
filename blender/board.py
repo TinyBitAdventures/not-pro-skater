@@ -7,6 +7,8 @@ bottom, two trucks and four 54 mm urethane wheels. Nose toward +Y (Godot -Z), de
 
 import math
 
+import bpy
+
 from mathutils import Vector
 
 from lib import box, cyl_between, mat, mesh_obj, empty
@@ -106,8 +108,22 @@ def truck(parent, y):
 
 
 def build():
-    root = empty("Board", (0, 0, 0), 0.0, None)
+    """One mesh with five materials (grip, art, ply, metal, urethane): the board is drawn in every shadow pass,
+    so fifteen separate parts cost fifteen draw calls each time."""
+    root = empty("BoardParts", (0, 0, 0), 0.0, None)
     deck(root)
     truck(root, TRUCK_Y)
     truck(root, -TRUCK_Y)
-    return root
+    parts = [o for o in bpy.context.scene.objects if o.parent == root]
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in parts:
+        mw = o.matrix_world.copy()
+        o.parent = None
+        o.matrix_world = mw
+        o.select_set(True)
+    deck_ob = next(o for o in parts if o.name.startswith("Deck"))
+    bpy.context.view_layer.objects.active = deck_ob
+    bpy.ops.object.join()
+    deck_ob.name = "Board"
+    bpy.data.objects.remove(root)
+    return deck_ob

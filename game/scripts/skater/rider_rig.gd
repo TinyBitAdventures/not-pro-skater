@@ -112,8 +112,7 @@ func setup(_look: Dictionary = {}) -> void:
 	# sole centre: under the ankle, a little toward the ball of the foot
 	var sole: Vector3 = Vector3(ankle.x + (ball.x - ankle.x) * 0.45, 0.0, ankle.z + (ball.z - ankle.z) * 0.45)
 	_ankle_off = ankle - sole
-	for mi in ch.find_children("*", "MeshInstance3D", true, false):
-		(mi as MeshInstance3D).extra_cull_margin = 1.5     # skinned: poses reach well outside the rest bounds
+	prepare_character(ch, 1.5)
 	ragdoll = Ragdoll.new()
 	ragdoll.build(skel)
 
@@ -151,6 +150,18 @@ static func style_board(root: Node) -> void:
 			inst.set_surface_override_material(s, m)
 
 
+## Tidy a freshly instanced character glb. Skinned meshes are culled by their rest bounds, so poses need a
+## margin; eyes, brows and lashes are too small to show in a shadow but would cost a draw call in every
+## shadow pass.
+static func prepare_character(ch: Node, cull_margin: float) -> void:
+	for mi in ch.find_children("*", "MeshInstance3D", true, false):
+		var m: MeshInstance3D = mi
+		m.extra_cull_margin = cull_margin
+		var nm: String = String(m.name)
+		if nm.contains("eyebrow") or nm.contains("eyelash") or nm.contains("low-poly"):
+			m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 ## Returns [mid, end] for a two-bone chain from `origin` reaching `target`, bending toward `pole`.
 static func ik(origin: Vector3, target: Vector3, l1: float, l2: float, pole: Vector3) -> Array:
 	var to_t: Vector3 = target - origin
@@ -181,7 +192,7 @@ func _sync_riding(sk: Skater, dt: float) -> void:
 	fwd = (fwd - vis_n * fwd.dot(vis_n)).normalized()
 	if fwd.length() < 0.5:
 		fwd = Vector3(0, 0, -1)
-	var pos: Vector3 = sk.global_position + Vector3.UP * (Skater.CAPSULE_R + CAPSULE_TO_CONTACT) - n * Skater.CAPSULE_R
+	var pos: Vector3 = sk.render_position() + Vector3.UP * (Skater.CAPSULE_R + CAPSULE_TO_CONTACT) - n * Skater.CAPSULE_R
 	global_transform = Transform3D(Basis(fwd.cross(vis_n), vis_n, -fwd), pos)
 	_pose(sk, dt)
 	_apply_rig(sk)

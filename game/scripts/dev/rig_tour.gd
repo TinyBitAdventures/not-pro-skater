@@ -47,6 +47,8 @@ func _pose_as(state: int, fields: Dictionary) -> void:
 	sk.global_position = SPOT
 	for k in fields:
 		sk.set(k, fields[k])
+	sk._render_prev = sk.global_position        # physics is off here: draw exactly where it was put
+	sk._render_cur = sk.global_position
 
 
 func _tour() -> void:

@@ -141,6 +141,7 @@ godot --headless --path . --fixed-fps 120 res://scenes/dev_event.tscn      # pla
 godot --headless --path . --fixed-fps 120 res://scenes/dev_jumptap.tscn    # quick taps always jump
 RIDER=dev godot --path . res://scenes/dev_rig.tscn --resolution 960x720     # pose tour -> ../shots/rig_*.png
 CHAR=dad godot --path . res://scenes/dev_char.tscn --resolution 1280x720    # character turnaround -> ../shots
+godot --path . res://scenes/dev_perf.tscn --resolution 1600x900             # fps, draw calls, judder (FPS=144 caps; DUMP=1, COST=1)
 ```
 
 Dev scenes never touch your real save (`Game.is_dev_run()`).
