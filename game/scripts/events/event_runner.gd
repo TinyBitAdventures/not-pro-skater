@@ -137,7 +137,7 @@ func goal_list() -> Array:
 			"zone_combo":
 				if not done.has(id) and not saved.has(id) and active and in_zone(g):
 					text += "  (in the zone!)"
-		out.append({"text": text, "done": done.has(id) or saved.has(id)})
+		out.append({"text": text, "done": done.has(id) or saved.has(id), "new": done.has(id) and not saved.has(id)})
 	return out
 
 

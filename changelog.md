@@ -19,6 +19,8 @@
 - Wording: the bake-sale cake goes back to the car park, the coffee comes from the café and the script pages from the trailer, and a bail in the one-take run says it's back to the start.
 - **Easier to find what an event asks for:** the one-take run's countdown shows big under the session clock (TAKE 0:43, red for the last ten seconds); the chalk marks are orange gaffer-tape X's twice the size with a floating MARK label over each one still to hit ("STOP!" when you're on it but still rolling); the zone signs (DEMO STAGE, FRONT OF STAGE, ROLLING) float big, unlit and outlined over their rings; balloon letters no longer show through walls.
 - "Boardslide the party bench" says how: ride at it across. Grinding the bench another way shows what you did and what it needs ("THAT'S A 50-50", "It needs a Boardslide: ride at it across") instead of silently not counting.
+- Web: a level download shows the level's name in the middle of the screen with a bar and how much has come in, instead of a small grey line in the corner.
+- The results mark the goals finished this session NEW, apart from ones done in earlier sessions.
 - The title camera swings slowly either side of its opening view instead of circling the rider: the full circle spent about half a minute of every two behind the quarter pipe, looking through its handrail.
 - The title's footer follows the row you're on: Free Skate describes its level, Rider shows that rider's own event and its goals (it always described the event row). Rider blurbs no longer end on a one-word line, and the controls card gives the manual and nose manual a row each.
 - B backs out of the pause menu and leaves the results for the title, as START does.

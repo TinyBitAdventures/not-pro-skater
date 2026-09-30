@@ -605,7 +605,7 @@ func set_goals(items: Array) -> void:
 	_fill_goals(goals_box, items)
 
 
-static func _fill_goals(box_parent: VBoxContainer, items: Array, text_w: float = GOAL_TEXT_W) -> void:
+static func _fill_goals(box_parent: VBoxContainer, items: Array, text_w: float = GOAL_TEXT_W, show_new: bool = false) -> void:
 	for c in box_parent.get_children():
 		c.queue_free()
 	for g in items:
@@ -628,6 +628,10 @@ static func _fill_goals(box_parent: VBoxContainer, items: Array, text_w: float =
 		l.custom_minimum_size = Vector2(text_w, 0)      # long goals wrap instead of widening the panel under the cards
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(l)
+		if show_new and g.get("new", false):        # the results: done this session, not in an earlier one
+			var tag: Label = UiKit.label("NEW", 16, GOOD, "bold")
+			tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(tag)
 		box_parent.add_child(row)
 
 
@@ -815,7 +819,7 @@ func show_results(r: Dictionary) -> void:
 	var list: VBoxContainer = VBoxContainer.new()
 	list.add_theme_constant_override("separation", 2)
 	results_box.add_child(list)
-	_fill_goals(list, goals, 560.0)
+	_fill_goals(list, goals, 560.0, true)
 	var gap2: Control = Control.new()
 	gap2.custom_minimum_size = Vector2(0, 14)
 	results_box.add_child(gap2)

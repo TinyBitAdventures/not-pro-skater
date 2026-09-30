@@ -36,6 +36,11 @@ const PREVIEW_SCENES: Dictionary = {"greybox": "res://scenes/greybox.tscn"}
 var _fade: ColorRect
 var _going: bool = false
 var _loading: Label
+var _dl: VBoxContainer                 # a level pack download: the level's name, progress, a bar (web)
+var _dl_name: Label
+var _dl_note: Label
+var _dl_fill: ColorRect
+const DL_BAR_W: float = 420.0
 
 
 func _ready() -> void:
@@ -57,6 +62,29 @@ func _ready() -> void:
 	_loading.offset_bottom = -40.0
 	_loading.visible = false
 	layer.add_child(_loading)
+	_dl = VBoxContainer.new()
+	_dl.set_anchors_preset(Control.PRESET_CENTER)
+	_dl.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_dl.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_dl.add_theme_constant_override("separation", 10)
+	_dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dl.visible = false
+	layer.add_child(_dl)
+	_dl_name = UiKit.label("", 52, UiKit.PAPER, "display")
+	_dl_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dl.add_child(_dl_name)
+	var bar: ColorRect = ColorRect.new()
+	bar.custom_minimum_size = Vector2(DL_BAR_W, 6)
+	bar.color = Color(UiKit.PAPER, 0.15)
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_dl.add_child(bar)
+	_dl_fill = ColorRect.new()
+	_dl_fill.color = UiKit.ACCENT
+	_dl_fill.size = Vector2(0, 6)
+	bar.add_child(_dl_fill)
+	_dl_note = UiKit.label("", 22, UiKit.MUTED, "bold")
+	_dl_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dl.add_child(_dl_note)
 	load_save()
 	# web: index.html?scene=<event id>, park, school, ... or greybox opens that scene straight away; desktop builds
 	# take the same as a user argument: NotProSkater -- --scene=rushhour
@@ -136,13 +164,26 @@ func _fetch_pack(level_gltf: String) -> bool:
 	if http.request(url) != OK:
 		http.queue_free()
 		return false
-	var label: String = Events.level_name(level_gltf).to_upper()
+	_dl_name.text = Events.level_name(level_gltf).to_upper()
+	_dl.visible = true
+	_loading.visible = false
+	var t: float = 0.0
 	while result.is_empty():
 		var total: int = http.get_body_size()
 		var got: int = http.get_downloaded_bytes()
-		_loading.text = ("DOWNLOADING %s  %d%%" % [label, int(100.0 * got / total)]) if total > 0 else "DOWNLOADING " + label
+		t += get_process_delta_time()
+		if total > 0:
+			_dl_fill.position.x = 0.0
+			_dl_fill.size.x = DL_BAR_W * clampf(float(got) / total, 0.0, 1.0)
+			_dl_note.text = "DOWNLOADING THE LEVEL  %d%%" % int(100.0 * got / total)
+		else:                                  # no size given (the web often doesn't say): a sliding bar
+			_dl_fill.size.x = DL_BAR_W * 0.25
+			_dl_fill.position.x = (0.5 + 0.5 * sin(t * 2.4)) * DL_BAR_W * 0.75
+			_dl_note.text = "DOWNLOADING THE LEVEL  %.1f MB" % (got / 1000000.0)
 		await get_tree().process_frame
 	http.queue_free()
+	_dl.visible = false
+	_loading.visible = true
 	_loading.text = "LOADING"
 	var data: PackedByteArray = result[2]
 	if int(result[0]) != HTTPRequest.RESULT_SUCCESS or int(result[1]) != 200 or data.is_empty():
