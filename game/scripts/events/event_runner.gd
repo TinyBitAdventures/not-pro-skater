@@ -565,7 +565,8 @@ func _laps_tick(rider: Vector3) -> void:
 		return
 	var gxf: Transform3D = gates[_next_gate]
 	_next_marker.global_position = gxf.origin + Vector3.UP * (3.1 + sin(_t * 3.0) * 0.12)
-	_next_marker.text = ("START" if not _lap_started else ("FINISH" if _next_gate == 0 else "NEXT"))
+	_next_marker.text = "NEXT"
+	_next_marker.visible = _next_gate != 0             # the start / finish arch carries its own banner
 	if skater.state == Skater.State.BAIL:
 		return
 	if Vector2(rider.x - gxf.origin.x, rider.z - gxf.origin.z).length() > GATE_RADIUS:
@@ -599,7 +600,8 @@ func _run_tick(rider: Vector3, dt: float) -> void:
 	var last: int = gates.size() - 1
 	var gxf: Transform3D = gates[_next_gate]
 	_next_marker.global_position = gxf.origin + Vector3.UP * (3.1 + sin(_t * 3.0) * 0.12)
-	_next_marker.text = "START" if _run_t < 0.0 else ("FINISH" if _next_gate == last else "NEXT")
+	_next_marker.text = "NEXT"
+	_next_marker.visible = _next_gate != 0 and _next_gate != last    # START and FINISH gates carry their own banners
 	if _run_t >= 0.0:
 		_run_t += dt
 		var left: int = ceili(float(goal["limit"]) - _run_t)

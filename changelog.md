@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixes
+- The floating NEXT marker no longer repeats a gate's own banner: it hides over the start and finish gates of the Skate-a-thon laps and the Rush Hour one-take run (both said START twice).
+- Rush Hour's MARKET MORNING banner hung right behind the START gate, hidden by it; it spans Market Street further up now.
+
 ## v0.1.0 (2026-09-30)
 
 The first release of Not Pro Skater, a skateboarding game about people who skate for the love of it. Five archetype riders (the Dev, the Musician, the Vlogger, the Dad and the Actor) skate six community events on six real-scale levels. Play it in the browser, or download it for macOS, Windows or Linux.

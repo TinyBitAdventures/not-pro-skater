@@ -207,7 +207,7 @@ static func get_event(id: String) -> Dictionary:
 					{"char": "guest_mom", "pos": Vector3(-9.0, 0.15, -11.2), "yaw": 100.0},
 				],
 				"dressing": {
-					"banner": {"text": "MARKET MORNING", "a": Vector3(-7.0, 0.0, 10.0), "b": Vector3(7.0, 0.0, 10.0),
+					"banner": {"text": "MARKET MORNING", "a": Vector3(-7.0, 0.0, -8.0), "b": Vector3(7.0, 0.0, -8.0),
 						"height": 3.0},
 					"balloons": [Vector3(-7.0, 1.0, 22.0), Vector3(7.0, 1.0, 22.0)],
 				},
