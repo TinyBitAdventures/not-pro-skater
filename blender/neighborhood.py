@@ -14,6 +14,7 @@ Event markers (read by the Godot event system):
 """
 
 import math
+import os
 
 import lib
 from lib import box, empty, mat, rail
@@ -257,7 +258,7 @@ def write_look(out_glb):
     look = {"joints": {"PBR_concrete": {"grid": [2.0, 2.0], "rect": [-34.0, -10.0, 6.0, 24.0], "along_x": 1.5}},
             # late afternoon (realism.SKY): the low sun's sky is dim, so the baked shade is lifted and exposed up
             "bake_energy": 2.1, "exposure": 1.0}
-    with open(out_glb[:-4] + ".look.json", "w") as f:
+    with open(os.path.splitext(out_glb)[0] + ".look.json", "w") as f:
         json.dump(look, f, indent=1)
 
 
@@ -285,7 +286,7 @@ def build(out_glb, bake=True, samples=128):
     if world is not None:
         world["bake_group"] = "world"
     if bake:
-        base = out_glb[:-4]
+        base = os.path.splitext(out_glb)[0]
         realism.bake(plaza, base + ".lightmap.plaza.png", samples=samples)
         realism.bake(world, base + ".lightmap.world.png", size=1024, samples=samples)     # lawn, street, houses: soft light
     props.remove_library()

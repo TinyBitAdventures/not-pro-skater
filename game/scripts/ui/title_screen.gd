@@ -30,7 +30,7 @@ var _orbit: float = 0.0             # set in _ready: starts on the sunny side, t
 func _ready() -> void:
 	level = Level.new()
 	add_child(level)
-	level.load_glb("res://assets/levels/neighborhood.glb", "real")
+	level.load_glb("res://assets/levels/neighborhood.gltf", "real")
 	RealEnv.build(self, level.lightmap_info)
 	cam = Camera3D.new()
 	cam.fov = 50.0

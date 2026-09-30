@@ -12,7 +12,7 @@ var cam: Camera3D
 func _ready() -> void:
 	level = Level.new()
 	add_child(level)
-	level.load_glb("res://assets/levels/neighborhood.glb", "real")
+	level.load_glb("res://assets/levels/neighborhood.gltf", "real")
 	RealEnv.build(self, level.lightmap_info)
 	sk = Skater.new()
 	sk.rider = OS.get_environment("RIDER") if OS.get_environment("RIDER") != "" else "dev"

@@ -411,6 +411,9 @@ def shrink_images():
 
 
 def export(path, selection=None, images=False):
+    """glb (everything in one file), or, for a path ending in .gltf, glTF + .bin with every image written to the
+    shared game/assets/textures folder: levels that use the same texture sets and props then share one copy
+    (Godot imports each image once), which is what lets several levels fit the web build."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
     rails = set(write_rails(path))
@@ -421,9 +424,16 @@ def export(path, selection=None, images=False):
         if ob in rails:
             continue
         ob.select_set(True)
+    separate = path.endswith(".gltf")
+    extra = {}
+    if separate:
+        tex_dir = os.path.normpath(os.path.join(os.path.dirname(path), "..", "textures"))
+        os.makedirs(tex_dir, exist_ok=True)
+        extra["export_texture_dir"] = os.path.relpath(tex_dir, os.path.dirname(path))
     bpy.ops.export_scene.gltf(
         filepath=path,
-        export_format="GLB",
+        export_format="GLTF_SEPARATE" if separate else "GLB",
+        **extra,
         use_selection=True,
         export_apply=True,
         export_yup=True,

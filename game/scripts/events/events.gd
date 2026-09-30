@@ -23,7 +23,7 @@ static func get_event(id: String) -> Dictionary:
 				"id": "birthday",
 				"title": "BIRTHDAY AT THE PARK",
 				"blurb": "Leo turns ten today. Help the party along.",
-				"level": "res://assets/levels/neighborhood.glb",
+				"level": "res://assets/levels/neighborhood.gltf",
 				"session": 120.0,
 				"kids": ["kid_leo", "kid_maya", "kid_sam"],
 				# grown-ups at the party (Godot coordinates, facing yaw in degrees)

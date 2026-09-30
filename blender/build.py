@@ -29,7 +29,7 @@ def build_greybox():
 def build_neighborhood():
     import neighborhood
     lib.reset_scene()
-    out = os.path.join(GAME, "levels", "neighborhood.glb")
+    out = os.path.join(GAME, "levels", "neighborhood.gltf")
     neighborhood.build(out, bake=os.environ.get("NOBAKE", "") == "", samples=int(os.environ.get("SAMPLES", "128")))
     lib.export(out, images=True)
 

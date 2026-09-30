@@ -4,5 +4,5 @@
 
 [node name="Neighborhood" type="Node3D"]
 script = ExtResource("1")
-level_path = "res://assets/levels/neighborhood.glb"
+level_path = "res://assets/levels/neighborhood.gltf"
 look = "real"
