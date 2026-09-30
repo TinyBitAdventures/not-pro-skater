@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Graphics: late afternoon light
+- Flocks of birds wheel over the park, flapping and gliding (one MultiMesh, no shadows), and a filmic split-tone grade warms the mid-tones and cools the shade.
 - House windows reflect the sky (a gradient along the reflected view ray, a warm glint toward the sun, stronger at grazing angles) over a dark room with a hint of curtain, instead of flat navy panels (`window_glass.gdshader`).
 - A soft contact shadow under the board (ambient occlusion the renderer does not have): keeps the rider grounded in the shade, widens and fades as the board leaves the ground.
 - 16x anisotropic filtering (ground and roofs at grazing angles shimmered less); MSAA stays at 4x (`msaa_3d=2` is the 4x setting).

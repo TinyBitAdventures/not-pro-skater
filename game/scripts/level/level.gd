@@ -75,6 +75,7 @@ func load_glb(path: String, look: String = "real") -> void:
 		_instance_repeats(scene)
 		grass = GrassField.new()                      # clumps of grass on the lawns near the rider
 		add_child(grass)
+		add_child(Birds.new())                         # a few flocks wheeling overhead
 	stats = {"bodies": bodies.size(), "grind": grind_lines.size(), "ms": Time.get_ticks_msec() - t0}
 
 
