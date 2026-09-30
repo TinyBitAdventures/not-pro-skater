@@ -67,6 +67,7 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 	score.trick_added.connect(_on_trick)
 	score.lost.connect(_on_lost)
 	skater.bailed.connect(_on_bailed)
+	skater.reset_by_player.connect(func() -> void: _on_bailed("reset"))     # R or the edge warp counts as a bail
 	_dress(ev.get("dressing", {}))
 	for gd in ev.get("guests", []):
 		var guest: Npc = Npc.new()
@@ -273,9 +274,9 @@ func _cake_tick() -> void:
 			pass
 
 
-func _on_bailed(_reason: String) -> void:
+func _on_bailed(reason: String) -> void:
 	if _run_t >= 0.0:
-		_ruin_take("BAILED!  THAT TAKE'S RUINED, BACK TO THE START")
+		_ruin_take(("RESET!" if reason == "reset" else "BAILED!") + "  THAT TAKE'S RUINED, BACK TO THE START")
 	if _cake_state == "carried":
 		_cake_state = "waiting"          # dropped it: it goes back to the table at the street
 		if skater.visual != null:

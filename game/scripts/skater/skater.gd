@@ -17,6 +17,7 @@ signal bailed(reason: String)
 signal landed(air_time: float)
 signal landing(kind: String)         # "clean", "sketchy", "fakie", "revert"
 signal warped()                      # put back inside the level (it neared the edge or fell out)
+signal reset_by_player()             # R, or the edge warp: an event treats it like a bail (drop the item, ruin the take)
 
 enum State { GROUND, AIR, GRIND, BAIL }
 
@@ -222,12 +223,36 @@ func place_at(xf: Transform3D) -> void:
 	floor_n = Vector3.UP
 	_last_safe = xf.origin
 	_reset_air()
+	# nothing carries over from whatever was going on: a lip stall's flag froze the next rail grind, a wall
+	# plant's hold hijacked the next ollie, a tapped jump fired on the spot
+	_end_manual()
+	lip_kind = ""
+	lip_balance = 0.0
+	grind_line = null
+	grind_kind = ""
+	grind_balance = 0.0
+	run_state = ""
+	_plant_hold = 0.0
+	_plant_v = Vector3.ZERO
+	_revert_t = 0.0
+	_land_jump = 0.0
+	_clear_jump_input()
 	if score != null:
 		score.bail()
 
 
+## Forget a jump in the making (the hold-to-jump charge, a buffered press or release): after a crash or a reset
+## the rider must press again, not ollie the moment they're back on the board.
+func _clear_jump_input() -> void:
+	charge = 0.0
+	_ollie_buf = 0.0
+	_release_buf = 0.0
+	_prev_held = inp.ollie_held if inp != null else false
+
+
 func respawn() -> void:
 	place_at(_spawn)
+	reset_by_player.emit()
 
 
 ## How far inside the level's ground the skater is (negative past its edge).
@@ -250,6 +275,7 @@ func _warp_back() -> void:
 	place_at(Transform3D(Basis.looking_at(inward.normalized(), Vector3.UP), _last_safe + Vector3.UP * 0.05))
 	_spawn = keep                              # R still goes back to the start, not here
 	warped.emit()
+	reset_by_player.emit()
 
 
 func speed() -> float:
@@ -1071,6 +1097,7 @@ func _run_out(dt: float) -> void:
 
 ## The rider has walked back to the loose board and stepped on: carry on from there.
 func finish_physical_bail(stand: Transform3D) -> void:
+	_clear_jump_input()
 	global_position = stand.origin + Vector3.UP * 0.03
 	var f: Vector3 = -stand.basis.z
 	f.y = 0.0
@@ -1193,6 +1220,7 @@ func _try_grind() -> bool:
 
 
 func _start_grind(line: GrindLine, c: Dictionary) -> void:
+	lip_kind = ""                              # a rail grind, never a lip stall's leftover
 	grind_line = line
 	grind_dist = c["dist"]
 	var d: Vector3 = line.dir_at(grind_dist)
@@ -1468,6 +1496,7 @@ func balancing() -> bool:
 ## How bad the fall is decides how it looks: a small mistake is stepped off and run out, a medium one is a
 ## slam and slide onto the hip, and only a fast or high one is a full roll. `err` = landing angle (radians).
 func _start_bail(reason: String, err: float = 0.0) -> void:
+	_clear_jump_input()
 	var spd: float = velocity.length()
 	var sev: float = clampf((spd - 4.0) / 14.0, 0.0, 1.0) * 0.5 + clampf(air_time / 1.6, 0.0, 1.0) * 0.3
 	if reason == "crash":
@@ -1558,3 +1587,4 @@ func _bail(dt: float) -> void:
 		floor_snap_length = tune.floor_snap
 		crouch = 1.0
 		_reset_air()
+		_clear_jump_input()
