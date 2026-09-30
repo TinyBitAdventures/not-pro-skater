@@ -43,6 +43,9 @@
 ### Polish: carrying the cake
 - The rider carries the birthday cake in both hands, held out in front of the belly (`RiderRig.carry_item`), instead of the cake floating by the chest while the arms balance; a crash lets go of it and it goes back to the table at the street, as before. The pose tour has a `carry` pose.
 
+### Polish: no snaps onto rails and copings
+- Locking onto a rail or a coping moved the body there in one physics tick (up to a third of a metre in a frame for a lip stall) and the board jumped to its stall angle. The drawn rider now glides the last bit over about a tenth of a second (`Skater._snap_to`, a decaying offset carried inside the interpolated positions) and the board eases into a stall. The `lip_stall` feel test checks the largest per-tick move (0.31 m before, 0.09 m now).
+
 ### Polish: grind sparks
 - Grinding metal (rails, coping) throws real sparks: thin streaks stretched along their flight, hot yellow to orange, thrown back off the trucks and falling fast. They used to be little yellow cubes. Concrete ledges and curbs kick up grit instead.
 

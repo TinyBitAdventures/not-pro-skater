@@ -685,7 +685,12 @@ func _t_lip_stall() -> void:
 	var stall_t: float = 0.0
 	var landed: String = ""
 	var pressed: bool = false
+	var last: Vector3 = sk.render_position()
+	var max_jump: float = 0.0
 	for i in 900:
+		var rp: Vector3 = sk.render_position()
+		max_jump = maxf(max_jump, rp.distance_to(last))
+		last = rp
 		if not pressed and sk.vert_air and sk.global_position.y > 1.4:
 			sk.inp.grind_pressed = true
 			pressed = true
@@ -700,8 +705,10 @@ func _t_lip_stall() -> void:
 			landed = "fakie" if sk.stance == "fakie" else "regular"
 			await _tick(30)
 			break
-	var ok: bool = stalled and tricks.has("Rock to Fakie") and stall_t >= 0.8 and landed == "fakie" and bails.is_empty()
-	_result("lip_stall", ok, "stalled %s for %.2f s, tricks %s, dropped in and rolled away %s, bails=%s" % [stalled, stall_t, tricks, landed, bails])
+	var ok: bool = stalled and tricks.has("Rock to Fakie") and stall_t >= 0.8 and landed == "fakie" and bails.is_empty() \
+		and max_jump < 0.16
+	_result("lip_stall", ok, "stalled %s for %.2f s, tricks %s, dropped in and rolled away %s, drawn rider moved at most %.3f m in a tick (want < 0.16), bails=%s" % [
+		stalled, stall_t, tricks, landed, max_jump, bails])
 
 
 ## Grind pressed while still riding up the face waits for the coping: stall on arrival (Nose Stall with up).

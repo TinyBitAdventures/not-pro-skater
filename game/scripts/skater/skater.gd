@@ -23,6 +23,7 @@ const GRIND_ORIGIN_DY: float = -0.17
 const BAIL_TIME: float = 1.5
 const CAPSULE_R: float = 0.32
 const CAPSULE_H: float = 1.35
+const SNAP_EASE: float = 0.045            # seconds: how fast the drawn rider catches up after a snap
 
 var state: int = State.GROUND
 var tune: SkateTuning = SkateTuning.shared()
@@ -52,6 +53,7 @@ var bail_duration: float = BAIL_TIME
 var bail_severity: float = 0.0
 var _land_jump: float = 0.0              # a jump tapped while falling, waiting for touchdown
 var _render_prev: Vector3 = Vector3.ZERO  # physics positions at the last two ticks (see render_position)
+var _snap_off: Vector3 = Vector3.ZERO     # where the body was drawn before a snap (onto a rail, a coping): decays
 var _render_cur: Vector3 = Vector3.ZERO
 var manual_kind: String = ""             # "manual" (nose up) or "nose" (nose manual) while manual_on
 var manual_balance: float = 0.0          # -1..1: past either end the rider falls off (HUD meter)
@@ -196,6 +198,7 @@ func place_at(xf: Transform3D) -> void:
 	global_position = xf.origin
 	_render_prev = xf.origin
 	_render_cur = xf.origin
+	_snap_off = Vector3.ZERO
 	cam_y = xf.origin.y
 	charge = 0.0
 	var f: Vector3 = -xf.basis.z
@@ -289,8 +292,11 @@ func _read_input() -> void:
 func _physics_process(delta: float) -> void:
 	_render_prev = _render_cur
 	_step(delta)
-	_render_cur = global_position
+	_snap_off *= exp(-delta / SNAP_EASE)
+	_render_cur = global_position + _snap_off           # drawn points carry the snap offset: prev is pre-snap already
 	if _render_cur.distance_to(_render_prev) > 3.0:     # a reset or warp: no sweep across the map
+		_snap_off = Vector3.ZERO
+		_render_cur = global_position
 		_render_prev = _render_cur
 
 
@@ -299,6 +305,12 @@ func _physics_process(delta: float) -> void:
 ## one the next), so the rider and camera use this instead.
 func render_position() -> Vector3:
 	return _render_prev.lerp(_render_cur, Engine.get_physics_interpolation_fraction())
+
+
+## Move the body to p at once (onto a rail or coping) but let the drawn rider glide there over a few frames.
+func _snap_to(p: Vector3) -> void:
+	_snap_off += global_position - p
+	global_position = p
 
 
 func _step(delta: float) -> void:
@@ -1190,7 +1202,7 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 			base = 250
 		score.add_trick(gname, base)
 	sfx.emit("grind_start")
-	global_position = line.point_at(grind_dist) + Vector3.UP * GRIND_ORIGIN_DY
+	_snap_to(line.point_at(grind_dist) + Vector3.UP * GRIND_ORIGIN_DY)
 	velocity = d * grind_dir * grind_speed
 
 
@@ -1222,7 +1234,7 @@ func _end_grind(pop: bool) -> void:
 	var d: Vector3 = grind_line.dir_at(clampf(grind_dist, 0.0, grind_line.length)) * grind_dir
 	velocity = d * grind_speed
 	velocity.y = maxf(velocity.y, 0.0) + (tune.ollie_speed * 0.9 if pop else 2.5)
-	global_position += Vector3.UP * 0.25
+	_snap_to(global_position + Vector3.UP * 0.25)
 	if score != null:
 		score.release_hold("grind")
 	_ollie_buf = 0.0
@@ -1306,7 +1318,7 @@ func _start_lip(line: GrindLine, c: Dictionary, out: Vector3) -> void:
 	grab_kind = ""
 	manual_on = false
 	velocity = Vector3.ZERO
-	global_position = Vector3(c["point"].x, c["point"].y + GRIND_ORIGIN_DY, c["point"].z)
+	_snap_to(Vector3(c["point"].x, c["point"].y + GRIND_ORIGIN_DY, c["point"].z))
 	stats["grinds"] += 1
 	if score != null:
 		score.release_hold("grab")
@@ -1340,7 +1352,7 @@ func _end_lip(pop: bool) -> void:
 	hdg = -_lip_out if _lip_fakie else _lip_out
 	yaw = atan2(-hdg.x, -hdg.z)
 	velocity = _lip_out * (2.4 if pop else 1.2) + Vector3.UP * (2.0 if pop else 0.4)
-	global_position += _lip_out * 0.3 + Vector3.UP * 0.05
+	_snap_to(global_position + _lip_out * 0.3 + Vector3.UP * 0.05)
 	lip_kind = ""
 	lip_balance = 0.0
 	grind_line = null

@@ -403,7 +403,7 @@ func _pose(sk: Skater, dt: float) -> void:
 	board_lift = _approach(board_lift, lift_t, 18.0, dt)
 	feet_lift = _approach(feet_lift, feet_t, 18.0, dt)
 	grab_amt = _approach(grab_amt, grab_t, 14.0, dt)
-	if sk.flip_kind != "" or st == Skater.State.GRIND:
+	if sk.flip_kind != "" or (st == Skater.State.GRIND and sk.lip_kind == ""):
 		board_roll = roll_t
 		board_yaw = yaw_t
 		board_pitch = pitch_t
