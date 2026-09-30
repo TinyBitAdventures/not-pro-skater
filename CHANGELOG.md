@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Polish: the end of a session
+- The clock ticks softly through the last five seconds; when it runs out the music fades, the results jingle plays, and a NEW BEST sting follows when you beat your score.
+- Fixed: skating again straight after a session could leave the music silent (the results fade was still running and stopped the new track).
+- The flow test now plays a session out, checks the results card and restarts from it.
+
 ### Polish: the party looks like a party
 - Birthday at the Park dresses the park for the day (`dressing` in the event, built by `EventRunner`): a HAPPY BIRTHDAY LEO! banner on two poles across the path in, bunches of balloons tied to the picnic tables, the cake table, the lamps and the banner poles (they lean and turn in the breeze), a pile of wrapped presents by the cake table, and party hats on the kids.
 - Title cards stay between the goal list and the clock, and long lines wrap onto two.

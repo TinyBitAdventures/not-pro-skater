@@ -39,6 +39,7 @@ var _streams: Dictionary = {}
 var _loops: Dictionary = {}          # name -> AudioStreamPlayer
 var _music: AudioStreamPlayer
 var _ambience: AudioStreamPlayer
+var _fade_tw: Tween
 var _music_track: String = ""
 var _jingle: AudioStreamPlayer
 var _sting: AudioStreamPlayer
@@ -141,6 +142,9 @@ func toggle_music() -> bool:
 
 ## Start a looping track from res://assets/audio/music/<track>.ogg (no restart if it is already playing).
 func play_music(track: String = "grip_tape_summer") -> void:
+	if _fade_tw != null and _fade_tw.is_valid():
+		_fade_tw.kill()                      # a restart during the results fade must not be faded out and stopped
+		_fade_tw = null
 	if _music_track == track and _music.playing:
 		return
 	var path: String = "res://assets/audio/music/%s.ogg" % track
@@ -194,9 +198,11 @@ func set_grinding(active: bool, speed: float, dt: float) -> void:
 
 ## Fade the looping theme out (the results jingle takes over).
 func fade_music(seconds: float = 0.6) -> void:
-	var tw: Tween = create_tween()
-	tw.tween_property(_music, "volume_db", -40.0, seconds)
-	tw.tween_callback(_music.stop)
+	if _fade_tw != null and _fade_tw.is_valid():
+		_fade_tw.kill()
+	_fade_tw = create_tween()
+	_fade_tw.tween_property(_music, "volume_db", -40.0, seconds)
+	_fade_tw.tween_callback(_music.stop)
 	_music_track = ""
 
 

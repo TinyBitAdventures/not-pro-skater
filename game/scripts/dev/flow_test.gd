@@ -68,5 +68,19 @@ func _run() -> void:
 	await _press("ui_accept")                 # Quit to title
 	await _wait(1.5)
 	_check("quit to title", _scene().ends_with("title.tscn") and not get_tree().paused)
+	# a session that runs out: results, then Enter restarts with the music back
+	await _press("ui_accept")
+	await _wait(1.5)
+	var w: Node = get_tree().current_scene
+	w.set("running", true)
+	w.set("time_left", 0.3)
+	await _wait(0.8)
+	var hud: Hud = w.get("hud")
+	_check("session end shows results", w.get("finished") and hud.results_layer.visible)
+	await _press("ui_accept")
+	await _wait(1.8)
+	var music: AudioStreamPlayer = Sound.get("_music")
+	_check("skate again: new session, music playing", _scene().ends_with("birthday.tscn") \
+		and not get_tree().current_scene.get("finished") and music.playing and music.volume_db > -6.0)
 	print("[flow] %d failed" % fails)
 	get_tree().quit(fails)

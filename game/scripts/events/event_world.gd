@@ -9,6 +9,7 @@ var ev: Dictionary = {}
 var time_left: float = 120.0
 var running: bool = false
 var finished: bool = false
+var _last_tick: int = -1
 
 
 func _ready() -> void:
@@ -63,6 +64,10 @@ func _process(delta: float) -> void:
 	if running:
 		time_left = maxf(0.0, time_left - delta)
 		hud.set_timer(time_left, true)
+		var sec: int = int(ceil(time_left))
+		if sec <= 5 and sec >= 1 and sec != _last_tick:     # a soft tick through the last five seconds
+			_last_tick = sec
+			Sound.play("ui_ok", -9.0, 1.7)
 		if time_left <= 0.0 and skater.state != Skater.State.AIR and skater.state != Skater.State.GRIND:
 			_finish()
 
@@ -71,6 +76,11 @@ func _finish() -> void:
 	finished = true
 	score.bank()
 	var new_best: bool = Game.record(String(ev["id"]), score.score, score.best_combo)
+	Sound.play("time_up")
+	Sound.fade_music(0.8)
+	Sound.play_jingle("results-jingle", -2.0)
+	if new_best and score.score > 0:
+		get_tree().create_timer(1.4).timeout.connect(func() -> void: Sound.play_jingle("new-best", 0.0, 1))
 	hud.show_results({"title": ev["title"], "score": score.score, "best_combo": score.best_combo,
 		"new_best": new_best and score.score > 0, "goals": runner.goal_list()})
 	skater.scripted = true
