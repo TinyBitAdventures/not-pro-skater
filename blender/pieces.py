@@ -12,10 +12,11 @@ import random
 
 from mathutils import Vector
 
-from lib import (box, col_box, cyl_between, cyl_z, empty, grind_line, loft_box, mat, prism, quad, uname)
+from lib import (box, col_box, cyl_between, cyl_z, empty, grind_line, loft_box, mat, mesh_obj, orient_up, prism, quad,
+                 uname)
 
 PALETTE = {
-    "Galv": "#9ea4a8",
+    "Galv": "#9ea4a8", "Steel": "#8a8f94", "SidePaint": "#3c4a55", "Timber": "#6e5a44",
     "Wood": "#eaa964", "WoodB": "#d99552", "Navy": "#39415f", "Metal": "#bcc7d8", "MetalDk": "#7d8aa0",
     "Concrete": "#c9d0db", "Plaza": "#b7c2d4", "ConcreteDk": "#9ba7b8", "Path": "#8a97aa", "Grass": "#6fc84c",
     "Orange": "#ff8a3d", "Blue": "#3d9bff", "Green": "#3fc66d", "Purple": "#8a5cf0", "Red": "#ff5a5a",
@@ -108,6 +109,8 @@ def quarter_pipe(root, W=6.0, R=3.2, H=2.4, D=2.0, coping=True, rails=True, deca
     wood, woodb, navy = M("Wood"), M("WoodB"), M("Navy")
     pts, em, sm, yt, th = qp_profile(R, H, D)
     prism(uname("Wood_QuarterPipe") + "-col", pts, -W / 2, W / 2, [wood, woodb, navy], em, sm, cap_mat=2, parent=root)
+    if H > 0.9:
+        ramp_details(root, W, R, H, D, yt)
     if coping:
         cyl_between(uname("Coping"), (-W / 2, yt, H + 0.02), (W / 2, yt, H + 0.02), 0.075, M("Metal"), seg=8, parent=root)
         grind_line(root, uname("coping"), [(-W / 2 + 0.4, yt, H + 0.1), (W / 2 - 0.4, yt, H + 0.1)])
@@ -125,6 +128,54 @@ def quarter_pipe(root, W=6.0, R=3.2, H=2.4, D=2.0, coping=True, rails=True, deca
             if top > 0.9:
                 spots.append((y, rnd.uniform(0.35, top - 0.35)))
         stickers(root, (-W / 2, W / 2), spots, rnd)
+
+
+def ramp_details(root, W, R, H, D, yt):
+    """What makes a quarter pipe read as built: a steel plate at the foot where the wheels meet the ground,
+    painted plywood side sheets set just proud of the side walls with a dark timber edge along the profile,
+    and the deck's front fascia under the coping."""
+    steel = M("Steel")
+    side = M("SidePaint")
+    edge = M("Timber")
+    # the foot plate: 30 cm of 5 mm steel over the first bit of transition
+    n = 6
+    pts = []
+    for i in range(n + 1):
+        y = 0.3 * i / n
+        pts.append((y, profile_z(R, H, y) + 0.004))
+    for i in range(n):
+        (y0, z0), (y1, z1) = pts[i], pts[i + 1]
+        quad(uname("Metal_FootPlate"), (-W / 2 + 0.02, y0, z0), (W / 2 - 0.02, y0, z0), (W / 2 - 0.02, y1, z1),
+             (-W / 2 + 0.02, y1, z1), steel, parent=root)
+    # side sheets and a timber strip following the curve on both ends
+    prof = [(y, profile_z(R, H, y)) for y in [yt * i / 16 for i in range(17)]] + [(yt + D, H)]
+    for sx in (-1, 1):
+        x = sx * (W / 2 + 0.006)
+        outline = [(0.0, 0.0)] + prof + [(yt + D, 0.0)]
+        verts = [(x, y, z) for (y, z) in outline]
+        face = list(range(len(verts)))
+        if sx < 0:
+            face.reverse()
+        sheet = mesh_obj(uname("SideSheet"), verts, [tuple(face)], [side], parent=root)
+        orient_up(sheet.data, expect=(sx, 0, 0))            # facing out from the ramp
+        for (y0, z0), (y1, z1) in zip(prof, prof[1:]):
+            box_strip(root, x + sx * 0.004, (y0, z0), (y1, z1), edge)
+    # deck fascia: a timber board under the coping across the ramp's width
+    box(uname("Fascia"), (W, 0.03, 0.16), (0, yt + 0.02, H - 0.1), edge, parent=root)
+
+
+def box_strip(root, x, a, b, m, w=0.05, t=0.012):
+    """A thin strip on a side wall from profile point a to b (y, z), 5 cm wide."""
+    import math as _m
+    (y0, z0), (y1, z1) = a, b
+    L = _m.hypot(y1 - y0, z1 - z0)
+    if L < 1e-4:
+        return
+    # built at the origin, then placed: lib.box bakes its centre into the vertices, so rotating it in place
+    # would swing it round the ramp's origin
+    ob = box(uname("Timber_Edge"), (t, L + 0.01, w), (0.0, 0.0, -w * 0.5), m, parent=root)
+    ob.location = (x, (y0 + y1) / 2, (z0 + z1) / 2)
+    ob.rotation_euler = (_m.atan2(z1 - z0, y1 - y0), 0.0, 0.0)
 
 
 def kicker(root, W=2.8, R=5.0, H=0.75):

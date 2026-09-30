@@ -41,6 +41,8 @@ SETS = {
     "metal": ("Metal032", 0.6, (1.0, 1.0, 1.0), 1.0, False),
     "paint_red": ("PaintedMetal004", 0.8, (1.0, 1.0, 1.0), 0.0, False),
     "galvanized": ("Metal032", 0.5, (0.78, 0.8, 0.82), 1.0, False),
+    "side_paint": ("Concrete046", 2.5, (0.27, 0.34, 0.43), 0.0, True),      # painted side sheets: slate over a neutral base
+    "steel_plate": ("Concrete044D", 1.0, (0.5, 0.5, 0.52), 0.0, True),       # worn steel at the ramp's foot (baked; Metal032 reads blue)
     "bark": ("Bark012", 1.0, (1.0, 1.0, 1.0), 0.0, False),
     "siding": ("WoodSiding009", 2.0, (0.95, 0.93, 0.88), 0.0, True),
     "siding_blue": ("WoodSiding009", 2.0, (0.55, 0.68, 0.82), 0.0, True),
@@ -63,7 +65,8 @@ KIT = {
     "GreyDark": "concrete_rough",
     "Path": "asphalt", "PathB": "asphalt", "Road": "asphalt",
     "Grass": "grass", "GrassB": "grass",
-    "Metal": "metal", "MetalDk": "metal", "Coping": "metal", "Galv": "galvanized",
+    "Metal": "metal", "MetalDk": "metal", "Coping": "metal", "Galv": "galvanized", "Steel": "steel_plate",
+    "SidePaint": "side_paint", "Timber": "wood_side",
     "Red": "paint_red", "Yellow": "paint_red", "Orange": "paint_red", "Blue": "paint_red",
     "Siding": "siding", "SidingBlue": "siding_blue", "SidingSage": "siding_sage", "Roof": "roof", "Brick": "brick",
     "Paving": "paving", "Dirt": "dirt", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",

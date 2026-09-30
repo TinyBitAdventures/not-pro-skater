@@ -16,7 +16,7 @@ static var _macro: Texture2D
 ## A floor on roughness per texture set: under a low sun the maps' glossier texels read as a wet sheen.
 const ROUGH_MIN: Dictionary = {"grass": 0.92, "concrete": 0.7, "concrete_rough": 0.75, "asphalt": 0.75, "paving": 0.72,
 	"wood": 0.6, "wood_side": 0.6, "roof": 0.7, "brick": 0.8, "siding": 0.6, "siding_blue": 0.6, "siding_sage": 0.6,
-	"siding_cream": 0.6, "siding_grey": 0.6, "dirt": 0.9}
+	"siding_cream": 0.6, "siding_grey": 0.6, "dirt": 0.9, "steel_plate": 0.62, "side_paint": 0.7}
 
 ## Large-scale variation per texture set (baked_pbr.gdshader): [amount, tint, tint amount]. Grass gets dry
 ## yellow patches, concrete and asphalt faint stains, everything else a whisper so no tile repeats exactly.
