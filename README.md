@@ -136,7 +136,7 @@ Feel tests on the greybox (pass / fail, exit code = failures):
 FEEL=all godot --headless --path . --fixed-fps 120 res://scenes/dev_feel.tscn    # or FEEL=vert,transfer VERBOSE=1
 ```
 
-Physical crashes (ragdoll + loose board, needs the skinned rider): `BAIL=halfpipe|flat|wall|all godot --headless --path . --fixed-fps 60 res://scenes/dev_bailphys.tscn`.
+Physical crashes (ragdoll + loose board, needs the skinned rider): `BAIL=halfpipe|flat|wall|all godot --headless --path . --fixed-fps 60 res://scenes/dev_bailphys.tscn`. It also checks the walk back to the board: planted feet stay put (under 3 cm of slip) and the standing knee stays nearly straight.
 
 The feel tests cover coasting momentum, tile seams, rolling over a curb, being stopped by a step, quarter pipe air time, the vert lock, the transfer, grinding a curved and a kinked rail, rail magnetism, grind balance (held, dropped, leaning with the stick), warping back before the level's edge, and landings at 0 / 20 / 34 / 45 / 65 / 180 degrees, manuals, wall plants, bails, and the camera near walls.
 
@@ -152,6 +152,7 @@ godot --path . res://scenes/dev_perf.tscn --resolution 1600x900             # fp
 godot --headless --path . res://scenes/dev_flow.tscn                        # menus with real input: title, event, pause, quit
 godot --path . res://scenes/dev_ui.tscn --resolution 1600x900               # every UI state -> ../shots/ui_*.png
 FILM=flat,tumble,halfpipe,wall,grind godot --path . res://scenes/dev_bailfilm.tscn --resolution 400x300   # crashes up close -> ../shots/film_* (LIMP=1: no muscles; tools/film_sheet.sh <name>)
+FILM=wall FILM_FROM=getup FILM_EVERY=0.08 FILM_N=18 godot --path . res://scenes/dev_bailfilm.tscn --resolution 400x400   # just the get-up (or walk, run; FILM=runout), side-on
 VIEWS="x,y,z>x,y,z;..." STEP=0.0003 godot --path . res://scenes/dev_flicker.tscn --resolution 1280x720   # flicker hunt -> ../shots/probe_*
 python tools/flicker_map.py shots/probe_0                                    # heat map of what flips between the frames (needs numpy + PIL)
 ```

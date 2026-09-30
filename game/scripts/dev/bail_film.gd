@@ -2,6 +2,8 @@ extends Node3D
 ## Films physical bails up close on the greybox, side-on, to judge how the body falls:
 ##   FILM=flat,tumble,halfpipe,wall,grind godot --path . res://scenes/dev_bailfilm.tscn --resolution 480x360
 ## Writes ../shots/film_<name>_NN.png every FILM_EVERY seconds (0.1) from the moment of the crash, FILM_N frames (20).
+## FILM_FROM=walk (or getup, run) starts filming when the rider reaches that phase, side-on to where it walks:
+##   FILM=flat FILM_FROM=walk FILM_EVERY=0.05 FILM_N=24 godot --path . res://scenes/dev_bailfilm.tscn --resolution 480x360
 
 var level: Level
 var film_dist: float = float(OS.get_environment("FILM_DIST")) if OS.get_environment("FILM_DIST") != "" else 3.2
@@ -59,11 +61,26 @@ func _film(label: String) -> void:
 		rg.skel.skeleton_updated.connect(func() -> void: counts["upd"] += 1)
 	var side: Vector3 = sk.hdg.cross(Vector3.UP).normalized()
 	var look: Vector3 = sk.rider_position()
+	var from: String = OS.get_environment("FILM_FROM")
+	var walker: RiderRig = sk.visual as RiderRig
+	if from != "":
+		for i in 1200:
+			if walker.phys_phase == from or sk.state != Skater.State.BAIL:
+				break
+			await get_tree().physics_frame
+		look = walker.global_position + Vector3.UP * 0.4
 	while k < n:
 		await get_tree().process_frame
 		t += get_process_delta_time()
-		look = look.lerp(sk.rider_position() + Vector3.UP * 0.4, 0.15)
-		cam.global_transform = Transform3D(Basis.looking_at(-side * film_dist + Vector3.DOWN * 1.0, Vector3.UP), look + side * film_dist + Vector3.UP * 1.0)
+		if from != "" and walker._walk_mode and walker.phys_phase != "":
+			# side-on to the walk, following the walker (the capsule waits at the board)
+			var film_side: float = -1.0 if OS.get_environment("FILM_LEFT") != "" else 1.0
+			side = side.lerp(walker._walk_dir.cross(Vector3.UP).normalized() * film_side, 0.2).normalized()
+			look = look.lerp(walker.global_position + Vector3.UP * float(OS.get_environment("FILM_H") if OS.get_environment("FILM_H") != "" else "0.8"), 0.3)
+			cam.global_transform = Transform3D(Basis.looking_at(-side, Vector3.UP), look + side * film_dist)
+		else:
+			look = look.lerp(sk.rider_position() + Vector3.UP * 0.4, 0.15)
+			cam.global_transform = Transform3D(Basis.looking_at(-side * film_dist + Vector3.DOWN * 1.0, Vector3.UP), look + side * film_dist + Vector3.UP * 1.0)
 		if OS.get_environment("FILM_LOG") != "":
 			var rig: RiderRig = sk.visual as RiderRig
 			print("[film] t=%.3f state=%d mode=%s phase=%s sim=%s mod=%d upd=%d phys=%d" % [t, sk.state, sk.bail_mode, rig.phys_phase,
@@ -102,6 +119,8 @@ func _run() -> void:
 				await _spawn("flat", Vector3(0, 2.8, 0), Vector3(0, 2.0, -15.0), 100.0)
 			"halfpipe":     # coming down onto the far transition of the mini ramp, 80 degrees crooked
 				await _spawn("mini", Vector3(0, 2.4, -6.1), Vector3(0, -2.0, 3.0), 80.0)
+			"runout":       # a small crooked landing: runs it out on foot, then walks to the board
+				await _spawn("flat", Vector3(0, 0.9, 0), Vector3(0, 1.0, -5.0), 64.0)
 			"wall":         # riding into a wall
 				await _spawn("wall", Vector3(0, 0, -2.0), Vector3(0, 0, -11.0), 0.0)
 				sk.inp.world_dir = Vector3(0, 0, -1)

@@ -20,10 +20,15 @@ const FRONT_FOOT_ANGLE: float = 20.0     # the front foot turns toward the nose,
 const BACK_FOOT_ANGLE: float = -8.0
 const HEAD_LOOK: float = 70.0            # head turned from the chest toward the nose, degrees
 const CAPSULE_TO_CONTACT: float = 0.02
-const GETUP_TIME: float = 0.75
 const SETTLE_SPEED: float = 0.45
 const RELAXED_TONE: float = 0.35         # ragdoll muscle strength once the body is lying still
 const WALK_TURN: float = 5.0             # rad/s: turning round toward the board before walking to it
+const FINGER_CURL: Dictionary = {        # degrees at each knuckle, base to tip: a relaxed hand
+	"index": [14.0, 22.0, 12.0], "middle": [18.0, 26.0, 14.0], "ring": [22.0, 28.0, 16.0], "pinky": [26.0, 30.0, 16.0],
+	"thumb": [6.0, 10.0, 12.0],
+}
+const CURL_SIGN: float = -1.0            # which way the palm faces (set by eye; see _setup_fingers)
+const GAIT_START: float = 0.26           # set off with the left foot under the body (mid-stance), the right one lifting
 const CARRY_OFFSET: Vector3 = Vector3(0.36, -0.4, 0.0)   # shoulders' midpoint -> the carried thing (chest is +X)
 const CARRY_HALF_W: float = 0.17
 
@@ -71,9 +76,28 @@ var _walk_pos: Vector3 = Vector3.ZERO
 var _walk_dir: Vector3 = Vector3.FORWARD
 var _step_on: float = 0.0
 var _apart_t: float = 0.0
-var _walk_pace: float = 2.4
-var _gait: float = 0.0                   # leg cycle phase for walking / running
-var _stride: float = 0.28
+var _walk_pace: float = 1.5
+var _gait: float = 0.0                   # leg cycle phase for walking / running, in cycles (two steps)
+# the gait (walking back to the board, jogging, running out a mistake): see _gait_update
+var _loco_speed: float = 0.0             # m/s along the ground right now
+var _gait_now: Dictionary = {}           # this frame's feet, pelvis and arms (_gait_update)
+var _hip_s: float = -1.0                 # the pelvis height, smoothed (-1: not started)
+var _stand_hip: float = 0.9              # measured from the rest pose in setup()
+var _hip_joint: Vector3 = Vector3.ZERO   # left thigh head relative to the pelvis origin
+var _leg_chain: float = 0.84             # thigh + calf
+var _arm_len: float = 0.55
+var _foot_len: float = 0.25
+var _body_k: float = 1.0                 # leg length against an adult's (kids take shorter steps)
+var _plant: Array = [null, null]         # a planted foot's [world position, world heading], left and right
+var _lift: Array = [null, null]          # where each foot last left the ground (the start of its swing)
+var _gait_boost: float = 0.0             # hurries the cycle along while a planted foot is being left behind
+var _down: Array = [true, false]         # each foot on the ground? (a foot finishes the swing it started)
+var _prev_ph: Array = [0.0, 0.0]
+var _lift_ph: Array = [-1.0, -1.0]       # the phase each foot lifted at (its swing runs from there to 1)
+var _prev_v: float = 0.0
+var _brake: float = 0.0                  # 0..1: slowing hard (a run-out): short quick steps
+var _curl_axis: Dictionary = {}          # finger bone -> the axis it curls about toward the palm (rest, model space)
+var _getup_keys: Array = []              # [time, pose] through the get-up (see _getup_poses)
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -117,6 +141,13 @@ func setup(_look: Dictionary = {}) -> void:
 	# sole centre: under the ankle, a little toward the ball of the foot
 	var sole: Vector3 = Vector3(ankle.x + (ball.x - ankle.x) * 0.45, 0.0, ankle.z + (ball.z - ankle.z) * 0.45)
 	_ankle_off = ankle - sole
+	_stand_hip = _rest_model[_b["pelvis"]].origin.y
+	_hip_joint = _rest_model[_b["thigh_l"]].origin - _rest_model[_b["pelvis"]].origin
+	_leg_chain = _up_len["thigh_l"] + _up_len["calf_l"]
+	_arm_len = _up_len["upperarm_l"] + _up_len["lowerarm_l"]
+	_foot_len = maxf(0.12, (ball.x - ankle.x) * 1.9)
+	_body_k = clampf(_leg_len / 0.92, 0.6, 1.2)
+	_setup_fingers()
 	prepare_character(ch, 1.5)
 	ragdoll = Ragdoll.new()
 	ragdoll.build(skel)
@@ -513,8 +544,10 @@ func _apply_rig(sk: Skater) -> void:
 	# hips: hip_h is a pose number (0.72 riding tall .. 0.55 deep crouch) mapped onto a share of this leg
 	var frac: float = clampf((hip_h - 0.145) / 0.665, 0.45, 1.05)
 	var hip_y: float = DECK + frac * LEG_FRAC * (_leg_len - _ankle_off.y) + _ankle_off.y * 0.2
-	if _walk_mode:
-		hip_y = frac * LEG_FRAC * _leg_len + 0.02
+	var walking: bool = _walk_mode and not _gait_now.is_empty()
+	var off_k: float = 1.0 - _step_on if walking else 0.0      # 1 on foot .. 0 stepping onto the deck
+	if walking:
+		hip_y = lerpf(hip_y, float(_gait_now["hip"]), off_k)
 	var stride: Array = []
 	var push_amt: float = 0.0              # 0..1 through a stride: the body turns to face the nose to push
 	if sk.push_anim >= 0.0 and sk.state == Skater.State.GROUND and not sk.manual_on:
@@ -525,13 +558,14 @@ func _apply_rig(sk: Skater) -> void:
 	for i in [_b["Root"]]:
 		_rest_follow(i)
 	var pelvis: int = _b["pelvis"]
-	var q_body: Basis = Basis(Vector3(0, 0, 1), deg_to_rad(-sway)) * Basis(Vector3.UP, deg_to_rad(twist * 0.3 + 30.0 * push_amt))
+	var walk_yaw: float = float(_gait_now["yaw"]) * off_k if walking else 0.0
+	var q_body: Basis = Basis(Vector3(0, 0, 1), deg_to_rad(-sway)) * Basis(Vector3.UP, deg_to_rad(twist * 0.3 + 30.0 * push_amt + walk_yaw))
 	var pg: Transform3D = _rotated(pelvis, q_body)
-	pg.origin = Vector3(-0.03, hip_y, 0.0)
+	pg.origin = Vector3(-0.03 * (1.0 - off_k), hip_y, float(_gait_now["sway"]) * off_k if walking else 0.0)
 	_pose_bone(pelvis, pg)
 
 	# spine: lean toward the chest and twist toward the nose, spread over three bones
-	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7 + 25.0 * push_amt)) * Basis(Vector3(0, 0, 1), deg_to_rad(-lean))
+	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7 + 25.0 * push_amt - walk_yaw * 1.4)) * Basis(Vector3(0, 0, 1), deg_to_rad(-lean))
 	var spine: Array[String] = ["spine_01", "spine_02", "spine_03"]
 	for k in spine.size():
 		var i: int = _b[spine[k]]
@@ -559,22 +593,28 @@ func _apply_rig(sk: Skater) -> void:
 		back = stride[0]
 		back_ang = stride[1]
 		front_ang = lerpf(FRONT_FOOT_ANGLE, 65.0, push_amt)   # front foot swivels to point up the board
-	if _walk_mode:
-		# walking forward (chest first) to the loose board; the last step lands on the deck
-		var phk: float = _gait
-		var on_k: float = _step_on
-		var lift_k: float = 0.14 + (_stride - 0.28) * 0.5
-		# a foot lifts while it swings forward (x rising) and is planted while it pushes back: the lift used to
-		# come in the backward half, which read as walking backwards
-		front = Vector3(cos(phk) * _stride, maxf(0.0, -sin(phk)) * lift_k, -0.1).lerp(front, on_k)
-		back = Vector3(-cos(phk) * _stride, maxf(0.0, sin(phk)) * lift_k, 0.1).lerp(back, on_k)
-		front_ang = lerpf(0.0, front_ang, on_k)
-		back_ang = lerpf(0.0, back_ang, on_k)
+	var front_pitch: float = 0.0
+	var back_pitch: float = 0.0
+	var pole_l: Vector3 = Vector3(1.0, 0.1, -0.35)           # riding: knees over the toes, a little apart
+	var pole_r: Vector3 = Vector3(1.0, 0.1, 0.25)
+	if walking:
+		# on foot (walking to the loose board, running out a mistake): the gait's feet, knees straight ahead;
+		# the last step lands on the deck
+		var fl: Array = _gait_now["feet"][0]
+		var fr: Array = _gait_now["feet"][1]
+		front = (fl[0] as Vector3).lerp(front, _step_on)
+		back = (fr[0] as Vector3).lerp(back, _step_on)
+		front_ang = lerpf(float(fl[3]), front_ang, _step_on)
+		back_ang = lerpf(float(fr[3]), back_ang, _step_on)
+		front_pitch = float(fl[1]) * off_k
+		back_pitch = float(fr[1]) * off_k
+		pole_l = pole_l.lerp(Vector3(1.0, 0.0, -0.1), off_k)
+		pole_r = pole_r.lerp(Vector3(1.0, 0.0, 0.1), off_k)
 	# feet ride the board's tilt on the ground and on rails (manuals, boardslides), not its flips in the air
 	var on_board: bool = sk.state == Skater.State.GROUND or sk.state == Skater.State.GRIND
 	var feet_xf: Transform3D = bt if on_board else Transform3D.IDENTITY
-	_rig_leg("l", front, front_ang, feet_xf)
-	_rig_leg("r", back, back_ang, feet_xf)
+	_rig_leg("l", front, front_ang, feet_xf, front_pitch, pole_l)
+	_rig_leg("r", back, back_ang, feet_xf, back_pitch, pole_r)
 
 	# arms: out for balance, onto the board for grabs
 	var sh_l: Vector3 = (_glob[_b["clavicle_l"]] * _rest_local[_b["upperarm_l"]]).origin
@@ -583,11 +623,17 @@ func _apply_rig(sk: Skater) -> void:
 	# balance arms: out and a little forward, elbows soft, never a stiff T
 	var free_l: Vector3 = sh_l + Vector3(0.12 + 0.1 * spread, -0.52 + 0.4 * spread, -0.18 - 0.24 * spread)
 	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
-	if _walk_mode:
-		var sw: float = 0.12 + (_stride - 0.28) * 0.8
-		# arms swing forward and back (walking is chest first, +X), each against its own leg
-		free_l = sh_l + Vector3(0.04 - cos(_gait) * sw, -0.44, -0.06)
-		free_r = sh_r + Vector3(0.04 + cos(_gait) * sw, -0.44, 0.06)
+	var elbow_out: float = 0.3
+	if walking:
+		# arms hang and swing against the legs (walking is chest first, +X); jogging bends the elbows
+		var run_k: float = float(_gait_now["run"])
+		var arm: float = _arm_len * lerpf(0.93, 0.64, run_k)
+		var bias: float = lerpf(0.02, 0.12, run_k)
+		var al: float = deg_to_rad(float(_gait_now["arm_l"]))
+		var ar: float = deg_to_rad(float(_gait_now["arm_r"]))
+		free_l = free_l.lerp(sh_l + Vector3(sin(al) * arm + bias, -cos(al) * arm, -0.03), off_k)
+		free_r = free_r.lerp(sh_r + Vector3(sin(ar) * arm + bias, -cos(ar) * arm, 0.03), off_k)
+		elbow_out = lerpf(0.3, 0.1, off_k)
 	var hand_l: Vector3 = free_l
 	var hand_r: Vector3 = free_r
 	if carry_item != null and is_instance_valid(carry_item) and not _walk_mode:
@@ -601,15 +647,25 @@ func _apply_rig(sk: Skater) -> void:
 		hand_l = free_l.lerp(gp[0], grab_amt * float(gp[2]))
 		hand_r = free_r.lerp(gp[1], grab_amt * float(gp[3]))
 	var elbow_back: Vector3 = Vector3(-0.6, -0.3, 0.0)
-	_limb("upperarm_l", "lowerarm_l", "hand_l", hand_l, elbow_back + Vector3(0, 0, -0.3), _rest_pole_arm("l"))
-	_limb("upperarm_r", "lowerarm_r", "hand_r", hand_r, elbow_back + Vector3(0, 0, 0.3), _rest_pole_arm("r"))
+	_limb("upperarm_l", "lowerarm_l", "hand_l", hand_l, elbow_back + Vector3(0, 0, -elbow_out), _rest_pole_arm("l"))
+	_limb("upperarm_r", "lowerarm_r", "hand_r", hand_r, elbow_back + Vector3(0, 0, elbow_out), _rest_pole_arm("r"))
 	for side in ["l", "r"]:
 		_pose_bone(_b["hand_" + side], _rotated(_b["hand_" + side], Basis.IDENTITY))
-	# everything else follows at rest
+	_pose_fingers()
+
+
+## Fingers relaxed, curled a little toward the palm (the rest pose has them flat and spread, like a mannequin).
+func _pose_fingers() -> void:
 	for i in skel.get_bone_count():
 		var nm: String = skel.get_bone_name(i)
 		if nm.begins_with("index") or nm.begins_with("middle") or nm.begins_with("ring") or nm.begins_with("pinky") or nm.begins_with("thumb"):
-			_rest_follow(i)
+			if _curl_axis.has(i):
+				var p: int = _parent[i]
+				var follow: Basis = _glob[p].basis * _rest_model[p].basis.inverse()
+				var curl: float = float(FINGER_CURL[nm.get_slice("_", 0)][int(nm.get_slice("_", 1)) - 1])
+				_pose_bone(i, _rotated(i, Basis((follow * (_curl_axis[i] as Vector3)).normalized(), deg_to_rad(curl))))
+			else:
+				_rest_follow(i)
 
 
 # ------------------------------------------------------------------ physical bails
@@ -707,10 +763,28 @@ func _begin_getup(sk: Skater) -> void:
 	var poses: Array[Transform3D] = ragdoll.world_poses()
 	ragdoll.stop()
 	var pelvis: Vector3 = poses[_b["pelvis"]].origin
-	_walk_pos = _ground_under(pelvis)
-	var to_board: Vector3 = loose.global_position - _walk_pos
-	to_board.y = 0.0
-	_walk_dir = to_board.normalized() if to_board.length() > 0.2 else Vector3(sk.hdg.x, 0.0, sk.hdg.z).normalized()
+	# get up the way the body lies: face down, push up onto hands and knees and stand facing where the head was;
+	# on the back, sit up and stand facing where the feet were. Then turn to the board and walk.
+	var chest: Basis = poses[_b["spine_03"]].basis * _rest_model[_b["spine_03"]].basis.inverse()
+	var prone: bool = (chest * Vector3.RIGHT).y < 0.0
+	var head_dir: Vector3 = poses[_b["head"]].origin - pelvis
+	head_dir.y = 0.0
+	if head_dir.length() < 0.1:
+		head_dir = Vector3(sk.hdg.x, 0.0, sk.hdg.z)
+	_walk_dir = head_dir.normalized() if prone else -head_dir.normalized()
+	_getup_keys = _getup_poses(prone)
+	# the sequence ends standing at the walker's origin: put it so the first pose lies where the body lies
+	var lie: Vector3 = (_getup_keys[0][1] as Dictionary)["pelvis"]
+	_walk_pos = _ground_under(pelvis - _walk_dir * lie.x)
+	# room to stand: getting up leans forward past the feet (into a wall the rider slid down, feet first):
+	# start a little further back instead
+	var need: float = -lie.x + 0.62 * _body_k
+	var from: Vector3 = _ground_under(pelvis) + Vector3.UP * 0.5
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, from + _walk_dir * need, 1)
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
+	if not hit.is_empty():
+		var short: float = need - from.distance_to(hit["position"]) + 0.05
+		_walk_pos = _ground_under(_walk_pos - _walk_dir * short + Vector3.UP * 0.5)
 	_place_walker()
 	var inv: Transform3D = model.global_transform.affine_inverse()
 	_blend_from.clear()
@@ -719,6 +793,17 @@ func _begin_getup(sk: Skater) -> void:
 	_blend_w = 0.0
 	_walk_mode = true
 	_step_on = 0.0
+	_hip_s = -1.0
+	_loco_speed = 0.0
+	_plant = [null, null]
+	_lift = [null, null]
+	_gait_boost = 0.0
+	_gait = GAIT_START
+	_down = [true, false]
+	_prev_ph = [GAIT_START, GAIT_START + 0.5]
+	_lift_ph = [-1.0, -1.0]
+	_brake = 0.0
+	_prev_v = 0.0
 	phys_phase = "getup"
 	_phase_t = 0.0
 
@@ -729,27 +814,44 @@ func _walk(sk: Skater, dt: float) -> void:
 	to.y = 0.0
 	var dist: float = to.length()
 	if phys_phase == "getup":
-		_blend_w = clampf(_phase_t / GETUP_TIME, 0.0, 1.0)
-		_blend_w = _blend_w * _blend_w * (3.0 - 2.0 * _blend_w)
-		if _phase_t >= GETUP_TIME:
-			_blend_w = 1.0
-			phys_phase = "walk"
-			_walk_pace = maxf(sk.tune.walk_speed, dist / 1.4)   # a far board: jog to it
+		var total: float = float(_getup_keys[-1][0])
+		if _phase_t < total:
+			# from the ragdoll's pose into the first lying pose, then through the get-up
+			_blend_w = smoothstep(0.0, 1.0, _phase_t / float(_getup_keys[1][0]))
+			_place_walker()
+			sk.bail_focus = _walk_pos
+			_apply_pose(_getup_pose(_phase_t))
+			return
+		# standing: hand over to the walk (a short blend covers the small difference)
+		phys_phase = "walk"
+		_walk_pace = clampf(dist * 0.8, sk.tune.walk_speed, sk.tune.walk_speed * 2.4)   # walk to a near board, jog to a far one
+		_blend_from.clear()
+		for g in _glob:
+			_blend_from.append(g)
+		_blend_w = 0.0
+		_hip_s = -1.0
+		_gait_update(0.0, 0.0)
 	else:
-		var pace: float = _walk_pace
-		_gait += dt * 7.0
-		_stride = 0.28
-		if dist > 0.02:
+		_blend_w = minf(1.0, _blend_w + dt / 0.2)
+		var turn_rate: float = 0.0
+		if dist > 0.02 and _blend_w >= 1.0:          # (standing still for a moment once up)
 			# turn to face the board first (it is often behind: the run-out carried the rider past it), then
 			# walk; slerping toward a direction right behind never turned, so the rider walked backwards
 			var want: Vector3 = to / dist
 			var ang: float = _walk_dir.signed_angle_to(want, Vector3.UP)
 			if absf(ang) > PI - 0.05:
 				ang = PI - 0.05                 # straight behind: pick a side and turn
-			_walk_dir = _walk_dir.rotated(Vector3.UP, clampf(ang, -WALK_TURN * dt, WALK_TURN * dt)).normalized()
+			var turn: float = clampf(ang, -WALK_TURN * dt, WALK_TURN * dt)
+			turn_rate = turn / maxf(dt, 0.0001)
+			_walk_dir = _walk_dir.rotated(Vector3.UP, turn).normalized()
 			var facing: float = clampf(_walk_dir.dot(want), 0.0, 1.0)
-			_walk_pos += want * minf(pace * dt * facing * facing, dist)
+			# speed up from standing, and slow down for the last steps onto the board
+			var goal: float = minf(_walk_pace, sqrt(2.0 * 2.5 * maxf(dist - 0.2, 0.0)) + 0.45) * facing * facing
+			_loco_speed = move_toward(_loco_speed, goal, 4.0 * dt)
+			var heading_to: Vector3 = _walk_dir.lerp(want, clampf(1.0 - dist / 0.8, 0.0, 1.0)).normalized()
+			_walk_pos += heading_to * minf(_loco_speed * dt, dist)
 			_walk_pos = _ground_under(_walk_pos + Vector3.UP * 0.5)
+		_gait_update(dt, _loco_speed, turn_rate if _loco_speed < 0.5 else 0.0)
 		_step_on = 1.0 - clampf(dist / 0.6, 0.0, 1.0)
 		if dist < 0.06:
 			var stand: Transform3D = loose.stand_transform()
@@ -760,7 +862,7 @@ func _walk(sk: Skater, dt: float) -> void:
 	_place_walker()
 	sk.bail_focus = _walk_pos
 	hip_h = 0.82
-	lean = 6.0
+	lean = 3.0 + 6.0 * (float(_gait_now["run"]) if not _gait_now.is_empty() else 0.0)
 	twist = 0.0
 	sway = 0.0
 	arms_out = 0.25
@@ -791,6 +893,17 @@ func _begin_run(sk: Skater) -> void:
 	_blend_w = 0.0
 	_walk_mode = true
 	_step_on = 0.0
+	_hip_s = -1.0
+	_loco_speed = h.length()
+	_plant = [null, null]
+	_lift = [null, null]
+	_gait_boost = 0.0
+	_gait = GAIT_START
+	_down = [true, false]
+	_prev_ph = [GAIT_START, GAIT_START + 0.5]
+	_lift_ph = [-1.0, -1.0]
+	_brake = 0.0
+	_prev_v = 0.0
 	phys_phase = "run"
 	_phase_t = 0.0
 
@@ -803,8 +916,8 @@ func _run(sk: Skater, dt: float) -> void:
 	_walk_pos = sk.global_position
 	_place_walker()
 	_blend_w = minf(1.0, _blend_w + dt / 0.25)
-	_gait += dt * (4.0 + spd * 1.4)
-	_stride = 0.28 + spd * 0.06
+	_loco_speed = spd
+	_gait_update(dt, spd)
 	sk.bail_focus = _walk_pos
 	hip_h = 0.8
 	lean = 10.0 - spd * 1.5                    # leaning back against the speed
@@ -818,6 +931,312 @@ func _run(sk: Skater, dt: float) -> void:
 	board_yaw = 0.0
 	grab_amt = 0.0
 	_apply_rig(sk)
+
+
+## The get-up as a few poses in the walker's frame (chest +X, left -Z, the ground at y 0), ending standing at the
+## origin: [[time, pose], ...]. A pose is where the pelvis is and how far it pitches forward (+) or back (-), the
+## spine and head pitch, where each ankle, knee and hand goes (IK), and whether each foot is flat on the ground (1)
+## or hangs off its shin (0: toes dug in when kneeling or lying). The legs and arms stay whole because every pose
+## goes through the IK: blending bone rotations from lying to standing coiled the legs like a snake.
+func _getup_poses(prone: bool) -> Array:
+	var s: float = _body_k
+	var th: float = _up_len["thigh_l"]
+	var ca: float = _up_len["calf_l"]
+	var hz: float = absf(_hip_joint.z)
+	var kneel_y: float = 0.07 * s + th - _hip_joint.y           # pelvis height with a knee on the ground under the hip
+	var sh: Vector3 = _rest_model[_b["upperarm_l"]].origin
+	var hang: float = _arm_len * 0.93
+	var stand: Dictionary = _pose_dict(Vector3(0, _stand_hip, 0), 0.0, 3.0, 0.0,
+		_flat_ankle(Vector3(0, 0, -0.075 * s), 8.0), Vector3(1, 0, -0.1), 1.0,
+		_flat_ankle(Vector3(0, 0, 0.075 * s), -8.0), Vector3(1, 0, 0.1), 1.0,
+		Vector3(sh.x + 0.02, sh.y - hang, sh.z - 0.03), Vector3(-0.6, -0.3, -0.1))
+	var keys: Array = []
+	if prone:
+		# face down -> hands and knees -> the left knee comes up -> kneeling on the right knee, hands on the left
+		# knee -> rise onto the left foot, the right leg stepping through -> standing where the left foot was
+		var fx: float = 0.4 * s                                   # the left foot's spot: the sequence ends over it
+		var lie_x: float = -0.12 * s - fx
+		var four_x: float = -0.22 * s - fx
+		keys = [
+			[0.0, _pose_dict(Vector3(lie_x, 0.13 * s, 0), 86.0, 0.0, -35.0,
+				Vector3(lie_x - 0.97 * (th + ca), 0.1 * s, -hz * 1.4), Vector3(0, -1, 0), 0.0,
+				Vector3(lie_x - 0.97 * (th + ca), 0.1 * s, hz * 1.4), Vector3(0, -1, 0), 0.0,
+				Vector3(lie_x + 0.42 * s, 0.03, -0.28 * s), Vector3(-0.4, 1.0, -0.5))],
+			[0.22, {}],                                             # (the ragdoll blends into the pose above)
+			[0.56, _pose_dict(Vector3(four_x, kneel_y, 0), 78.0, -8.0, -25.0,
+				Vector3(four_x - 0.96 * ca, 0.1 * s, -hz * 1.2), Vector3(0.6, -1, 0), 0.0,
+				Vector3(four_x - 0.96 * ca, 0.1 * s, hz * 1.2), Vector3(0.6, -1, 0), 0.0,
+				Vector3(four_x + 0.5 * s, 0.0, -0.2 * s), Vector3(-1, 0, -0.4))],
+			[0.76, _pose_dict(Vector3(four_x + 0.05 * s, kneel_y + 0.02 * s, 0), 62.0, 0.0, -20.0,
+				Vector3(-fx + 0.02 * s, 0.24 * s, -hz), Vector3(1, 0.6, -0.2), 0.3,
+				Vector3(four_x - 0.96 * ca, 0.1 * s, hz * 1.2), Vector3(0.6, -1, 0), 0.0,
+				Vector3(four_x + 0.52 * s, 0.0, -0.2 * s), Vector3(-1, 0, -0.4))],
+			[0.96, _pose_dict(Vector3(-fx, kneel_y + 0.02 * s, 0), 20.0, 8.0, 0.0,
+				_flat_ankle(Vector3(0, 0, -hz), 8.0), Vector3(1, 0.4, -0.2), 1.0,
+				Vector3(-fx - 0.05 * s - 0.96 * ca, 0.1 * s, hz * 1.1), Vector3(0.6, -1, 0), 0.0,
+				Vector3(-0.04 * s, 0.55 * s, -0.16 * s), Vector3(-1, 0.2, -0.6))],
+			[1.2, _pose_dict(Vector3(-0.12 * s, lerpf(kneel_y, _stand_hip, 0.6), 0), 14.0, 6.0, 0.0,
+				_flat_ankle(Vector3(0, 0, -hz), 8.0), Vector3(1, 0.2, -0.15), 1.0,
+				Vector3(-0.12 * s, 0.24 * s, hz), Vector3(1, 0.4, 0.2), 0.4,
+				Vector3(0.02 * s, 0.5 * s, -0.2 * s), Vector3(-1, 0, -0.5))],
+			[1.44, stand],
+		]
+	else:
+		# on the back -> sit up, knees bent, hands propping behind -> rock forward into a crouch over the feet,
+		# hands on the knees -> stand
+		var sit_x: float = -0.42 * s
+		var feet_l: Vector3 = _flat_ankle(Vector3(0, 0, -0.1 * s), 8.0)
+		var feet_r: Vector3 = _flat_ankle(Vector3(0, 0, 0.1 * s), -8.0)
+		keys = [
+			[0.0, _pose_dict(Vector3(sit_x - 0.08 * s, 0.12 * s, 0), -86.0, 0.0, 20.0,
+				Vector3(sit_x - 0.08 * s + 0.97 * (th + ca), 0.09 * s, -hz * 1.4), Vector3(0, 1, 0), 0.0,
+				Vector3(sit_x - 0.08 * s + 0.97 * (th + ca), 0.09 * s, hz * 1.4), Vector3(0, 1, 0), 0.0,
+				Vector3(sit_x, 0.03, -0.32 * s), Vector3(0, 1, -0.3))],
+			[0.22, {}],
+			[0.6, _pose_dict(Vector3(sit_x, 0.11 * s, 0), -15.0, 12.0, 5.0,
+				feet_l, Vector3(0.4, 1, -0.25), 1.0, feet_r, Vector3(0.4, 1, 0.25), 1.0,
+				Vector3(sit_x - 0.22 * s, 0.0, -0.24 * s), Vector3(-1, 0, -0.3))],
+			[0.96, _pose_dict(Vector3(-0.14 * s, 0.36 * s, 0), 40.0, 12.0, -15.0,
+				feet_l, Vector3(1, 0.3, -0.25), 1.0, feet_r, Vector3(1, 0.3, 0.25), 1.0,
+				Vector3(0.2 * s, 0.44 * s, -0.16 * s), Vector3(-1, 0, -0.6))],
+			[1.3, stand],
+		]
+	# the blend-in key holds the lying pose
+	keys[1][1] = keys[0][1]
+	return keys
+
+
+## One get-up pose (see _getup_poses). Hands are given for the left side and mirrored.
+func _pose_dict(pelvis: Vector3, pitch: float, spine: float, head: float, ankle_l: Vector3, knee_l: Vector3,
+		flat_l: float, ankle_r: Vector3, knee_r: Vector3, flat_r: float, hand_l: Vector3, elbow_l: Vector3) -> Dictionary:
+	return {"pelvis": pelvis, "pitch": pitch, "spine": spine, "head": head,
+		"ankle_l": ankle_l, "knee_l": knee_l, "flat_l": flat_l, "ankle_r": ankle_r, "knee_r": knee_r, "flat_r": flat_r,
+		"hand_l": hand_l, "hand_r": Vector3(hand_l.x, hand_l.y, -hand_l.z),
+		"elbow_l": elbow_l, "elbow_r": Vector3(elbow_l.x, elbow_l.y, -elbow_l.z)}
+
+
+## The ankle over a foot flat on the ground at `sole`, toes turned out `yaw` degrees.
+func _flat_ankle(sole: Vector3, yaw: float) -> Vector3:
+	return sole + Basis(Vector3.UP, deg_to_rad(yaw)) * _ankle_off
+
+
+## The get-up pose at time t: a Catmull-Rom curve through the poses, so the body keeps moving through each one
+## instead of stopping at it.
+func _getup_pose(t: float) -> Dictionary:
+	var keys: Array = _getup_keys
+	var n: int = keys.size()
+	var i: int = 0
+	while i < n - 2 and t >= float(keys[i + 1][0]):
+		i += 1
+	var t0: float = float(keys[i][0])
+	var t1: float = float(keys[i + 1][0])
+	var u: float = clampf((t - t0) / maxf(t1 - t0, 0.001), 0.0, 1.0)
+	var a: Dictionary = keys[maxi(i - 1, 0)][1]
+	var b: Dictionary = keys[i][1]
+	var c: Dictionary = keys[i + 1][1]
+	var d: Dictionary = keys[mini(i + 2, n - 1)][1]
+	var out: Dictionary = {}
+	for k in b:
+		var pa: Variant = a[k]
+		var pb: Variant = b[k]
+		var pc: Variant = c[k]
+		var pd: Variant = d[k]
+		if pb is Vector3:
+			out[k] = (pb as Vector3) * 2.0 + (-(pa as Vector3) + (pc as Vector3)) * u \
+				+ ((pa as Vector3) * 2.0 - (pb as Vector3) * 5.0 + (pc as Vector3) * 4.0 - (pd as Vector3)) * u * u \
+				+ (-(pa as Vector3) + (pb as Vector3) * 3.0 - (pc as Vector3) * 3.0 + (pd as Vector3)) * u * u * u
+			out[k] = (out[k] as Vector3) * 0.5
+		else:
+			var fa: float = pa
+			var fb: float = pb
+			var fc: float = pc
+			var fd: float = pd
+			out[k] = 0.5 * (2.0 * fb + (-fa + fc) * u + (2.0 * fa - 5.0 * fb + 4.0 * fc - fd) * u * u
+				+ (-fa + 3.0 * fb - 3.0 * fc + fd) * u * u * u)
+	return out
+
+
+## Pose the whole body from a get-up pose (walker frame).
+func _apply_pose(k: Dictionary) -> void:
+	_rest_follow(_b["Root"])
+	var pelvis: int = _b["pelvis"]
+	var pg: Transform3D = _rotated(pelvis, Basis(Vector3(0, 0, 1), deg_to_rad(-float(k["pitch"]))))
+	pg.origin = k["pelvis"]
+	_pose_bone(pelvis, pg)
+	for nm in ["spine_01", "spine_02", "spine_03"]:
+		var i: int = _b[nm]
+		_pose_bone(i, _rotated(i, Basis(Vector3(0, 0, 1), deg_to_rad(-float(k["spine"]) / 3.0))))
+	var neck: int = _b["neck_01"]
+	_pose_bone(neck, _rotated(neck, Basis(Vector3(0, 0, 1), deg_to_rad(-float(k["head"]) * 0.4))))
+	var hd: int = _b["head"]
+	_pose_bone(hd, _rotated(hd, Basis(Vector3(0, 0, 1), deg_to_rad(-float(k["head"]) * 0.6))))
+	for side in ["l", "r"]:
+		_rest_follow(_b["clavicle_" + side])
+	for side in ["l", "r"]:
+		_limb("thigh_" + side, "calf_" + side, "foot_" + side, k["ankle_" + side],
+			(k["knee_" + side] as Vector3).normalized(), _rest_pole_leg())
+		var f: int = _b["foot_" + side]
+		var hang: Basis = _rotated(f, Basis.IDENTITY).basis            # the foot as it hangs off the shin
+		var flat: Basis = Basis(Vector3.UP, deg_to_rad(8.0 if side == "l" else -8.0)) * _rest_model[f].basis
+		var w: float = clampf(float(k["flat_" + side]), 0.0, 1.0)
+		var q: Quaternion = hang.orthonormalized().get_rotation_quaternion().slerp(flat.orthonormalized().get_rotation_quaternion(), w)
+		var fg: Transform3D = _glob[_parent[f]] * _rest_local[f]
+		_pose_bone(f, Transform3D(Basis(q), fg.origin))
+		_rest_follow(_b["ball_" + side])
+	for side in ["l", "r"]:
+		_limb("upperarm_" + side, "lowerarm_" + side, "hand_" + side, k["hand_" + side],
+			(k["elbow_" + side] as Vector3).normalized(), _rest_pole_arm(side))
+		var h: int = _b["hand_" + side]
+		_pose_bone(h, _rotated(h, Basis.IDENTITY))
+	_pose_fingers()
+
+
+## Each finger bone's curl axis: across the finger, so a positive turn brings the tip toward the palm.
+func _setup_fingers() -> void:
+	for side in ["l", "r"]:
+		if not _b.has("index_01_" + side) or not _b.has("pinky_01_" + side):
+			continue
+		var hand: Vector3 = _rest_model[_b["hand_" + side]].origin
+		var across: Vector3 = _rest_model[_b["index_01_" + side]].origin - _rest_model[_b["pinky_01_" + side]].origin
+		var along: Vector3 = _rest_model[_b["middle_01_" + side]].origin - hand
+		var palm: Vector3 = across.cross(along).normalized() * (CURL_SIGN if side == "l" else -CURL_SIGN)
+		for f in ["index", "middle", "ring", "pinky", "thumb"]:
+			for k in [1, 2, 3]:
+				var nm: String = "%s_%02d_%s" % [f, k, side]
+				if not _b.has(nm):
+					continue
+				var i: int = _b[nm]
+				var tip: String = "%s_%02d_%s" % [f, k + 1, side]
+				var d: Vector3 = (_rest_model[_b[tip]].origin - _rest_model[i].origin) if _b.has(tip) else \
+					(_rest_model[i].origin - _rest_model[_parent[i]].origin)
+				_curl_axis[i] = d.normalized().cross(palm).normalized()
+
+
+## One frame of walking or running on foot, into `_gait_now`. `v` is the speed over the ground, `turn_rate` how
+## fast the body is turning on the spot (rad/s: it steps round instead of pivoting on planted feet).
+## The phase follows the distance covered, so a planted foot moves back under the body at exactly the walking
+## speed (no sliding). Walking keeps a foot on the ground: the heel lands with the toes up, the foot rolls flat and
+## pushes off from the ball, and the stance leg stays nearly straight, so the pelvis rides up over it and dips as
+## the feet swap. Faster, it blends into a jog: shorter contact, a flight phase, the heel folding up behind, a
+## forward lean and bent arms. The pelvis turns with the stride; the arms swing against the legs.
+func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
+	var run_k: float = smoothstep(1.9, 3.0, v)
+	if dt > 0.0:
+		_brake = lerpf(_brake, clampf((_prev_v - v) / dt / 5.0, 0.0, 1.0), 1.0 - exp(-10.0 * dt))
+	_prev_v = v
+	var step: float = clampf(0.42 + 0.2 * v, 0.45, 1.5) * _body_k * lerpf(1.0, 0.68, _brake)
+	var stride: float = 2.0 * step
+	var rate: float = v / stride + absf(turn_rate) * 0.3          # cycles a second
+	_gait = fposmod(_gait + rate * (1.0 + _gait_boost) * dt, 1.0)
+	_gait_boost = 0.0
+	var move: float = clampf(rate / 0.8, 0.0, 1.0)                # standing still: feet flat and together
+	var duty: float = lerpf(0.62, 0.36, run_k)
+	var reach: float = duty * v / maxf(rate, 0.001)               # a planted foot's travel under the body
+	var lift: float = lerpf(0.09, 0.3, run_k) * _body_k * move
+	var roll: float = lerpf(34.0, 28.0, run_k) * move              # heel up at push off
+	var strike: float = 12.0 * (1.0 - run_k) * move                # toes up at heel strike (walking)
+	var width: float = 0.075 * _body_k
+	var floor_hip: float = _stand_hip * lerpf(0.9, 0.84, run_k)    # never sink lower than this over a planted foot
+	# planted feet stay where they landed in the world, whatever the body does meanwhile (speeds up from
+	# standing, slows for the board, turns): the gait only says when a foot lifts and where it lands next
+	var frame: Transform3D = Transform3D(Basis(_walk_dir, Vector3.UP, _walk_dir.cross(Vector3.UP).normalized()), _walk_pos)
+	var inv: Transform3D = frame.affine_inverse()
+	var heading: float = atan2(-_walk_dir.z, _walk_dir.x)
+	var feet: Array = []
+	var cap: float = INF
+	for i in 2:
+		var ph: float = fposmod(_gait + 0.5 * i, 1.0)
+		var toe: float = 8.0 if i == 0 else -8.0                     # toes out a touch
+		var p: Vector3 = Vector3(0.0, 0.0, -width if i == 0 else width)   # the left foot on -Z
+		var yaw: float = toe
+		var pitch: float
+		# a foot goes down when its cycle comes round (phase wraps) and lifts when its stance is done; the speed
+		# (and with it the share of the cycle on the ground) can change meanwhile without planting a foot mid-air
+		if bool(_down[i]) and ph >= duty and ph >= float(_prev_ph[i]):
+			_down[i] = false
+			_lift_ph[i] = ph
+		elif not bool(_down[i]) and (ph < float(_prev_ph[i]) or dt <= 0.0 and ph < duty):
+			_down[i] = true
+		_prev_ph[i] = ph
+		var ground: bool = _down[i]
+		if ground:
+			var sg: float = clampf(ph / duty, 0.0, 1.0)              # 0 touch down .. 1 push off
+			if _plant[i] == null or dt <= 0.0:
+				_plant[i] = [frame * Vector3(reach * (0.42 - sg), 0.0, p.z), heading + deg_to_rad(toe)]
+			var q: Vector3 = inv * (_plant[i][0] as Vector3)
+			var q_yaw: float = rad_to_deg(wrapf(float(_plant[i][1]) - heading, -PI, PI))
+			var q_pitch: float = strike * (1.0 - smoothstep(0.0, 0.2, sg)) - roll * smoothstep(0.6, 1.0, sg)
+			# how high the pelvis can be over this foot with the knee all but straight (a little softer mid-stance)
+			var k: float = lerpf(lerpf(0.996, 0.97, run_k), lerpf(0.988, 0.9, run_k), sin(PI * sg))
+			var ankle: Vector3 = _foot_pose(q, Basis(Vector3.UP, deg_to_rad(q_yaw)), q_pitch)[0]
+			var hj: Vector3 = Vector3(_hip_joint.x, _hip_joint.y, absf(_hip_joint.z) * (1.0 if i == 1 else -1.0))
+			var dx: float = hj.x - ankle.x
+			var dz: float = hj.z - ankle.z
+			var room: float = ankle.y - hj.y + sqrt(maxf(0.0, pow(k * _leg_chain, 2.0) - dx * dx - dz * dz))
+			var other_down: bool = bool(_down[1 - i])
+			if room < floor_hip and q.x < 0.0:
+				# being left behind (the body turned or sped up over it): hurry the other foot down
+				_gait_boost = maxf(_gait_boost, clampf((floor_hip - room) / 0.04, 0.0, 3.0))
+			if room < floor_hip - 0.03 and q.x < 0.0 and other_down and dt > 0.0:
+				# still behind once the other foot is down: lift it now rather than sink into a crouch or let it slide
+				_down[i] = false
+				_lift_ph[i] = ph
+				_lift[i] = _plant[i]
+				_plant[i] = null
+				ground = false
+				p = q
+				yaw = q_yaw
+				pitch = -roll
+			else:
+				p = q
+				yaw = q_yaw
+				pitch = q_pitch
+				cap = minf(cap, room)
+		if not ground:
+			if _plant[i] != null:
+				_lift[i] = _plant[i]
+				_plant[i] = null
+			var from_ph: float = float(_lift_ph[i]) if float(_lift_ph[i]) >= 0.0 else duty
+			var sw: float = clampf((ph - from_ph) / maxf(1.0 - from_ph, 0.05), 0.0, 1.0)   # 0 lift off .. 1 touch down
+			var e: float = sw * sw * sw * (10.0 + sw * (-15.0 + 6.0 * sw))    # minimum jerk
+			var from: Vector3 = Vector3(reach * -0.58, 0.0, p.z)
+			var from_yaw: float = toe
+			if _lift[i] != null:
+				from = inv * (_lift[i][0] as Vector3)
+				from_yaw = rad_to_deg(wrapf(float(_lift[i][1]) - heading, -PI, PI))
+			p = from.lerp(Vector3(reach * 0.42, 0.0, p.z), e)
+			p.y += lift * sin(PI * pow(sw, lerpf(0.9, 0.6, run_k)))  # a runner's heel comes up early
+			yaw = lerpf(from_yaw, toe, e)
+			pitch = -roll * (1.0 - smoothstep(0.0, 0.4, sw)) + strike * smoothstep(0.6, 1.0, sw)
+		feet.append([p, pitch, ground, yaw])
+	var top: float = _stand_hip * lerpf(1.0, 0.97, run_k)          # airborne (running), or standing
+	var want: float = clampf(cap, floor_hip, top)
+	_hip_s = want if _hip_s < 0.0 or dt <= 0.0 else lerpf(_hip_s, want, 1.0 - exp(-30.0 * dt))
+	var half: float = maxf(stride * 0.5, 0.01)
+	var ahead: float = clampf(((feet[0][0] as Vector3).x - (feet[1][0] as Vector3).x) / half, -1.2, 1.2)   # + the left foot is forward
+	_gait_now = {
+		"feet": feet,
+		"hip": _hip_s,
+		"run": run_k,
+		# the pelvis turns the forward leg's hip forward; the shoulders turn back against it
+		"yaw": -ahead * lerpf(6.0, 9.0, run_k),
+		# weight over the standing foot
+		"sway": -width * 0.45 * cos(TAU * (_gait - duty * 0.5)) * (1.0 - 0.6 * run_k) * move,
+		"arm_l": -ahead * lerpf(16.0, 40.0, run_k),
+		"arm_r": ahead * lerpf(16.0, 40.0, run_k),
+	}
+
+
+## Where the ankle goes for a sole centre (model space) with the foot turned `turn` and pitched `pitch` degrees
+## about its own left-right axis: + toes up, rocking on the heel; - heel up, rolling on the ball. [ankle, basis]
+func _foot_pose(sole: Vector3, turn: Basis, pitch: float) -> Array:
+	var ankle: Vector3 = sole + turn * _ankle_off
+	if absf(pitch) < 0.01:
+		return [ankle, turn]
+	var fwd: Vector3 = turn * Vector3.RIGHT                         # the toes (+X at rest)
+	var r: Basis = Basis((turn * Vector3.BACK).normalized(), deg_to_rad(pitch))
+	var pivot: Vector3 = sole - fwd * (_foot_len * 0.42) if pitch > 0.0 else sole + fwd * (_foot_len * 0.29)
+	return [pivot + r * (ankle - pivot), r * turn]
 
 
 ## Stand the visual up at the walker's spot, chest (+X) toward where it is walking.
@@ -885,18 +1304,25 @@ func _rest_pole_arm(_side: String) -> Vector3:
 	return Vector3(-1, 0, 0)
 
 
-func _rig_leg(side: String, sole: Vector3, foot_angle: float, board_xf: Transform3D) -> void:
+func _rig_leg(side: String, sole: Vector3, foot_angle: float, board_xf: Transform3D, pitch: float = 0.0,
+		knee_pole: Vector3 = Vector3.ZERO) -> void:
 	# the foot turns about the up axis (toes across the board, front foot angled to the nose) and rides the
-	# board's tilt; the ankle sits above and behind the sole centre
+	# board's tilt; the ankle sits above and behind the sole centre. On foot it also rolls heel to toe (pitch)
 	var turn: Basis = board_xf.basis * Basis(Vector3.UP, deg_to_rad(foot_angle))
 	var sole_w: Vector3 = board_xf * (sole - Vector3(0, board_lift, 0)) if board_xf != Transform3D.IDENTITY else sole
-	var ankle: Vector3 = sole_w + turn * _ankle_off
-	var knee_pole: Vector3 = Vector3(1.0, 0.1, -0.35 if side == "l" else 0.25)
-	_limb("thigh_" + side, "calf_" + side, "foot_" + side, ankle, knee_pole, _rest_pole_leg())
+	var fp: Array = _foot_pose(sole_w, turn, pitch)
+	if knee_pole == Vector3.ZERO:
+		knee_pole = Vector3(1.0, 0.1, -0.35 if side == "l" else 0.25)
+	_limb("thigh_" + side, "calf_" + side, "foot_" + side, fp[0], knee_pole, _rest_pole_leg())
 	var f: int = _b["foot_" + side]
 	var fg: Transform3D = _glob[_parent[f]] * _rest_local[f]
-	_pose_bone(f, Transform3D(turn * _rest_model[f].basis, fg.origin))
-	_rest_follow(_b["ball_" + side])
+	_pose_bone(f, Transform3D((fp[1] as Basis) * _rest_model[f].basis, fg.origin))
+	var ball: int = _b["ball_" + side]
+	if pitch < -0.5:
+		# heel up: the toes bend back and stay on the ground
+		_pose_bone(ball, _rotated(ball, Basis((turn * Vector3.BACK).normalized(), deg_to_rad(-pitch))))
+	else:
+		_rest_follow(ball)
 
 
 ## [left hand target, right hand target, use left, use right] for a grab, on the board as it is posed now.

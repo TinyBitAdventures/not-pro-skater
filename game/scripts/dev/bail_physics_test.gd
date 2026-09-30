@@ -48,6 +48,8 @@ func _watch(label: String, secs: float) -> Dictionary:
 	var t_done: float = -1.0
 	var next_print: float = 0.0
 	var knee: Dictionary = {"flex_min": 999.0, "flex_max": -999.0, "side_max": 0.0}
+	var gait: Dictionary = {"slide": 0.0, "flex_sum": 0.0, "flex_max": 0.0, "n": 0, "hip_sum": 0.0, "planted": [null, null],
+		"jog_sum": 0.0, "jog_n": 0}
 	while t < secs:
 		await get_tree().physics_frame
 		t += 1.0 / 60.0
@@ -65,6 +67,8 @@ func _watch(label: String, secs: float) -> Dictionary:
 					knee["flex_min"] = minf(knee["flex_min"], k[0])
 					knee["flex_max"] = maxf(knee["flex_max"], k[0])
 					knee["side_max"] = maxf(knee["side_max"], absf(k[1]))
+			if (rig.phys_phase == "walk" or rig.phys_phase == "run") and not rig._gait_now.is_empty() and rig._step_on <= 0.0:
+				_gait_sample(rig, gait)
 			if rig.loose != null:
 				board_min_z = minf(board_min_z, rig.loose.global_position.z)
 				board_max_z = maxf(board_max_z, rig.loose.global_position.z)
@@ -84,7 +88,19 @@ func _watch(label: String, secs: float) -> Dictionary:
 	var knees_ok: bool = knee["flex_min"] > -8.0 and knee["side_max"] < 12.0
 	if not knees_ok:
 		print("[bail] FAIL %s: knees bent the wrong way (flex %.0f, sideways %.0f deg)" % [label, knee["flex_min"], knee["side_max"]])
-	return {"knees": "flex %.0f..%.0f deg, sideways up to %.0f deg%s" % [knee["flex_min"], knee["flex_max"], knee["side_max"],
+	# walking back: planted feet stay put, and the standing leg is nearly straight (no crouched shuffle)
+	var n: int = maxi(int(gait["n"]), 1)
+	var flex_avg: float = float(gait["flex_sum"]) / n
+	var gait_ok: bool = float(gait["slide"]) < 0.03 and (int(gait["n"]) == 0 or flex_avg < 23.0)   # a real walk averages ~15-25 over the stance
+	if not gait_ok:
+		print("[bail] FAIL %s: walking back, feet slid %.1f cm or the standing knee bent %.0f deg on average" % [label,
+			float(gait["slide"]) * 100.0, flex_avg])
+	var jog: String = ", jogging %d frames, standing knee %.0f deg avg" % [int(gait["jog_n"]),
+		float(gait["jog_sum"]) / maxi(int(gait["jog_n"]), 1)] if int(gait["jog_n"]) > 0 else ""
+	return {"gait": "walking %d frames: planted feet slid up to %.1f cm, standing knee %.0f deg avg (max %.0f), pelvis %.0f%% of standing%s%s" % [
+		int(gait["n"]), float(gait["slide"]) * 100.0, flex_avg, float(gait["flex_max"]), 100.0 * float(gait["hip_sum"]) / n, jog,
+		"" if gait_ok else "  FAIL"],
+		"knees": "flex %.0f..%.0f deg, sideways up to %.0f deg%s" % [knee["flex_min"], knee["flex_max"], knee["side_max"],
 		"" if knees_ok else "  FAIL"],
 		"bailed": bailed, "done": done, "kind": kind, "t_bail": t_bail, "t_done": t_done, "board_z": [board_min_z, board_max_z],
 		"end": sk.global_position, "body_path": body_path}
@@ -129,6 +145,49 @@ func _run() -> void:
 		var r5: Dictionary = await _watch_run("runout_trip", 12.0)
 		print("[bail] runout_trip: %s" % r5)
 	get_tree().quit()
+
+
+## One frame of the walk back: how far each planted foot's ball has moved since it touched down, the standing
+## knee's bend and the pelvis height.
+func _gait_sample(rig: RiderRig, g: Dictionary) -> void:
+	var sk3: Skeleton3D = rig.skel
+	var feet: Array = rig._gait_now["feet"]
+	var planted: Array = g["planted"]
+	for i in 2:
+		var side: String = "l" if i == 0 else "r"
+		var ball: Vector3 = sk3.global_transform * sk3.get_bone_global_pose(sk3.find_bone("ball_" + side)).origin
+		if bool(feet[i][2]) and OS.get_environment("GAIT_DEBUG") != "":
+			var f: Array = feet[i]
+			var want: Vector3 = rig.global_transform * (rig._foot_pose(f[0], Basis(Vector3.UP, deg_to_rad(float(f[3]))), float(f[1]))[0] as Vector3)
+			var got: Vector3 = sk3.global_transform * sk3.get_bone_global_pose(sk3.find_bone("foot_" + side)).origin
+			if want.distance_to(got) > 0.03:
+				print("[gait] foot %d misses its ankle target by %.2f (target model %s, hip %.3f of %.3f, walk %s)" % [i,
+					want.distance_to(got), (f[0] as Vector3).snappedf(0.01), float(rig._gait_now["hip"]), rig._stand_hip, rig.phys_phase])
+		if bool(feet[i][2]):
+			if planted[i] == null:
+				planted[i] = ball
+			else:
+				var d: Vector3 = ball - (planted[i] as Vector3)
+				d.y = 0.0
+				if OS.get_environment("GAIT_DEBUG") != "" and d.length() > 0.05:
+					print("[gait] foot %d slid %.2f: ball %s planted %s walk_pos %s dir %s speed %.2f step_on %.2f blend %.2f anchor %s" % [
+						i, d.length(), ball.snappedf(0.01), (planted[i] as Vector3).snappedf(0.01), rig._walk_pos.snappedf(0.01),
+						rig._walk_dir.snappedf(0.01), rig._loco_speed, rig._step_on, rig._blend_w, rig._plant[i]])
+				g["slide"] = maxf(float(g["slide"]), d.length())
+			var th: Vector3 = sk3.get_bone_global_pose(sk3.find_bone("thigh_" + side)).origin
+			var ca: Vector3 = sk3.get_bone_global_pose(sk3.find_bone("calf_" + side)).origin
+			var fo: Vector3 = sk3.get_bone_global_pose(sk3.find_bone("foot_" + side)).origin
+			var flex: float = rad_to_deg((ca - th).angle_to(fo - ca))
+			if float(rig._gait_now["run"]) > 0.5:             # jogging: a softer standing knee is right
+				g["jog_sum"] = float(g["jog_sum"]) + flex
+				g["jog_n"] = int(g["jog_n"]) + 1
+			else:
+				g["flex_sum"] = float(g["flex_sum"]) + flex
+				g["flex_max"] = maxf(float(g["flex_max"]), flex)
+				g["n"] = int(g["n"]) + 1
+				g["hip_sum"] = float(g["hip_sum"]) + float(rig._gait_now["hip"]) / rig._stand_hip
+		else:
+			planted[i] = null
 
 
 ## Like _watch, but records the run-out phases the rig went through.
