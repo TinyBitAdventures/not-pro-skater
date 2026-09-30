@@ -19,6 +19,9 @@ _lib = {}
 
 # some assets hold variants side by side: keep only the parts whose names contain one of these
 PARTS = {"fire_hydrant": ("fire_hydrant_aged",), "football": ("football_inflated",)}
+# kits laid out piece by piece: drop the parts that are not this prop. The street seating kit is one bench with a
+# back plus a spare backless seat (no leg at its far end) and four curved connector seats floating beside it.
+EXCLUDE = {"modular_street_seating": ("seat_bench", "suspended_support_02", "connector_")}
 # heavy scans: collapse to about this many triangles (they are small on screen)
 DECIMATE = {"fire_hydrant": 4000, "garden_gnome": 3000, "modular_street_seating": 9000, "covered_car": 6000}
 
@@ -34,6 +37,8 @@ def _import(model_id):
     meshes = [o for o in new if o.type == "MESH"]
     if model_id in PARTS:
         meshes = [o for o in meshes if any(k in o.name for k in PARTS[model_id])]
+    if model_id in EXCLUDE:
+        meshes = [o for o in meshes if not any(k in o.name for k in EXCLUDE[model_id])]
     bpy.ops.object.select_all(action="DESELECT")
     for o in meshes:
         mw = o.matrix_world.copy()
