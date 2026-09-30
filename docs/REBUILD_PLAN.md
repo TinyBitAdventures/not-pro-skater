@@ -13,7 +13,7 @@ Decisions (2026-09-29):
 
 The core rule for the controller: **the code decides where the skater goes; physics only answers "what is under me?"**
 
-## Status (2026-09-29)
+## Status (2026-09-30)
 
 | Phase | State |
 |---|---|
@@ -22,7 +22,8 @@ The core rule for the controller: **the code decides where the skater goes; phys
 | 3. Realistic look | **In use** on Neighborhood Park (two bake groups). The look-test scene is retired. Still to do: material variety and wear, sky/exposure per event, performance numbers on real hardware |
 | 4. Characters | **All five archetypes built** (MPFB + MakeHuman CC0, skinned, `RiderRig` IK posing, real board, 1K textures). Next: eye/hair material polish, per-character clothing colours, facial variety |
 | 5. First level + event | **Neighborhood Park + Birthday at the Park playable** (goals, kids, guests, cake, balloons, swaying trees, title screen, web build ~78 MB). The old cartoon park and its tests are retired |
-| 6. Polish | **Second pass done:** late-afternoon light (long shadows, backlit leaves), rolling lawns with grass tufts, hills and a horizon with instanced trees, built-looking ramps (plywood sheets, screws, steel foot plates, painted sides, galvanized rails), scuffed concrete, real eye colours and softer skin, lip tricks, smooth rail/coping entries, new techno soundtrack. Playtest fixes (2026-09-30): grind balance meter, warp back before the level's edge, whole street benches, no balloon-shadow flicker; ragdoll muscles (crashes brace and catch), P-A-R-T-Y badges on the HUD, Quit on the title. **Next:** gamepad feel pass, a second event (a fundraiser), perf on low-end hardware |
+| 6. Polish | **Second pass done:** late-afternoon light (long shadows, backlit leaves), rolling lawns with grass tufts, hills and a horizon with instanced trees, built-looking ramps (plywood sheets, screws, steel foot plates, painted sides, galvanized rails), scuffed concrete, real eye colours and softer skin, lip tricks, smooth rail/coping entries, new techno soundtrack. Playtest fixes (2026-09-30): grind balance meter, warp back before the level's edge, whole street benches, no balloon-shadow flicker; ragdoll muscles (crashes brace and catch), P-A-R-T-Y badges on the HUD, Quit on the title. **Next:** gamepad feel pass, perf on low-end hardware |
+| 7. Second level + event | **Maple Grove Elementary + the Skate-a-thon playable** (title menu, `?scene=skateathon`): the school grounds as planned (plaza steps with three handrails and a ramp rail, the sign ledge, covered walkway, car park with wheel stops, curb island and speed bump, the loading dock, the court with the PTA's ramps, the fenced playground), mid-morning sky; money scoring, the fundraising thermometer, lap gates, the principal. Levels export as glTF with shared textures; web build 77 MB with both levels (no shadow meshes, 256 px eyes / brows / lashes). Verified by the event test, a physics lap ride of the gate route and a rail audit of every grind line |
 
 Decisions made while building (they override the text below where it differs):
 
