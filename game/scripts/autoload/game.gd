@@ -36,6 +36,7 @@ const PREVIEW_SCENES: Dictionary = {
 
 var _fade: ColorRect
 var _going: bool = false
+var _loading: Label
 
 
 func _ready() -> void:
@@ -48,6 +49,11 @@ func _ready() -> void:
 	_fade.color = Color(0.02, 0.02, 0.03, 0.0)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_fade)
+	_loading = UiKit.label("LOADING", 22, UiKit.MUTED, "bold")
+	_loading.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_loading.position = Vector2(-150, -64)
+	_loading.visible = false
+	layer.add_child(_loading)
 	load_save()
 	# web: index.html?scene=greybox (or birthday, park) opens that scene straight away
 	if OS.has_feature("web"):
@@ -66,12 +72,17 @@ func go(path: String) -> void:
 	await out.finished
 	get_tree().paused = false
 	Sound.set_paused(false)
+	# loading blocks (the web build has no threads): draw the note first, then load
+	_loading.visible = true
+	await get_tree().process_frame
+	await get_tree().process_frame
 	if path == "":
 		get_tree().reload_current_scene()
 	else:
 		get_tree().change_scene_to_file(path)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	_loading.visible = false
 	var back: Tween = create_tween()
 	back.tween_property(_fade, "color:a", 0.0, 0.4)
 	_going = false

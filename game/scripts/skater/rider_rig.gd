@@ -296,6 +296,14 @@ func _pose(sk: Skater, dt: float) -> void:
 					lean_t = -8.0 - sk.manual_balance * 6.0
 			if sk.pushing and not sk.braking and speed < 7.0:
 				lean_t += 8.0
+			# standing still: breathe, shift weight, glance about (a frozen statue read as a mannequin)
+			var still: float = 1.0 - clampf(speed / 0.8, 0.0, 1.0)
+			if still > 0.0 and not sk.manual_on and not sk.pushing:
+				hip_t += sin(_t * 1.6) * 0.006 * still
+				lean_t += (sin(_t * 1.6 + 0.8) * 1.2 + sin(_t * 0.37) * 2.0) * still
+				sway_t += sin(_t * 0.23 + 1.3) * 3.0 * still
+				twist_t += sin(_t * 0.31) * 7.0 * still
+				arms_t -= 0.12 * still
 		Skater.State.AIR:
 			var rising: bool = sk.velocity.y > 0.8
 			hip_t = 0.80 if rising else 0.66     # stretch on the pop, tuck on the way down

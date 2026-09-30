@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Polish: small things
+- Standing still, riders breathe, shift their weight and glance about instead of freezing like a mannequin (the title screen rider most of all).
+- The title camera starts on the rider's front three-quarter, so you see the character you picked.
+- Scene changes show a quiet LOADING note while the level loads (the web build loads without threads, so this can take a few seconds).
+
 ### Polish: carrying the cake
 - The rider carries the birthday cake in both hands, held out in front of the belly (`RiderRig.carry_item`), instead of the cake floating by the chest while the arms balance; a crash lets go of it and it goes back to the table at the street, as before. The pose tour has a `carry` pose.
 

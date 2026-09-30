@@ -19,7 +19,7 @@ var controls_layer: Control
 var progress_label: Label
 var rider_name: Label
 var rider_blurb: Label
-var _orbit: float = 0.6
+var _orbit: float = 1.75            # starts on the rider's front three-quarter (the chest faces the board's right)
 
 
 func _ready() -> void:
