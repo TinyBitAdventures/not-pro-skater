@@ -2,5 +2,6 @@
  "joints": {},
  "bake_energy": 1.4,
  "exposure": 0.9,
- "sky_display": 1.4
+ "sky_display": 1.4,
+ "shade_floor": 0.3
 }

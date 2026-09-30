@@ -206,7 +206,7 @@ blender/   lib.py (mesh helpers, rails) pieces.py (skate kit) greybox.py (test l
            houses.py trees.py park_props.py (CC0 props) realism.py (PBR materials, lightmap bake)
            character.py (MPFB riders and bystanders) board.py build.py
 art/       CC0 source textures, models and HDRI (fetched, not in git; see art_credits.md)
-tools/     fetch_assets.py, web_packs.py (web level packs), flicker_map.py
+tools/     fetch_assets.py, web_packs.py (web level packs), flicker_map.py, make_graffiti.py (the warehouse alley's pieces and tags -> art/generated/)
 game/
   scripts/skater/   Skater (physics + states), SkateTuning (every feel value), GrindLine (Curve3D rails),
                     RiderRig (skinned rider, poses, physical bails), Ragdoll, LooseBoard, SkaterFx,

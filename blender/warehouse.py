@@ -170,11 +170,10 @@ def sheds():
               [0, 0, 0], [False] * 3, cap_mat=0)
     for x in (18.0, 30.0, 42.0):
         box(lib.uname("Shed_rolldoor"), (4.0, 0.08, 3.6), (x, y0 - 0.04, DOCK_H + 1.8), mat("Galv", "#9ea4a8"))
-    # graffiti panels down the alley wall (colour blocks)
-    colours = ["#d9453a", "#f2b632", "#2f8fd8", "#3fbf73", "#a34fd1", "#f07b2f"]
-    for k in range(6):
-        box(lib.uname("Graffiti"), (0.02, 3.2, 2.2), (x0 - 0.02, y0 + 3.0 + k * 3.8, 1.6 + (k % 2) * 0.6),
-            mat(f"Graffiti{k}", colours[k]))
+    # graffiti down the alley wall: pieces and tags (tools/make_graffiti.py), the two over the bank up high
+    for name, ya, yb, za in (("loud", 16.3, 20.0, 0.45), ("bass", 20.6, 26.6, 1.8), ("echo", 27.2, 31.8, 1.95),
+                             ("beat", 32.6, 37.6, 0.5), ("tags", 38.4, 42.4, 0.6)):
+        _graffiti(name, x0 - 0.02, ya, yb, za)
     # the dock along the south face, and the ramp up to it from the lot
     bx0, bx1, by0, by1 = B_DOCK
     conc = mat("Concrete", "#b5b3ad")
@@ -203,6 +202,28 @@ def sheds():
     c.location = ((p0[0] + p1[0]) / 2, ry, (p0[2] + p1[2]) / 2)
     c.rotation_euler = (0.0, -math.atan2(p1[2] - p0[2], p1[0] - p0[0]), 0.0)
     rail(None, "ramp_rail", [(p0[0] + 0.1, ry, p0[2] + 0.06), (p1[0] - 0.1, ry, p1[2] + 0.06)], kind="rail")
+
+
+def _graffiti(name, x, ya, yb, za):
+    """A sprayed piece on a wall facing west (-x) at x, from ya to yb along it, its bottom at za: an alpha-blended
+    quad with the texture's full 0..1 UVs (2:1, so it stands half as tall as it is wide). Lit live."""
+    path = os.path.join(realism.ART, "generated", f"graffiti_{name}.png")
+    m = bpy.data.materials.new(f"Graffiti_{name}")
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(path, check_existing=True)
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
+    bsdf.inputs["Roughness"].default_value = 0.85
+    if hasattr(m, "blend_method"):
+        m.blend_method = "BLEND"
+    m["bake"] = False
+    h = (yb - ya) / 2.0
+    # facing west, the piece's left is at the larger y
+    verts = [(x, yb, za), (x, ya, za), (x, ya, za + h), (x, yb, za + h)]
+    return lib.mesh_obj(lib.uname("Graffiti"), verts, [(0, 1, 2, 3)], [m], uvs=[[(0, 0), (1, 0), (1, 1), (0, 1)]])
 
 
 def alley():
@@ -370,7 +391,8 @@ def write_look(out):
     import json
     # this sky's HDRI is bright (sky_energy ~1.24 against ~0.4-0.7 elsewhere): a low sky_display keeps the haze and the
     # sky from washing the lot out
-    look = {"joints": {}, "bake_energy": 1.4, "exposure": 0.9, "sky_display": 1.4}
+    # shade_floor: the alley, its bank and the stage deck read as open shade instead of near-black
+    look = {"joints": {}, "bake_energy": 1.4, "exposure": 0.9, "sky_display": 1.4, "shade_floor": 0.3}
     with open(os.path.splitext(out)[0] + ".look.json", "w") as f:
         json.dump(look, f, indent=1)
 
@@ -394,7 +416,7 @@ def build(out, bake=True, samples=128):
                      flat_to=125.0, near_ground=("FarYard", "#7d7a72"))
     terrain.industrial()
     objs = list(bpy.context.scene.objects)
-    realism.dress([o for o in objs if not o.get("library") and not o.name.startswith(("Tree", "Far_Tree", "FarTree"))])
+    realism.dress([o for o in objs if not o.get("library") and not o.name.startswith(("Tree", "Far_Tree", "FarTree", "Graffiti"))])
     realism.split_collision()
     plaza_ob = realism.join_static("Baked_plaza", group="plaza")
     world = realism.join_static("Baked_world", group="world")
