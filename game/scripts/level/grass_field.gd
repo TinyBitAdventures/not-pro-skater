@@ -103,7 +103,7 @@ static func _blade_texture() -> ImageTexture:
 		var lean: float = rng.randf_range(-22.0, 22.0)
 		var width: float = rng.randf_range(2.2, 4.2)
 		var tip: Color = Color(0.56, 0.68, 0.28).lerp(Color(0.66, 0.7, 0.34), rng.randf() * 0.5)
-		var root: Color = Color(0.3, 0.42, 0.15)
+		var root: Color = Color(0.36, 0.48, 0.18)
 		for yy in int(tall):
 			var t: float = float(yy) / tall                 # 0 at the root
 			var cx: float = x0 + lean * t * t

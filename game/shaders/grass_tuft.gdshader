@@ -2,7 +2,7 @@ shader_type spatial;
 // Grass clumps scattered over the lawns (GrassField): crossed cards with blades drawn in a small texture.
 // Their normals point up, so they light like the ground they grow from instead of as flat cards. The tips sway
 // in the wind; past `fade_start` a clump shrinks into the ground so the edge of the grass never pops.
-render_mode cull_disabled;
+render_mode cull_disabled, alpha_to_coverage;
 
 uniform sampler2D blades : source_color, filter_linear_mipmap, repeat_disable;
 uniform vec3 tint = vec3(1.25, 1.2, 1.1);
@@ -28,9 +28,12 @@ void vertex() {
 
 void fragment() {
 	vec4 b = texture(blades, UV);
-	ALBEDO = b.rgb * tint * shade * mix(0.7, 1.0, 1.0 - UV.y);     // a little darker toward the roots
+	ALBEDO = b.rgb * tint * shade * mix(0.82, 1.0, 1.0 - UV.y);    // a little darker toward the roots
 	ALPHA = b.a;
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
+	ALPHA_ANTIALIASING_EDGE = 0.3;
+	ALPHA_TEXTURE_COORDINATE = UV * vec2(textureSize(blades, 0));
+	BACKLIGHT = b.rgb * 0.35;                                      // thin blades glow against the sun
 	ROUGHNESS = 0.85;
 	SPECULAR = 0.2;
 }
