@@ -17,6 +17,11 @@ import realism
 MODELS = os.path.join(realism.ART, "models")
 _lib = {}
 
+# some assets hold variants side by side: keep only the parts whose names contain one of these
+PARTS = {"fire_hydrant": ("fire_hydrant_aged",), "football": ("football_inflated",)}
+# heavy scans: collapse to about this many triangles (they are small on screen)
+DECIMATE = {"fire_hydrant": 4000, "garden_gnome": 3000, "modular_street_seating": 9000, "covered_car": 6000}
+
 
 def _import(model_id):
     if model_id in _lib:
@@ -27,6 +32,8 @@ def _import(model_id):
     new = [o for o in bpy.context.scene.objects if o.name not in before]
     new_names = [o.name for o in new]
     meshes = [o for o in new if o.type == "MESH"]
+    if model_id in PARTS:
+        meshes = [o for o in meshes if any(k in o.name for k in PARTS[model_id])]
     bpy.ops.object.select_all(action="DESELECT")
     for o in meshes:
         mw = o.matrix_world.copy()
@@ -43,6 +50,15 @@ def _import(model_id):
         if o is not None and o != ob:
             bpy.data.objects.remove(o)
     ob.name = f"Lib_{model_id}"
+    if model_id in DECIMATE:
+        tris = sum(len(p.vertices) - 2 for p in ob.data.polygons)
+        ratio = DECIMATE[model_id] / max(tris, 1)
+        if ratio < 1.0:
+            mod = ob.modifiers.new("Decimate", "DECIMATE")
+            mod.ratio = ratio
+            bpy.context.view_layer.objects.active = ob
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+    # the part filter left the other variant's objects in the scene: they go with the rest of the import
     for m in ob.data.materials:
         if m is not None:
             m["bake"] = False

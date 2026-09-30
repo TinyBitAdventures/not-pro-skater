@@ -28,6 +28,8 @@ MANIFEST = {
     "models": [
         "wooden_picnic_table", "painted_wooden_bench", "metal_trash_can", "street_lamp_02", "planter_box_01",
         "shrub_03", "potted_plant_04", "carrot_cake", "boombox", "round_wooden_table_02", "tree_stump_01",
+        "modular_street_seating", "covered_car", "utility_box_01", "fire_hydrant", "garden_gnome", "football",
+        "american_football", "standing_chalkboard_01", "plastic_crate_02", "trashbag",
     ],
 }
 

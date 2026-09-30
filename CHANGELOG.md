@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Graphics: late afternoon light
+- **Life in the streets and park:** a fire hydrant and utility boxes on the sidewalks, cars under covers parked along the far curb, garden gnomes in the front yards, trash bags by the bins, street benches on the plaza's edges, a drinks crate and a chalkboard at the party, balls left on the lawn (CC0 Poly Haven; heavy scans decimated, prop colour maps at 512 for the web).
 - **Ramps look built:** a worn steel plate at the foot of every quarter pipe, slate-painted side sheets with a timber edge following the curve, and a timber fascia under the coping.
 - **Faces:** MPFB's eye material quietly failed to apply, so everyone had the same red-brown irises with pinkish whites (the eyes read red); `character.py` now recolours the iris to each recipe's eye colour (brown, blue, hazel, green, grey) and cleans the whites. Skin gets a soft warm rim and a little backlight at load, standing in for subsurface scattering.
 - **The park is lit by a late afternoon sun** (Poly Haven's CC0 Qwantani Late Afternoon sky, sun 19 degrees up): long shadows across the plaza and street, warm backlight on the trees, rim light on the riders. The midday sun (48 degrees) made everything flat. `SKY=<polyhaven id>` in `blender/realism.py` switches the sky for a bake; the level's `look.json` carries the matching exposure and baked-light strength.

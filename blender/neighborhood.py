@@ -81,6 +81,10 @@ def party():
     lo, hi = props.bounds("round_wooden_table_02")      # the cake itself is a runtime item (the event moves it)
     lo2, hi2 = props.bounds("wooden_picnic_table")
     props.place("boombox", 21.0, -6.3, 20.0, z=hi2.z, collide=False)
+    props.place("plastic_crate_02", 22.6, -7.4, 15.0, collide=False)                 # drinks for the party
+    props.place("standing_chalkboard_01", 15.2, -4.9, 70.0, surface="Wood")           # at the path into the party
+    props.place("football", 12.5, -9.5, 0.0, z=terrain.lawn_rise(12.5, -9.5) + terrain.LAWN_Z, collide=False)
+    props.place("american_football", 36.8, 9.4, 40.0, z=terrain.lawn_rise(36.8, 9.4) + terrain.LAWN_Z, collide=False)
     # the party bench: a bench along the path with its seat edge as a grindable line
     bz = terrain.lawn_rise(13.0, 2.2)
     b = props.place("painted_wooden_bench", 13.0, 2.2, 0.0, z=bz, surface="Wood", name="Prop_party_bench")
@@ -134,6 +138,28 @@ def furniture():
     for i, (x, y) in enumerate(shrubs):
         props.place("shrub_03", x, y, i * 47.0, z=rise(x, y), scale=0.7 + (i * 31 % 7) * 0.08, collide=False)
     props.place("tree_stump_01", 38.0, 2.0, 0.0, z=rise(38.0, 2.0), surface="Wood")
+    # benches along the plaza's edges, facing in
+    props.place("modular_street_seating", -29.0, -24.9, 0.0, z=0.0, surface="Wood")
+    props.place("modular_street_seating", -2.0, 10.9, 180.0, z=0.0, surface="Wood")
+    props.place("modular_street_seating", -35.0, -12.0, 90.0, z=rise(-35.0, -12.0), surface="Wood")
+    # rubbish bags next to the bins
+    props.place("trashbag", 12.1, 0.5, 30.0, z=rise(12.1, 0.5), collide=False)
+    props.place("trashbag", -16.9, -26.6, 110.0, z=rise(-16.9, -26.6), collide=False)
+
+
+def street_life():
+    """Things along the street: a fire hydrant on the park sidewalk, utility boxes by the poles, and a couple of
+    cars under covers parked along the far curb."""
+    props.place("fire_hydrant", -21.0, -31.0, 90.0, surface="Metal")
+    props.place("fire_hydrant", 27.0, -41.9, -90.0, surface="Metal")
+    props.place("utility_box_01", -28.4, -41.9, 180.0, surface="Metal")
+    props.place("utility_box_01", 29.6, -41.9, 180.0, surface="Metal")
+    props.place("utility_box_01", 5.2, -30.6, 0.0, surface="Metal")
+    for x, rot in ((-26.0, 90.0), (44.0, 92.0)):
+        props.place("covered_car", x, -39.2, rot, z=ROAD_Z, surface="Wall")
+    # the neighbours' kids leave things lying around
+    props.place("garden_gnome", -52.8, -45.0, 160.0, z=terrain.LAWN_Z, collide=False)
+    props.place("garden_gnome", 14.2, -45.3, 200.0, z=terrain.LAWN_Z, collide=False)
 
 
 def plant_trees():
@@ -242,6 +268,7 @@ def build(out_glb, bake=True, samples=128):
     furniture()
     neighbourhood_houses()
     street_details()
+    street_life()
     plant_trees()
     event_markers()
     tree_fn = lambda name, base, h, crown, seed: trees.tree(name, base, height=h, crown=crown, seed=seed)
