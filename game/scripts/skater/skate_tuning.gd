@@ -21,8 +21,8 @@ static var _shared: SkateTuning = null
 @export_range(0.0, 1.0, 0.01) var roll_drag: float = 0.05       ## per second while pushing
 @export_range(0.0, 1.0, 0.01) var coast_drag: float = 0.05      ## per second while coasting: low = speed carries
 @export_range(1.0, 40.0, 0.5) var brake_decel: float = 15.0
-@export_range(0.0, 8.0, 0.1) var grass_drag: float = 2.8
-@export_range(1.0, 10.0, 0.1) var grass_push_speed: float = 4.2
+@export_range(0.0, 8.0, 0.1) var grass_drag: float = 0.9       ## per second on grass: slower, still rideable (2.8 stopped you dead)
+@export_range(1.0, 10.0, 0.1) var grass_push_speed: float = 6.5
 @export_range(0.0, 2.0, 0.01) var manual_drag: float = 0.25
 @export_range(0.1, 3.0, 0.05) var push_rate: float = 0.85         ## push strides per second at a standstill
 @export_range(0.0, 0.3, 0.01) var push_rate_speed: float = 0.06   ## extra strides per second per m/s

@@ -32,6 +32,11 @@ uniform vec2 joint_grid = vec2(0.0);       // saw cuts every (x, z) metres insid
 uniform vec4 joint_rect = vec4(0.0);       // min x, min z, max x, max z
 uniform float joint_along_x = 0.0;         // elsewhere on flat ground: cross cuts every this many metres along x
 uniform float joint_width = 0.006;
+// Plywood ramps: 4 x 8 ft sheets with a screw every foot along each edge, and wheel wear streaking down the
+// ride direction. UV runs across the ramp (u) and along its profile (v) in texture tiles of `uv_tile` metres.
+uniform float uv_tile = 0.0;               // 0 = not plywood
+uniform vec2 sheet = vec2(1.22, 2.44);
+uniform float wear = 0.0;
 
 varying vec3 wpos;
 varying vec3 wnorm;
@@ -40,6 +45,12 @@ void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnorm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
+
+// distance (metres) from coord to the nearest multiple of spacing
+float to_grid(float coord, float spacing) {
+	return abs(fract(coord / spacing + 0.5) - 0.5) * spacing;
+}
+
 
 // 1 on a line every `spacing` metres, antialiased by the screen-space footprint
 float cut(float coord, float spacing) {
@@ -68,6 +79,25 @@ void fragment() {
 		}
 	}
 	col *= 1.0 - joint * 0.6;
+	if (uv_tile > 0.0) {
+		vec2 m = UV * uv_tile;                       // metres across / along the sheet
+		vec2 fw = fwidth(m) + 0.0005;
+		float du = to_grid(m.x, sheet.x);
+		float dv = to_grid(m.y, sheet.y);
+		float fade = clamp(0.02 / max(fw.x, fw.y), 0.0, 1.0);   // seams and screws melt away in the distance
+		float seam = max(1.0 - smoothstep(0.0025, 0.0025 + fw.x, du), 1.0 - smoothstep(0.0025, 0.0025 + fw.y, dv));
+		// screws 4 cm in from each edge, one every 30 cm
+		float r = 0.0055;
+		float along_u = 1.0 - smoothstep(r, r + fw.y, to_grid(m.y + 0.15, 0.305));
+		float along_v = 1.0 - smoothstep(r, r + fw.x, to_grid(m.x + 0.15, 0.305));
+		float s1 = (1.0 - smoothstep(r, r + fw.x, abs(du - 0.04))) * along_u;
+		float s2 = (1.0 - smoothstep(r, r + fw.y, abs(dv - 0.04))) * along_v;
+		float screws = max(s1, s2) * fade;
+		// wheels: faint dark streaks down the profile, heavier toward the middle of the ramp's width
+		float streak = texture(macro_tex, vec2(m.x * 1.7, m.y * 0.06)).r;
+		col *= 1.0 - wear * smoothstep(0.45, 0.8, streak);
+		col *= 1.0 - seam * 0.3 * fade - screws * 0.28;
+	}
 	ALBEDO = col;
 	vec4 orm = texture(orm_tex, UV);
 	ROUGHNESS = mix(orm.g * roughness, 1.0, joint);

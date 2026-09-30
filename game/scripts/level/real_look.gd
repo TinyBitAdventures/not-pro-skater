@@ -9,6 +9,7 @@ const LEAVES: Shader = preload("res://shaders/leaf_sway.gdshader")
 
 static var bake_energy: float = 1.15       # a touch above the physical bake: cameras lift shade
 const WALL_FILL: float = 2.2
+const PLY_TILE: float = 1.2               # metres per texture tile of the "wood" set (blender/realism.py SETS)
 static var _made: Array[ShaderMaterial] = []
 static var _macro: Texture2D
 
@@ -95,6 +96,10 @@ static func _dress(m: ShaderMaterial, mat_name: String, look: Dictionary) -> voi
 	var tint: Color = mc[1]
 	m.set_shader_parameter("macro_tint", Vector3(tint.r, tint.g, tint.b))
 	m.set_shader_parameter("macro_tint_amount", mc[2])
+	if set_name == "wood":                         # ramp surfaces: plywood sheets, screws, wheel wear
+		m.set_shader_parameter("uv_tile", PLY_TILE)
+		m.set_shader_parameter("wear", 0.07)
+		m.set_shader_parameter("albedo", Color(0.95, 0.93, 0.86))   # Wood094 read peach-pink as a ramp
 	var j: Dictionary = look.get("joints", {}).get(mat_name, {})
 	if not j.is_empty():
 		var g: Array = j.get("grid", [0.0, 0.0])
