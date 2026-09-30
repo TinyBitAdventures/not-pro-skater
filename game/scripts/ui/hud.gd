@@ -2,7 +2,8 @@ class_name Hud
 extends CanvasLayer
 ## In-game HUD, sports-broadcast style: score top left with the event's goal checklist under it, the clock top
 ## right, the trick string bottom centre (tricks + points x multiplier, which banks green or bails red), meters
-## for pop and manual balance, title cards for announcements, and the pause and results screens.
+## for pop and manual balance, title cards for announcements, and the pause and results screens. An event with
+## letters to collect (P-A-R-T-Y) shows them as balloon badges top centre.
 
 const ACCENT: Color = UiKit.ACCENT
 const GOOD: Color = UiKit.GOOD
@@ -11,6 +12,8 @@ const INFO: Color = UiKit.INFO
 const PAPER: Color = UiKit.PAPER
 const MUTED: Color = UiKit.MUTED
 const BALANCE_W: float = 280.0
+const LETTER_SIZE: float = 54.0
+const LETTER_GAP: int = 10
 
 signal resume_requested
 signal restart_requested
@@ -31,6 +34,9 @@ var charge_bar: ProgressBar
 var balance_box: VBoxContainer
 var balance_marker: ColorRect
 var _blink: ColorRect = null
+var letters_box: HBoxContainer
+var _letter_tiles: Dictionary = {}       # letter -> {"tile": Control, "label": Label, "color": Color, "got": bool}
+var _letters_word: String = ""
 var _blink_tw: Tween = null
 var speed_box: HBoxContainer
 var speed_bar: ProgressBar
@@ -66,6 +72,7 @@ func _ready() -> void:
 	_build_clock()
 	_build_tricks()
 	_build_meters()
+	_build_letters()
 	_build_card()
 	_build_hints()
 	_build_pause()
@@ -211,6 +218,19 @@ func _build_meters() -> void:
 	speed_box.add_child(speed_bar)
 	speed_box.visible = false
 	root.add_child(speed_box)
+
+
+func _build_letters() -> void:
+	letters_box = HBoxContainer.new()
+	letters_box.anchor_left = 0.5
+	letters_box.anchor_right = 0.5
+	letters_box.offset_top = 30.0
+	letters_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	letters_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	letters_box.add_theme_constant_override("separation", LETTER_GAP)
+	letters_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	letters_box.visible = false
+	root.add_child(letters_box)
 
 
 func _build_card() -> void:
@@ -426,6 +446,90 @@ func set_balance(v: float, active: bool) -> void:
 	var c: float = clampf(v, -1.0, 1.0)
 	balance_marker.position.x = (c * 0.5 + 0.5) * (BALANCE_W - 6.0)
 	balance_marker.color = PAPER.lerp(BAD, clampf((absf(c) - 0.4) / 0.5, 0.0, 1.0))
+
+
+## The event's letters as a row of balloon badges: dim until grabbed, then filled with the balloon's colour.
+## `colors` in word order; `got` = letters already collected. An empty word hides the row.
+func set_letters(word: String, colors: Array, got: String = "") -> void:
+	letters_box.visible = word != ""
+	if word != _letters_word:
+		_letters_word = word
+		for c in letters_box.get_children():
+			c.queue_free()
+		_letter_tiles.clear()
+		for i in word.length():
+			var tile: Control = Control.new()
+			tile.custom_minimum_size = Vector2(LETTER_SIZE, LETTER_SIZE)
+			tile.pivot_offset = Vector2(LETTER_SIZE, LETTER_SIZE) * 0.5
+			tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var disc: Panel = Panel.new()
+			disc.set_anchors_preset(Control.PRESET_FULL_RECT)
+			disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tile.add_child(disc)
+			var l: Label = UiKit.label(word[i], 36, PAPER, "display")
+			l.set_anchors_preset(Control.PRESET_FULL_RECT)
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			l.add_theme_constant_override("outline_size", 8)
+			l.add_theme_color_override("font_outline_color", Color(UiKit.INK, 0.6))
+			tile.add_child(l)
+			letters_box.add_child(tile)
+			_letter_tiles[word[i]] = {"tile": tile, "disc": disc, "label": l, "color": colors[i] if i < colors.size() else ACCENT, "got": false}
+	for k in _letter_tiles:
+		_letter_look(k, got.contains(k))
+
+
+func _letter_look(letter: String, got: bool) -> void:
+	var t: Dictionary = _letter_tiles[letter]
+	t["got"] = got
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.set_corner_radius_all(int(LETTER_SIZE * 0.5))
+	sb.set_border_width_all(3 if got else 2)
+	sb.bg_color = t["color"] if got else Color(UiKit.INK, 0.5)
+	sb.border_color = PAPER if got else Color(PAPER, 0.28)
+	(t["disc"] as Panel).add_theme_stylebox_override("panel", sb)
+	(t["label"] as Label).add_theme_color_override("font_color", PAPER if got else Color(PAPER, 0.32))
+
+
+## A letter was grabbed: a copy of it flies from the balloon's spot on screen to its badge, which fills and pops.
+## With the whole word in, the row does a little wave.
+func grab_letter(letter: String, from: Vector2) -> void:
+	if not _letter_tiles.has(letter):
+		return
+	var t: Dictionary = _letter_tiles[letter]
+	var fly: Label = UiKit.label(letter, 72, t["color"], "display")
+	fly.add_theme_constant_override("outline_size", 14)
+	fly.add_theme_color_override("font_outline_color", PAPER)
+	fly.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(fly)
+	fly.reset_size()
+	fly.pivot_offset = fly.size * 0.5
+	fly.position = from - fly.size * 0.5
+	var tile: Control = t["tile"]
+	var to: Vector2 = tile.get_global_rect().get_center() - fly.size * 0.5
+	var tw: Tween = create_tween()
+	tw.tween_property(fly, "scale", Vector2(1.35, 1.35), 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(fly, "position", to, 0.42).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(fly, "scale", Vector2(0.55, 0.55), 0.42).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func() -> void:
+		fly.queue_free()
+		_letter_look(letter, true)
+		_bounce(tile, 0.0, 1.55)
+		var all: bool = true
+		for k in _letter_tiles:
+			all = all and bool(_letter_tiles[k]["got"])
+		if all:
+			var i: int = 0
+			for k in _letters_word:
+				_bounce(_letter_tiles[k]["tile"], 0.35 + i * 0.07, 1.3)
+				i += 1)
+
+
+func _bounce(c: Control, delay: float, peak: float) -> void:
+	var tw: Tween = create_tween()
+	tw.tween_interval(delay)
+	tw.tween_property(c, "scale", Vector2(peak, peak), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## A quick cut to black that fades back in: covers the skater being warped back from the level's edge.

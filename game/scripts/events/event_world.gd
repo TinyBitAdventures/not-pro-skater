@@ -30,6 +30,16 @@ func _ready() -> void:
 	runner.setup(event_id, level, skater, score)
 	runner.changed.connect(_refresh_goals)
 	runner.goal_done.connect(_on_goal)
+	var word: String = runner.letters_word()
+	var colors: Array = []
+	for l in word:
+		colors.append(EventRunner.letter_color(l, word))
+	hud.set_letters(word, colors)
+	runner.letter_got.connect(func(l: String, at: Vector3) -> void:
+		var from: Vector2 = get_viewport().get_visible_rect().size * 0.5
+		if not cam.is_position_behind(at):
+			from = cam.unproject_position(at)
+		hud.grab_letter(l, from))
 	time_left = float(ev.get("session", 120.0))
 	hud.set_timer(time_left, false)
 	hud.set_hints([["W", "roll to start the clock", "STICK"], ["P", "rider"], ["R", "reset", "BACK"], ["ESC", "pause", "START"]])

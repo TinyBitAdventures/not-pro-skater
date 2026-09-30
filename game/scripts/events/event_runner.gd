@@ -5,11 +5,15 @@ extends Node3D
 
 signal goal_done(goal_id: String, text: String)
 signal changed
+signal letter_got(letter: String, at: Vector3)     # a balloon letter grabbed, where it was (the HUD flies it home)
 
 const CAKE_SCENE: PackedScene = preload("res://assets/models/cake.glb")
 const PICK_RADIUS: float = 1.7
 const LETTER_RADIUS: float = 1.5
 const KID_RADIUS: float = 6.0
+## Balloon colours for the letters, in word order (P red, A blue, R yellow, T green, Y purple).
+const LETTER_COLORS: Array[Color] = [Color(0.9, 0.15, 0.2), Color(0.15, 0.45, 0.95), Color(1.0, 0.75, 0.1),
+	Color(0.2, 0.75, 0.35), Color(0.8, 0.3, 0.85)]
 
 var ev: Dictionary = {}
 var level: Level
@@ -79,7 +83,8 @@ func goal_list() -> Array:
 		var text: String = g["text"]
 		match String(g["kind"]):
 			"letters":
-				text += "  %s" % _letter_progress(String(g["letters"]))
+				var all: String = g["letters"]
+				text += "  %d/%d" % [all.length() - _letter_progress(all).count("_"), all.length()]
 			"show_kids":
 				text += "  %d/%d" % [_kids_shown.size(), _kids.size()]
 			"deliver":
@@ -87,6 +92,18 @@ func goal_list() -> Array:
 					text += "  (carrying!)"
 		out.append({"text": text, "done": done.has(id) or saved.has(id)})
 	return out
+
+
+## The letters goal's word ("PARTY"), or "" when the event has none.
+func letters_word() -> String:
+	for g in ev.get("goals", []):
+		if String(g["kind"]) == "letters":
+			return String(g["letters"])
+	return ""
+
+
+static func letter_color(letter: String, word: String) -> Color:
+	return LETTER_COLORS[maxi(word.find(letter), 0) % LETTER_COLORS.size()]
 
 
 func _letter_progress(all: String) -> String:
@@ -121,6 +138,7 @@ func _process(dt: float) -> void:
 		b.position.y = b.get_meta("y0") + sin(_t * 2.0 + b.get_meta("phase")) * 0.12
 		if skater.state != Skater.State.BAIL and (rider + Vector3.UP * 0.9).distance_to(b.global_position) < LETTER_RADIUS:
 			_got_letters += l
+			letter_got.emit(l, b.global_position)
 			b.queue_free()
 			_letters.erase(l)
 			Sound.play("pickup")
@@ -360,9 +378,8 @@ func _balloon(letter: String, at: Vector3) -> Node3D:
 	root.global_position = at
 	root.set_meta("y0", root.position.y)
 	root.set_meta("phase", randf() * TAU)
-	var colors: Array = [Color(0.9, 0.15, 0.2), Color(0.15, 0.45, 0.95), Color(1.0, 0.75, 0.1), Color(0.2, 0.75, 0.35), Color(0.8, 0.3, 0.85)]
 	var m: StandardMaterial3D = StandardMaterial3D.new()
-	m.albedo_color = colors["PARTY".find(letter) % colors.size()]
+	m.albedo_color = letter_color(letter, letters_word())
 	m.roughness = 0.18
 	m.clearcoat_enabled = true
 	var sph: SphereMesh = SphereMesh.new()

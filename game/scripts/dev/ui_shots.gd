@@ -54,6 +54,22 @@ func _run() -> void:
 	hud.combo_banked(7400)
 	await _wait(0.25)
 	await _shot("banked")
+	# letters: two in, the R flying home from mid-screen
+	var word: String = runner.letters_word()
+	var cols: Array = []
+	for l in word:
+		cols.append(EventRunner.letter_color(l, word))
+	hud.set_letters(word, cols, "PA")
+	hud.grab_letter("R", Vector2(900, 420))
+	await _wait(0.3)
+	await _shot("letter_fly")
+	await _wait(0.6)
+	await _shot("letters")
+	# a real pickup (the event's signal): the T leaves from its balloon on screen
+	var tb: Node3D = runner._letters["T"]
+	runner.letter_got.emit("T", tb.global_position)
+	await _wait(0.06)
+	await _shot("letter_from_balloon")
 	# a gamepad press: hints switch to pad buttons
 	var jb: InputEventJoypadButton = InputEventJoypadButton.new()
 	jb.button_index = JOY_BUTTON_DPAD_LEFT
