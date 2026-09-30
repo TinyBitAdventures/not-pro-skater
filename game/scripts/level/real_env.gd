@@ -49,6 +49,8 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 		env.adjustment_contrast = 1.08 if grade == "" else float(grade.get_slice(",", 0))
 		env.adjustment_saturation = 1.1 if grade == "" else float(grade.get_slice(",", 1))
 		env.adjustment_brightness = 1.0
+		if OS.get_environment("TONE") != "off":
+			env.adjustment_color_correction = _split_tone()
 	var we: WorldEnvironment = WorldEnvironment.new()
 	we.environment = env
 	parent.add_child(we)
@@ -87,4 +89,17 @@ static func _vignette(parent: Node) -> void:
 	rect.material = sm
 	layer.add_child(rect)
 	parent.add_child(layer)
+
+
+## A colour-correction ramp by brightness: shadows lean a touch cool, mid-tones and highlights warm, like late
+## afternoon film. Keeps the ends at black and white so contrast is untouched.
+static func _split_tone() -> GradientTexture1D:
+	var g: Gradient = Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.22, 0.55, 0.85, 1.0])
+	g.colors = PackedColorArray([Color(0, 0, 0), Color(0.19, 0.215, 0.25), Color(0.59, 0.55, 0.48),
+		Color(0.9, 0.85, 0.74), Color(1, 0.99, 0.96)])
+	var t: GradientTexture1D = GradientTexture1D.new()
+	t.gradient = g
+	t.width = 256
+	return t
 
