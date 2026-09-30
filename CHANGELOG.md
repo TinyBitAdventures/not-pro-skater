@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Level 2 finished: the Skate-a-thon rides clean
+- **The lap route is rideable end to end:** a new test (`scenes/dev_lapride.tscn`) rides the gates with real physics and found three blockers, now fixed: the car park's south row of bays ran across its own driveway (wheel stops in the way out; those bays are gone), the street lamps and a fire hydrant stood in the middle of the sidewalk the laps run along (they are at the kerb now, the utility box on the verge), and a bin sat on the line from the plaza to the car park. An autopilot rides all three laps in about 62 s of the 2:30 session.
+- **Every grind line checked:** `scenes/dev_railaudit.tscn` drops the skater onto each rail, ledge, coping and curb of a level with grind pressed and makes it slide (25 on the school, 11 in the park, all pass).
+- The principal has dark hair (the MPFB bob is golden blond) and faces the plaza instead of the doors; she still turns her head to watch you.
+- The basketball court is painted a proper green; the morning sky is drawn brighter to match the park's.
+- The playground warp spot starts inside the fence, looking out through the gate at the E and the school (the camera used to sit in the gate behind the letter).
+- Dev: fixed-camera screenshots (`SHOT_EYE`, `SHOT_LOOK`, `SHOT_FOV`), and `SCENE=skateathon` for the perf probe.
+
 ### Level 2: Maple Grove Elementary and the Skate-a-thon (first pass)
 - **Maple Grove Elementary** (`blender/school.py`, `scenes/school.tscn`): a real-scale primary school on a Saturday morning under a mid-morning sky. A two-storey brick school with its name over the doors; front steps with three handrails and an access ramp with its own rail; a covered walkway on columns; planter ledges and benches on the entrance plaza; the school sign by the street (its cap is a ledge); a car park with painted bays, grindable wheel stops, a curb island with trees and lamps, a speed bump and parked cars; a 1.1 m loading dock with a ramp up and a ledge edge; a basketball court with the PTA's portable ramps (two quarter pipes, a funbox, a flat bar, a kicker); the old fenced playground behind the school. Same street and houses as Neighborhood Park.
 - **Skate-a-thon** (`scenes/skateathon.tscn`, title menu): the score is money raised for a new playground ($0.10 a point: HUD, trick string, best and results read in dollars), and a fundraising thermometer on the plaza fills as it comes in. Goals: ride 3 sponsored laps through the gates (START / FINISH arch, cone gates, a NEXT marker; each lap is a trick), grind a front-steps handrail, bring the bake-sale cake from the car park, collect D-O-N-A-T-E, impress the principal, raise $2,500. 2:30 sessions.

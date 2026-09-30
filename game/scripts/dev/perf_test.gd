@@ -1,12 +1,11 @@
 extends Node
-## Performance and smoothness probe on Birthday at the Park: the skater cruises a loop round the plaza while
-## this records frame times, draw calls and how evenly the rider moves on screen.
+## Performance and smoothness probe on an event (Birthday at the Park unless SCENE=skateathon): the skater cruises
+## a loop round the spawn while this records frame times, draw calls and how evenly the rider moves on screen.
 ##   godot --path . res://scenes/dev_perf.tscn --resolution 1600x900          (vsync off, uncapped)
 ##   FPS=144 godot --path . res://scenes/dev_perf.tscn --resolution 1600x900  (capped: a 144 Hz display)
 ## "judder" is the spread of the rider's per-frame movement against its speed: 0 is perfectly even motion;
 ## without interpolation, 120 Hz physics on a 144 Hz display shows ~0.4.
 
-const SCENE: String = "res://scenes/birthday.tscn"
 const WARMUP: float = 2.0
 const DURATION: float = 12.0
 
@@ -29,7 +28,8 @@ func _ready() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = int(OS.get_environment("FPS")) if OS.get_environment("FPS") != "" else 0
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
-	world = (load(SCENE) as PackedScene).instantiate()
+	var scene: String = OS.get_environment("SCENE") if OS.get_environment("SCENE") != "" else "birthday"
+	world = (load("res://scenes/%s.tscn" % scene) as PackedScene).instantiate()
 	add_child(world)
 	await get_tree().process_frame
 	sk = world.get("skater")

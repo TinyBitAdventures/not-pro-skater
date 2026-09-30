@@ -5,7 +5,7 @@ extends Node3D
 ##       F3 tuning sliders, plus the normal skating keys.
 ## Screenshot mode (for checking visuals from the command line):
 ##   SHOT=name SHOT_START=vert SHOT_AT=2.5 PUSH=1 TUNING_OPEN=1 godot --path . res://scenes/greybox.tscn
-## writes ../shots/<name>.png and quits.
+## writes ../shots/<name>.png and quits. SHOT_EYE / SHOT_LOOK ("x,y,z") / SHOT_FOV frame a fixed camera instead.
 
 @export var level_path: String = "res://assets/levels/greybox.glb"
 @export var look: String = "grey"          # "grey" (grid materials) or "real" (PBR + baked light)
@@ -81,6 +81,13 @@ func _ready() -> void:
 		(cam as ChaseCamera).target = null
 		cam.fov = 50.0
 		cam.global_transform = Transform3D(Basis.looking_at(Vector3(d[0], d[1], d[2]), Vector3.UP), Vector3(0, 1.7, 0))
+	if OS.get_environment("SHOT_EYE") != "":      # a fixed camera: SHOT_EYE="x,y,z" SHOT_LOOK="x,y,z" (Godot coordinates)
+		var eye: PackedFloat64Array = OS.get_environment("SHOT_EYE").split_floats(",")
+		var at: PackedFloat64Array = OS.get_environment("SHOT_LOOK").split_floats(",")
+		(cam as ChaseCamera).target = null
+		cam.fov = float(OS.get_environment("SHOT_FOV")) if OS.get_environment("SHOT_FOV") != "" else 55.0
+		cam.global_transform = Transform3D(Basis.IDENTITY, Vector3(eye[0], eye[1], eye[2])).looking_at(
+			Vector3(at[0], at[1], at[2]), Vector3.UP)
 	if OS.get_environment("BAKE_ENERGY") != "":
 		RealLook.set_bake_energy(float(OS.get_environment("BAKE_ENERGY")))
 	if OS.get_environment("TUNING_OPEN") != "":

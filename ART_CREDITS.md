@@ -25,6 +25,7 @@ Licence: https://docs.ambientcg.com/license/
 | HDRI | Used for | Source |
 |---|---|---|
 | Qwantani Late Afternoon (Pure Sky), 2K for baking, 1K in the game | sky, sky light, sun direction | https://polyhaven.com/a/qwantani_late_afternoon_puresky |
+| Qwantani Mid Morning (Pure Sky), 2K for baking, 1K in the game | Maple Grove Elementary's sky, sky light, sun direction | https://polyhaven.com/a/qwantani_mid_morning_puresky |
 
 Licence: https://polyhaven.com/license
 
@@ -37,6 +38,19 @@ Built by `blender/character.py` with **MPFB** (MakeHuman for Blender, installed 
 | makehuman_system_assets | base skins, eyes, eyebrows, eyelashes | https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html |
 | shirts01, pants01, shoes01 | clothing (The Dev: male_casualsuit02, shoes06) | https://static.makehumancommunity.org/assets/assetpacks/ |
 | hair01, hats01 | hair (The Dev: short02), hats | https://static.makehumancommunity.org/assets/assetpacks/ |
+
+Community assets from the MakeHuman asset library, by their authors (licence as stated in each asset's file):
+
+| Asset | Author | Licence | Worn by |
+|---|---|---|---|
+| toigo_inverted_bob, toigo_ankle_boots_female, toigo_basic_tucked_t-shirt, toigo_fisherman_sweater, toigo_flats, toigo_wool_pants | MRT | CC0 | the principal, The Vlogger, The Dad, guests, kids |
+| cortu_cargo_pants, cortu_jeans_shorts | Cortu Johnstone | CC0 | The Vlogger, kids |
+| namuhekam_male_polo_shirt | Namuhekam | CC0 | The Dad, the grandpa |
+| elvs_crude_t-shirt_male | MakeHuman, edited by Elvaerwyn | CC0 | the birthday kid |
+| culturalibre_hair_02 | MakeHuman team | **AGPL3** in its file header (with MakeHuman's note on exported models) | The Actor |
+| rehmanpolanski_hair_bun_brown | Rehman Polanski | **AGPL3** in its file header (with MakeHuman's note on exported models) | the guest mom |
+
+The two AGPL3-headed hairstyles are not covered by the CC0 statement above: check MakeHuman's terms for exported models, or swap them for CC0 hair, before a public release.
 
 Licence: https://www.makehumancommunity.org/content/license_explanation.html
 

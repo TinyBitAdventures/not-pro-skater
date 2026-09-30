@@ -48,7 +48,7 @@ SETS = {
     "metal": ("Metal032", 0.6, (1.0, 1.0, 1.0), 1.0, False),
     "paint_red": ("PaintedMetal004", 0.8, (1.0, 1.0, 1.0), 0.0, False),
     "galvanized": ("Metal032", 0.5, (0.78, 0.8, 0.82), 1.0, False),
-    "court": ("Concrete046", 2.5, (0.44, 0.58, 0.52), 0.0, True),            # a painted sage-green games court
+    "court": ("Concrete046", 2.5, (0.26, 0.5, 0.36), 0.0, True),             # a painted green games court
     "side_paint": ("Concrete046", 2.5, (0.27, 0.34, 0.43), 0.0, True),      # painted side sheets: slate over a neutral base
     "steel_plate": ("Concrete044D", 1.0, (0.5, 0.5, 0.52), 0.0, True),       # worn steel at the ramp's foot (baked; Metal032 reads blue)
     "bark": ("Bark012", 1.0, (1.0, 1.0, 1.0), 0.0, False),

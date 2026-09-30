@@ -139,6 +139,7 @@ ARCHETYPES = {
         "stylize": {"head-scale-vert-incr": 0.2, "head-scale-horiz-incr": 0.15},
         "skin": "middleage_african_female", "eyes": "brown", "eyebrows": "eyebrow009", "eyelashes": "eyelashes03",
         "hair": "toigo_inverted_bob", "clothes": ["female_elegantsuit01", "toigo_ankle_boots_female"],
+        "tint": {"toigo_inverted_bob": "#2b221d"},      # the bob's texture is golden blond: dark brown-black
     },
     "actor": {
         "title": "The Actor",

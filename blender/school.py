@@ -286,7 +286,7 @@ def front():
         props.place("shrub_03", x, 9.2, x * 13.0, z=0.0, scale=0.75, collide=False)
     props.place("wooden_picnic_table", 8.0, 1.0, 0.0, surface="Wood")
     props.place("metal_trash_can", 11.8, -11.5, 0.0, surface="Metal")
-    props.place("metal_trash_can", -25.8, -11.5, 0.0, surface="Metal")
+    props.place("metal_trash_can", -26.2, -3.0, 0.0, surface="Metal")
 
 
 def car_park():
@@ -299,8 +299,10 @@ def car_park():
     for row, (ys, ye, stop_y) in enumerate(((-1.0, 4.0, 3.3), (-26.0, -21.0, -25.3))):
         x = -58.0
         while x <= -31.0:
-            box(lib.uname("BayLine"), (0.1, ye - ys, 0.008), (x, (ys + ye) / 2, z), white)
-            if x + 2.6 <= -30.0:
+            gap = row == 1 and -53.1 < x + 1.3 < -44.9                # keep the way into the driveway clear
+            if not (row == 1 and -52.7 < x < -45.1):
+                box(lib.uname("BayLine"), (0.1, ye - ys, 0.008), (x, (ys + ye) / 2, z), white)
+            if x + 2.6 <= -30.0 and not gap:
                 box(lib.uname("Concrete_WheelStop") + "-col", (1.8, 0.2, 0.12), (x + 1.3, stop_y, 0.06), conc)
                 if stops % 2 == 0:
                     rail(None, f"wheelstop_{stops}", [(x + 0.5, stop_y, 0.19), (x + 2.1, stop_y, 0.19)], kind="curb")
@@ -392,9 +394,9 @@ def playground():
 def furniture():
     rise = terrain.lawn_rise
     for x in range(-50, 51, 20):
-        props.place("street_lamp_02", float(x), -30.6, 0.0, surface="Metal")
-    props.place("fire_hydrant", -30.0, -31.0, 90.0, surface="Metal")
-    props.place("utility_box_01", 20.0, -30.6, 0.0, surface="Metal")
+        props.place("street_lamp_02", float(x), -32.1, 0.0, surface="Metal")
+    props.place("fire_hydrant", -26.0, -32.1, 90.0, surface="Metal")          # at the kerb, clear of the laps
+    props.place("utility_box_01", 17.5, -29.4, 0.0, z=terrain.lawn_z(17.5, -29.4), surface="Metal")        # on the verge behind the sidewalk
     props.place("garden_gnome", -40.0, -45.1, 160.0, z=terrain.LAWN_Z, collide=False)
     shrubs = [(-28.2, -14.0), (-28.4, -8.0), (13.8, -14.0), (13.6, -8.0), (-7.0, -16.0), (-13.0, -16.0),
               (26.0, 3.0), (-46.5, 8.0), (46.0, -20.0), (46.0, -8.0)]
@@ -422,10 +424,10 @@ def markers():
     marker("Start_carpark", -52.0, -16.0, 0.02, -90.0)
     marker("Start_court", 19.0, -9.0, 0.02, -90.0)
     marker("Start_dock", 27.0, 6.0, 0.02, 0.0)
-    marker("Start_playground", 4.5, 30.0, 0.02, 0.0)
+    marker("Start_playground", 10.0, 34.0, 0.02, 144.0)
     marker("Start_street", -45.0, -36.5, 0.02, -90.0)
     # the principal, by the steps
-    marker("Event_kid_1", -17.5, 1.5, 0.02, 200.0)
+    marker("Event_kid_1", -17.5, 1.5, 0.02, 50.0)
     # the cake: on the table by a car in the car park -> the bake sale's picnic table on the plaza
     lo, hi = props.bounds("round_wooden_table_02")
     lo2, hi2 = props.bounds("wooden_picnic_table")
@@ -444,7 +446,7 @@ def markers():
 def write_look(out):
     import json
     look = {"joints": {"PBR_concrete": {"grid": [2.5, 2.5], "rect": [-27.0, -10.0, 13.0, 13.0], "along_x": 1.5}},
-            "bake_energy": 1.6, "exposure": 1.0, "sky_display": 2.2}
+            "bake_energy": 1.6, "exposure": 1.0, "sky_display": 3.6}
     with open(os.path.splitext(out)[0] + ".look.json", "w") as f:
         json.dump(look, f, indent=1)
 
