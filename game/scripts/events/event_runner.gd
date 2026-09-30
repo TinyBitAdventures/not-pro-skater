@@ -371,6 +371,9 @@ func _balloon(letter: String, at: Vector3) -> Node3D:
 	sph.material = m
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	mi.mesh = sph
+	# no shadow: under the low sun a bobbing balloon's shadow slides a metre up and down whatever is below it
+	# (the mini ramp's corner under the P) and reads as a flickering dark patch
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mi)
 	var line: CylinderMesh = CylinderMesh.new()
 	line.top_radius = 0.004
@@ -382,6 +385,7 @@ func _balloon(letter: String, at: Vector3) -> Node3D:
 	var string_mi: MeshInstance3D = MeshInstance3D.new()
 	string_mi.mesh = line
 	string_mi.position = Vector3(0, -0.92, 0)
+	string_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(string_mi)
 	var l: Label3D = Label3D.new()
 	l.text = letter
