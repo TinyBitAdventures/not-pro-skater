@@ -210,6 +210,24 @@ static func prepare_character(ch: Node, cull_margin: float) -> void:
 		if not (nm.contains("eyebrow") or nm.contains("eyelash")):     # brows and lashes stay soft
 			for s in m.mesh.get_surface_count():
 				_cutout(m.mesh.surface_get_material(s) as BaseMaterial3D)
+		if nm == "Body":
+			for s in m.mesh.get_surface_count():
+				_skin(m.mesh.surface_get_material(s) as BaseMaterial3D)
+
+
+## Skin without subsurface scattering (not in the Compatibility renderer) looks like plastic: a soft warm rim at
+## grazing angles and a little warm backlight (ears and fingers against the sun) stand in for light passing
+## through skin. Changes the imported material once for everyone.
+static func _skin(mat: BaseMaterial3D) -> void:
+	if mat == null or mat.rim_enabled:
+		return
+	mat.roughness = 0.62
+	mat.metallic_specular = 0.35
+	mat.rim_enabled = true
+	mat.rim = 0.35
+	mat.rim_tint = 0.65
+	mat.backlight_enabled = true
+	mat.backlight = Color(0.32, 0.12, 0.08)
 
 
 ## Hair arrives alpha-blended (Blender 5 dropped the material setting that exported it as a cutout), which

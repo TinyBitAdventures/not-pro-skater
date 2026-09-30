@@ -33,7 +33,7 @@ ARCHETYPES = {
                   "race": {"asian": 0.1, "caucasian": 0.8, "african": 0.1}},
         "stylize": STYLIZE,
         "skin": "young_caucasian_male",
-        "eyes": "brown",
+        "eyes": "hazel",
         "eyebrows": "eyebrow001",
         "eyelashes": "eyelashes01",
         "hair": "short02",
@@ -193,7 +193,10 @@ def build(key):
     hs.add_builtin_rig(basemesh, "game_engine")
     eyes = hs.add_mhclo_asset(_data("eyes/low-poly/low-poly.mhclo"), basemesh, asset_type="Eyes",
                               subdiv_levels=0, material_type="MAKESKIN")
-    eye_mat = _data(f"eyes/materials/{spec['eyes']}.mhmat")
+    try:
+        eye_mat = _data(f"eyes/materials/{spec['eyes']}.mhmat")
+    except FileNotFoundError:
+        eye_mat = _data("eyes/materials/brown.mhmat")       # the colour is set by _eyes() anyway
     try:
         _svc("materialservice", "MaterialService").create_and_assign_material_slots(eyes, eye_mat)
     except Exception:
@@ -211,6 +214,7 @@ def build(key):
     _fix_materials(rig)
     _shrink_textures(rig, npc=spec.get("npc", False))
     _tint(rig, spec.get("tint", {}))
+    _eyes(rig, spec.get("eyes", "brown"))
     if spec.get("npc", False):
         _drop_normal_maps(rig)
     rig.name = "Rig"
@@ -302,6 +306,48 @@ def _shrink_textures(rig, npc=False):
                 if max(w, h) > cap:
                     k = cap / max(w, h)
                     img.scale(max(1, int(w * k)), max(1, int(h * k)))
+
+
+EYE_COLORS = {"brown": (0.3, 0.19, 0.11), "blue": (0.32, 0.47, 0.62), "green": (0.33, 0.45, 0.27),
+              "hazel": (0.42, 0.33, 0.17), "grey": (0.45, 0.5, 0.53)}
+
+
+def _eyes(rig, eye):
+    """MPFB's eye material often fails to apply (every character ended up with brown_eye.png), and that texture's
+    iris is a red-brown with pinkish whites: the eyes read red. Recolour the iris to the recipe's eye colour,
+    keeping its detail, and take the pink out of the whites."""
+    import numpy as np
+    target = np.array(EYE_COLORS.get(eye, EYE_COLORS["brown"]), dtype=np.float32)
+    for ob in rig.children_recursive:
+        if ob.type != "MESH" or "low-poly" not in ob.name.lower():
+            continue
+        for m in ob.data.materials:
+            if m is None or not m.use_nodes:
+                continue
+            bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            img = _upstream_image(bsdf.inputs["Base Color"]) if bsdf else None
+            if img is None:
+                continue
+            w, h = img.size
+            px = np.empty(w * h * 4, dtype=np.float32)
+            img.pixels.foreach_get(px)
+            px = px.reshape(-1, 4)
+            rgb = px[:, :3]
+            mx, mn = rgb.max(axis=1), rgb.min(axis=1)
+            sat = (mx - mn) / np.maximum(mx, 1e-4)
+            lum = rgb @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+            iris = (sat > 0.35) & (mx < 0.75)
+            k = np.clip((sat - 0.35) / 0.25, 0.0, 1.0)[:, None]
+            rel = (lum / max(float(lum[iris].mean()) if iris.any() else 0.25, 1e-3))[:, None]
+            recol = np.clip(target[None, :] * rel, 0.0, 1.0)
+            rgb[:] = np.where(iris[:, None], rgb * (1.0 - k) + recol * k, rgb)
+            white = (lum > 0.55) & (sat < 0.35)
+            rgb[white] = rgb[white] * 0.4 + lum[white, None] * np.array([0.97, 0.97, 0.96], dtype=np.float32) * 0.6
+            px[:, :3] = rgb
+            img.pixels.foreach_set(px.ravel())
+            img.update()
+            print(f"[character] eyes recoloured {eye} ({int(iris.sum())} iris texels)")
+            return
 
 
 def _drop_normal_maps(rig):
