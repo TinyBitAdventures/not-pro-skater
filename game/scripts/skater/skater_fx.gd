@@ -8,6 +8,8 @@ var _dust_land: CPUParticles3D
 var _dust_push: CPUParticles3D
 var _sparks: CPUParticles3D
 var _grit: CPUParticles3D
+var _contact: MeshInstance3D
+var _contact_mat: ShaderMaterial
 var _puff_tex: GradientTexture2D
 
 
@@ -29,6 +31,7 @@ func _ready() -> void:
 	_dust_push.explosiveness = 0.0
 	_dust_push.emitting = false
 	_make_sparks()
+	_make_contact()
 
 
 func _make_dust(amount: int, life: float, speed: float, size: float) -> CPUParticles3D:
@@ -113,11 +116,54 @@ func _make_sparks() -> void:
 	_grit.emitting = false
 
 
+## Ambient occlusion under the board: a soft dark patch where the deck and wheels meet the ground, which
+## the sun shadow cannot give in the shade (and the Compatibility renderer has no screen-space AO).
+func _make_contact() -> void:
+	_contact_mat = ShaderMaterial.new()
+	_contact_mat.shader = preload("res://shaders/contact_shadow.gdshader")
+	_contact_mat.render_priority = -1
+	var q: QuadMesh = QuadMesh.new()
+	q.size = Vector2(1.0, 1.0)
+	q.orientation = PlaneMesh.FACE_Y
+	q.material = _contact_mat
+	_contact = MeshInstance3D.new()
+	_contact.mesh = q
+	_contact.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_contact)
+
+
+func _update_contact(s: Skater) -> void:
+	if s.state == Skater.State.BAIL:
+		_contact.visible = false
+		return
+	var from: Vector3 = s.render_position() + Vector3.UP * 0.4
+	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 4.0, 1)
+	var hit: Dictionary = s.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		_contact.visible = false
+		return
+	var height: float = from.y - 0.4 - (hit["position"] as Vector3).y
+	var fade: float = 1.0 - clampf(height / 1.6, 0.0, 1.0)
+	_contact.visible = fade > 0.02
+	var n: Vector3 = hit["normal"]
+	var f: Vector3 = s.facing()
+	f = (f - n * f.dot(n)).normalized()
+	if f.length() < 0.5:
+		f = Vector3.FORWARD
+	var right: Vector3 = f.cross(n).normalized()
+	var spread: float = 1.0 + height * 0.6                 # a higher board casts a wider, softer patch
+	var b: Basis = Basis(right * 0.62 * spread, n, -f * 1.25 * spread)
+	_contact.global_transform = Transform3D(b, (hit["position"] as Vector3) + n * 0.04)   # clear of floor sheets laid over the collider
+	_contact_mat.set_shader_parameter("strength", 0.5 * fade * fade)
+
+
+
 ## Called by Skater._process every frame.
 func tick(_dt: float) -> void:
 	if skater == null:
 		return
 	var s: Skater = skater
+	_update_contact(s)
 	var foot: Vector3 = s.global_position + Vector3.UP * 0.05
 	# sparks off metal (rails, coping) while grinding; grit off concrete (ledges, curbs)
 	var grinding: bool = s.state == Skater.State.GRIND and s.lip_kind == ""      # a lip stall does not slide

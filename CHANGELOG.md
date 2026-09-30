@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Graphics: late afternoon light
+- A soft contact shadow under the board (ambient occlusion the renderer does not have): keeps the rider grounded in the shade, widens and fades as the board leaves the ground.
 - 16x anisotropic filtering (ground and roofs at grazing angles shimmered less); MSAA stays at 4x (`msaa_3d=2` is the 4x setting).
 - **Life in the streets and park:** a fire hydrant and utility boxes on the sidewalks, cars under covers parked along the far curb, garden gnomes in the front yards, trash bags by the bins, street benches on the plaza's edges, a drinks crate and a chalkboard at the party, balls left on the lawn (CC0 Poly Haven; heavy scans decimated, prop colour maps at 512 for the web).
 - **Ramps look built:** a worn steel plate at the foot of every quarter pipe, slate-painted side sheets with a timber edge following the curve, and a timber fascia under the coping.
