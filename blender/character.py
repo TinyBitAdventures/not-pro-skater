@@ -64,7 +64,7 @@ ARCHETYPES = {
         "eyelashes": "eyelashes03",
         "hair": "ponytail01",
         "clothes": ["toigo_basic_tucked_t-shirt", "cortu_jeans_shorts", "shoes05"],
-        "tint": {"toigo_basic_tucked_t-shirt": "#d24a3a"},
+        "tint": {"toigo_basic_tucked_t-shirt": "#d24a3a", "cortu_jeans_shorts": "#5b7aa3"},
     },
     "dad": {
         "title": "The Dad",
@@ -89,7 +89,7 @@ ARCHETYPES = {
         "stylize": {"head-scale-vert-incr": 0.15, "head-scale-horiz-incr": 0.15},
         "skin": "young_african_female", "eyes": "brown", "eyebrows": "eyebrow010", "eyelashes": "eyelashes02",
         "hair": "bob01", "clothes": ["toigo_basic_tucked_t-shirt", "cortu_jeans_shorts", "shoes05"],
-        "tint": {"toigo_basic_tucked_t-shirt": "#e9b93c"},
+        "tint": {"toigo_basic_tucked_t-shirt": "#e9b93c", "cortu_jeans_shorts": "#6f8fb5"},       # light denim
     },
     "kid_leo": {
         "title": "Leo", "npc": True,
@@ -99,7 +99,7 @@ ARCHETYPES = {
         "stylize": {"head-scale-vert-incr": 0.15, "head-scale-horiz-incr": 0.15},
         "skin": "young_caucasian_male", "eyes": "blue", "eyebrows": "eyebrow001", "eyelashes": "eyelashes01",
         "hair": "short01", "clothes": ["elvs_crude_t-shirt_male", "cortu_cargo_pants", "shoes06"],
-        "tint": {"elvs_crude_t-shirt_male": "#e46a2e"},        # the birthday boy, in party orange
+        "tint": {"elvs_crude_t-shirt_male": "#c8501c", "cortu_cargo_pants": "#8d7f5f"},   # the birthday boy, in party orange
     },
     "kid_sam": {
         "title": "Sam", "npc": True,

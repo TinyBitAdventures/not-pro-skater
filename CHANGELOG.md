@@ -49,6 +49,7 @@
 - The rider carries the birthday cake in both hands, held out in front of the belly (`RiderRig.carry_item`), instead of the cake floating by the chest while the arms balance; a crash lets go of it and it goes back to the table at the street, as before. The pose tour has a `carry` pose.
 
 ### Polish: grabs look like grabs
+- Maya and The Vlogger wear light denim shorts and Leo khaki cargos: the dark originals rendered as flat black on bystanders (no normal maps) and on a small rider.
 - Grabs tuck the knees hard and pull the board up to the hand (the hand used to hang in the air by the shin), and each has its own shape: Indy between the feet, Melon reaching down the heel side with the board tilted, Nosegrab with the nose pulled up, Method with the board kicked back and the chest turned, Mute reaching across. Hands aim at the posed deck's edges, not a rest-pose offset. Pose tour `POSES=grab_`.
 
 ### Polish: no snaps onto rails and copings
