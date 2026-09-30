@@ -52,7 +52,7 @@ func _watch(label: String, secs: float) -> Dictionary:
 		"jog_sum": 0.0, "jog_n": 0}
 	while t < secs:
 		await get_tree().physics_frame
-		t += 1.0 / 60.0
+		t += 1.0 / Engine.physics_ticks_per_second      # one physics tick (it used to count 1/60 at 120 Hz: times read double)
 		if sk.state == Skater.State.BAIL:
 			if not bailed:
 				bailed = true
@@ -116,11 +116,11 @@ func _run() -> void:
 	if which in ["halfpipe", "all"]:
 		# coming down onto the far transition of the mini ramp, 80 degrees crooked
 		await _spawn("mini", Vector3(0, 2.4, -6.1), Vector3(0, -2.0, 3.0), 80.0)
-		var r: Dictionary = await _watch("halfpipe", 14.0)
+		var r: Dictionary = await _watch("halfpipe", 7.0)
 		print("[bail] halfpipe: %s" % r)
 	if which in ["flat", "all"]:
 		await _spawn("flat", Vector3(0, 1.2, 0), Vector3(0, 1.0, -12.0), 85.0)
-		var r2: Dictionary = await _watch("flat", 14.0)
+		var r2: Dictionary = await _watch("flat", 7.0)
 		print("[bail] flat: %s" % r2)
 	if which in ["wall", "all"]:
 		await _spawn("wall", Vector3(0, 0, -2.0), Vector3(0, 0, -11.0), 0.0)
@@ -132,7 +132,7 @@ func _run() -> void:
 				break
 		sk.inp.world_dir = Vector3.ZERO
 		sk.inp.move = Vector2.ZERO
-		var r3: Dictionary = await _watch("wall", 14.0)
+		var r3: Dictionary = await _watch("wall", 7.0)
 		print("[bail] wall: %s" % r3)
 	if which in ["runout", "all"]:
 		# a small crooked landing on the flat: runs it out, stops, walks to the board
@@ -203,7 +203,7 @@ func _watch_run(label: String, secs: float) -> Dictionary:
 	var last_walk: Vector3 = Vector3.INF
 	while t < secs:
 		await get_tree().physics_frame
-		t += 1.0 / 120.0
+		t += 1.0 / Engine.physics_ticks_per_second
 		if sk.state == Skater.State.BAIL:
 			var rig: RiderRig = sk.visual as RiderRig
 			if not bailed:

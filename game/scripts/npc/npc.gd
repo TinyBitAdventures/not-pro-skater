@@ -118,7 +118,9 @@ func _aimed(i: int, child: int, head: Vector3, target: Vector3, pole: Vector3, r
 func _look() -> void:
 	if watch == null or not is_instance_valid(watch):
 		return
-	var to: Vector3 = global_transform.affine_inverse() * watch.global_position
+	# the rider, not the skater's capsule: in a crash the capsule waits where the fall began
+	var at: Vector3 = (watch as Skater).rider_position() if watch is Skater else watch.global_position
+	var to: Vector3 = global_transform.affine_inverse() * at
 	var yaw: float = clampf(atan2(to.x, to.z), -1.2, 1.2)
 	for pair in [["neck_01", 0.35], ["head", 0.65]]:
 		var i: int = _b[pair[0]]

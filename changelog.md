@@ -14,6 +14,8 @@
   - The number keys and TAB no longer warp you around an event (you could carry the cake most of the way, or skip one-take checkpoints). P still swaps the rider.
 - **Menus and results with a gamepad:** one push of the stick moves one row (it used to race to the bottom of the title menu and cycle the rider four times); A accepts and B goes back in every menu, as the hints say. The results screen ignores presses for its first second, so a jump pressed as the buzzer goes no longer skips it.
 - The title menu rounds a fundraiser's best the same way as the HUD ($1,867, not $1,866).
+- Bystanders watch the rider through a crash (the fall, the get-up, the walk back), not the spot where it began.
+- Dev: the bail physics test's clock counted twice as fast as real time (1/60 s per 1/120 s physics tick); it reads true now (a crash is back on the board in 4.5 to 6.5 s).
 - A save with an unknown rider, music, steering, jump mode or level falls back to the defaults instead of breaking the title menu. A level download on the web gives up after 90 s without data and goes back to the title instead of waiting forever.
 
 ## v0.1.0 (2026-09-30)
