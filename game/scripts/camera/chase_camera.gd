@@ -86,7 +86,7 @@ func _desired() -> Dictionary:
 	var v_h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
 	var ahead: Vector3 = (v_h * 0.22).limit_length(2.6)
 	var back: Vector3 = Vector3(sin(_yaw), 0.0, cos(_yaw))
-	var look: Vector3 = focus + Vector3.UP * look_height + ahead
+	var look: Vector3 = _collide(focus + Vector3.UP * look_height, focus + Vector3.UP * look_height + ahead)
 	var pos: Vector3 = focus + back * distance + Vector3.UP * height
 	if sk.vert_air and _vert_hold:
 		pos = _vert_anchor
@@ -157,6 +157,7 @@ func _process(dt: float) -> void:
 
 	var r: Dictionary = _desired()
 	_pos = _pos.lerp(r["pos"], 1.0 - exp(-follow_rate * dt))
+	_pos = _collide(r["look"], _pos)           # the smoothed position must not pass through walls either
 	_look = _look.lerp(r["look"], 1.0 - exp(-14.0 * dt))
 	var spd: float = sk.velocity.length()
 	_fov_kick = move_toward(_fov_kick, 0.0, dt * 12.0)

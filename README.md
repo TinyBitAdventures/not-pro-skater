@@ -123,6 +123,8 @@ Feel tests on the greybox (pass / fail, exit code = failures):
 FEEL=all godot --headless --path . --fixed-fps 120 res://scenes/dev_feel.tscn    # or FEEL=vert,transfer VERBOSE=1
 ```
 
+Physical crashes (ragdoll + loose board, needs the skinned rider): `BAIL=halfpipe|flat|wall|all godot --headless --path . --fixed-fps 60 res://scenes/dev_bailphys.tscn`.
+
 They cover coasting momentum, tile seams, rolling over a curb, being stopped by a step, quarter pipe air time, the vert lock, the transfer, grinding a curved and a kinked rail, rail magnetism, and landings at 0 / 20 / 34 / 45 / 65 / 180 degrees.
 
 Older scenarios on the community park:

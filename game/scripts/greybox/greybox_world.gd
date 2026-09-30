@@ -100,7 +100,9 @@ func warp(i: int) -> void:
 		skater.velocity = skater.hdg * float(OS.get_environment("V0"))
 	if OS.get_environment("DROP_DEG") != "":      # screenshot mode: drop in crooked to see a bail
 		skater.global_position += Vector3.UP * float(OS.get_environment("DROP_H"))
-		skater.velocity = skater.hdg * float(OS.get_environment("DROP_V")) + Vector3.UP * 1.5
+		if OS.get_environment("DROP_FWD") != "":
+			skater.global_position += skater.hdg * float(OS.get_environment("DROP_FWD"))
+		skater.velocity = skater.hdg * float(OS.get_environment("DROP_V")) + Vector3.UP * float(OS.get_environment("DROP_UP") if OS.get_environment("DROP_UP") != "" else "1.5")
 		skater._enter_air()
 		skater.yaw += deg_to_rad(float(OS.get_environment("DROP_DEG")))
 		skater.hdg = skater.heading_h()

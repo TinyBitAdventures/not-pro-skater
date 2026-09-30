@@ -30,6 +30,22 @@ var _b: Dictionary = {}                  # bone name -> index
 var _leg_len: float = 0.93
 var _up_len: Dictionary = {}             # chain lengths measured from the rest pose
 var _ankle_off: Vector3 = Vector3.ZERO   # sole centre -> ankle, in the rest foot's model frame
+# physical bails: ragdoll fall -> get up (blend from the fallen pose) -> walk to the loose board -> step on
+var ragdoll: Ragdoll
+var loose: LooseBoard
+var phys_phase: String = ""
+var _phase_t: float = 0.0
+var _still_t: float = 0.0
+var _blend_from: Array[Transform3D] = []
+var _blend_w: float = 1.0
+var _walk_mode: bool = false
+var _walk_pos: Vector3 = Vector3.ZERO
+var _walk_dir: Vector3 = Vector3.FORWARD
+var _step_on: float = 0.0
+var _apart_t: float = 0.0
+var _walk_pace: float = 2.4
+const GETUP_TIME: float = 0.75
+const SETTLE_SPEED: float = 0.45
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -45,7 +61,7 @@ func setup(_look: Dictionary = {}) -> void:
 	_m = container.transform * ch.transform * _node_to(ch, skel)
 	board = BOARD_SCENE.instantiate()
 	model.add_child(board)
-	_style_board(board)
+	style_board(board)
 	var n: int = skel.get_bone_count()
 	_rest_local.resize(n)
 	_rest_model.resize(n)
@@ -75,6 +91,8 @@ func setup(_look: Dictionary = {}) -> void:
 	_ankle_off = ankle - sole
 	for mi in ch.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).extra_cull_margin = 1.5     # skinned: poses reach well outside the rest bounds
+	ragdoll = Ragdoll.new()
+	ragdoll.build(skel)
 
 
 static func _node_to(from: Node3D, to: Node3D) -> Transform3D:
@@ -89,7 +107,7 @@ static func _node_to(from: Node3D, to: Node3D) -> Transform3D:
 	return xf
 
 
-func _style_board(root: Node) -> void:
+static func style_board(root: Node) -> void:
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		var inst: MeshInstance3D = mi
 		for s in inst.mesh.get_surface_count():
@@ -113,6 +131,10 @@ func _style_board(root: Node) -> void:
 # ------------------------------------------------------------------ bones
 
 func _pose_bone(i: int, g: Transform3D) -> void:
+	if _blend_w < 1.0 and i < _blend_from.size():
+		var a: Transform3D = _blend_from[i]
+		var q: Quaternion = a.basis.orthonormalized().get_rotation_quaternion().slerp(g.basis.orthonormalized().get_rotation_quaternion(), _blend_w)
+		g = Transform3D(Basis(q), a.origin.lerp(g.origin, _blend_w))
 	var p: int = _parent[i]
 	var local: Transform3D = (_glob[p].affine_inverse() * g) if p >= 0 else (_m.affine_inverse() * g)
 	skel.set_bone_pose_position(i, local.origin)
@@ -182,7 +204,9 @@ func _apply_rig(sk: Skater) -> void:
 	bt = Transform3D(rot, pivot - rot * pivot + Vector3(0, board_lift, 0))
 	var bail_u: float = clampf(sk.bail_time / maxf(sk.bail_duration, 0.1), 0.0, 1.0)
 	var bailing: bool = sk.state == Skater.State.BAIL
-	if bailing:
+	if _walk_mode:
+		board.transform = bt                   # hidden: the loose board is out in the world
+	elif bailing:
 		# the loose board IS the physics body: it sits where the skater's position is (rolling on and
 		# stopping), skids round a little and, after a big crash, flips over in the air first; its spin
 		# always settles back to straight so the rider steps onto it with nothing snapping
@@ -201,7 +225,7 @@ func _apply_rig(sk: Skater) -> void:
 		board.transform = bt
 
 	# hips: SkaterVisual's hip_h (cartoon units, deck 0.145, legs 0.665) -> a share of this leg
-	var walking: bool = bailing and sk.bail_kind != "runout" and sk.bail_time > _getup_at(sk)
+	var walking: bool = _walk_mode or (bailing and sk.bail_kind != "runout" and sk.bail_time > _getup_at(sk))
 	var frac: float = clampf((hip_h - 0.145) / 0.665, 0.45, 1.05)
 	var hip_y: float = DECK + frac * LEG_FRAC * (_leg_len - _ankle_off.y) + _ankle_off.y * 0.2
 	if (bailing and sk.bail_kind == "runout") or walking:
@@ -230,6 +254,8 @@ func _apply_rig(sk: Skater) -> void:
 		_pose_bone(i, _rotated(i, part))
 	# head: look along the board toward the nose (and down at it in the air)
 	var look: float = (HEAD_LOOK if sk.stance != "fakie" else -HEAD_LOOK) - twist
+	if _walk_mode:
+		look = 0.0                             # walking: looking where it goes
 	var nod: float = 10.0 if sk.state == Skater.State.AIR else 4.0
 	var neck: int = _b["neck_01"]
 	_pose_bone(neck, _rotated(neck, Basis(Vector3.UP, deg_to_rad(look * 0.4))))
@@ -255,6 +281,14 @@ func _apply_rig(sk: Skater) -> void:
 		back = Vector3(-0.12, maxf(0.0, -sin(phr)) * 0.25, -0.05 + cos(phr) * 0.42).lerp(back, on)
 		front_ang = lerpf(80.0, front_ang, on)
 		back_ang = lerpf(80.0, back_ang, on)
+	elif _walk_mode:
+		# walking forward (chest first) to the loose board; the last step lands on the deck
+		var phk: float = _phase_t * 7.0
+		var on_k: float = _step_on
+		front = Vector3(cos(phk) * 0.28, maxf(0.0, sin(phk)) * 0.14, -0.1).lerp(front, on_k)
+		back = Vector3(-cos(phk) * 0.28, maxf(0.0, -sin(phk)) * 0.14, 0.1).lerp(back, on_k)
+		front_ang = lerpf(0.0, front_ang, on_k)
+		back_ang = lerpf(0.0, back_ang, on_k)
 	elif walking:
 		# up and walking to the board; the last steps land on the deck
 		var span: float = maxf(sk.bail_duration - _getup_at(sk), 0.05)
@@ -308,6 +342,151 @@ func _apply_rig(sk: Skater) -> void:
 		var nm: String = skel.get_bone_name(i)
 		if nm.begins_with("index") or nm.begins_with("middle") or nm.begins_with("ring") or nm.begins_with("pinky") or nm.begins_with("thumb"):
 			_rest_follow(i)
+
+
+# ------------------------------------------------------------------ physical bails
+
+## Skater checks for this: a rider with a ragdoll takes over its own bails.
+func physical_bail() -> bool:
+	return true
+
+
+func sync_from(sk: Skater, dt: float) -> void:
+	if sk.state == Skater.State.BAIL and sk.bail_mode == "physical":
+		_physical(sk, dt)
+		return
+	if phys_phase != "":
+		_end_physical()                        # respawned or reset mid-bail
+	super.sync_from(sk, dt)
+
+
+func _physical(sk: Skater, dt: float) -> void:
+	_phase_t += dt
+	match phys_phase:
+		"":
+			_begin_fall(sk)
+		"fall":
+			sk.bail_focus = ragdoll.pelvis_position() - Vector3.UP * 0.6
+			if _apart_t > 0.0:
+				_apart_t -= dt
+				if _apart_t <= 0.0 and loose != null:
+					ragdoll.sim.physical_bones_remove_collision_exception(loose.get_rid())
+			_still_t = _still_t + dt if ragdoll.core_speed() < SETTLE_SPEED else 0.0
+			if (_phase_t > 0.8 and _still_t > 0.3) or _phase_t > 4.5:
+				_begin_getup(sk)
+		"getup", "walk":
+			_walk(sk, dt)
+
+
+func _begin_fall(sk: Skater) -> void:
+	phys_phase = "fall"
+	_phase_t = 0.0
+	_still_t = 0.0
+	# the board flies off on its own with the rider's speed (and some of its spin), from where it is now
+	loose = LooseBoard.new()
+	var holder: Node = sk.get_parent()
+	holder.add_child(loose)
+	var right: Vector3 = sk.hdg.cross(Vector3.UP).normalized()
+	var spin: Vector3 = Vector3.UP * sk.spin_vel * 0.6 + right * randf_range(-3.0, 3.0) * sk.bail_severity
+	# the board shoots out along its length, a little faster than the body; for a moment the two ignore each
+	# other (the feet start inside the deck, and physics would fling them apart or glue the rider to it)
+	var along: Vector3 = -board.global_transform.basis.z
+	var kick: Vector3 = along * signf(sk.bail_velocity.dot(along)) * 1.5
+	loose.setup(board.global_transform, sk.bail_velocity * 1.05 + kick, spin)
+	ragdoll.sim.physical_bones_add_collision_exception(loose.get_rid())
+	_apart_t = 0.35
+	board.visible = false
+	# the body keeps going the way it was going, pitching forward the harder the crash
+	var w: Vector3 = Vector3.UP * sk.spin_vel * 0.4 - right * (1.0 + sk.bail_severity * 4.0)
+	ragdoll.start(sk.bail_velocity * 0.9, w)
+
+
+func _begin_getup(sk: Skater) -> void:
+	var poses: Array[Transform3D] = ragdoll.world_poses()
+	ragdoll.stop()
+	var pelvis: Vector3 = poses[_b["pelvis"]].origin
+	_walk_pos = _ground_under(pelvis)
+	var to_board: Vector3 = loose.global_position - _walk_pos
+	to_board.y = 0.0
+	_walk_dir = to_board.normalized() if to_board.length() > 0.2 else Vector3(sk.hdg.x, 0.0, sk.hdg.z).normalized()
+	_place_walker()
+	var inv: Transform3D = model.global_transform.affine_inverse()
+	_blend_from.clear()
+	for t in poses:
+		_blend_from.append(inv * t)
+	_blend_w = 0.0
+	_walk_mode = true
+	_step_on = 0.0
+	phys_phase = "getup"
+	_phase_t = 0.0
+
+
+func _walk(sk: Skater, dt: float) -> void:
+	var target: Vector3 = loose.global_position
+	var to: Vector3 = target - _walk_pos
+	to.y = 0.0
+	var dist: float = to.length()
+	if phys_phase == "getup":
+		_blend_w = clampf(_phase_t / GETUP_TIME, 0.0, 1.0)
+		_blend_w = _blend_w * _blend_w * (3.0 - 2.0 * _blend_w)
+		if _phase_t >= GETUP_TIME:
+			_blend_w = 1.0
+			phys_phase = "walk"
+			_walk_pace = maxf(sk.tune.walk_speed, dist / 1.4)   # a far board: jog to it
+	else:
+		var pace: float = _walk_pace
+		if dist > 0.02:
+			_walk_dir = _walk_dir.slerp(to / dist, 1.0 - exp(-8.0 * dt)).normalized()
+			_walk_pos += (to / dist) * minf(pace * dt, dist)
+			_walk_pos = _ground_under(_walk_pos + Vector3.UP * 0.5)
+		_step_on = 1.0 - clampf(dist / 0.6, 0.0, 1.0)
+		if dist < 0.06:
+			var stand: Transform3D = loose.stand_transform()
+			stand.origin = _ground_under(stand.origin + Vector3.UP * 0.5)
+			_end_physical()
+			sk.finish_physical_bail(stand)
+			return
+	_place_walker()
+	sk.bail_focus = _walk_pos
+	hip_h = 0.82
+	lean = 6.0
+	twist = 0.0
+	sway = 0.0
+	arms_out = 0.25
+	feet_lift = 0.0
+	board_lift = 0.0
+	board_pitch = 0.0
+	board_roll = 0.0
+	board_yaw = 0.0
+	grab_amt = 0.0
+	_apply_rig(sk)
+
+
+## Stand the visual up at the walker's spot, chest (+X) toward where it is walking.
+func _place_walker() -> void:
+	var x: Vector3 = _walk_dir
+	var z: Vector3 = x.cross(Vector3.UP).normalized()
+	global_transform = Transform3D(Basis(x, Vector3.UP, z), _walk_pos)
+	vis_n = Vector3.UP
+
+
+func _ground_under(p: Vector3) -> Vector3:
+	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(p + Vector3.UP * 1.0, p + Vector3.DOWN * 6.0, 1)
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
+	return hit["position"] if not hit.is_empty() else Vector3(p.x, 0.0, p.z)
+
+
+func _end_physical() -> void:
+	if ragdoll.simulating():
+		ragdoll.stop()
+	if loose != null and is_instance_valid(loose):
+		loose.queue_free()
+	loose = null
+	board.visible = true
+	phys_phase = ""
+	_walk_mode = false
+	_blend_w = 1.0
+	_blend_from.clear()
 
 
 ## The back foot through one push: lift off the deck, plant on the ground beside the board ahead of the back

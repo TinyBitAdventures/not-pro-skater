@@ -1,0 +1,107 @@
+extends Node3D
+## Physical bails with the skinned rider (ragdoll + loose board), headless:
+##   BAIL=halfpipe|flat|wall|all godot --headless --path . --fixed-fps 60 res://scenes/dev_bailphys.tscn
+## Prints where the body and the board went, and whether the rider got back on.
+
+var level: Level
+var sk: Skater
+
+
+func _ready() -> void:
+	_run.call_deferred()
+
+
+func _spawn(start: String, offset: Vector3, vel: Vector3, yaw_off: float) -> void:
+	if sk != null:
+		sk.queue_free()
+		for c in get_children():
+			if c is LooseBoard:
+				c.queue_free()
+		await get_tree().physics_frame
+	sk = Skater.new()
+	sk.rider = "dev"
+	sk.use_blob = false
+	sk.scripted = true
+	sk.grind_lines = level.grind_lines
+	add_child(sk)
+	var xf: Transform3D = level.starts[start]
+	xf.origin += offset
+	sk.place_at(xf)
+	await get_tree().physics_frame
+	sk.velocity = vel
+	if offset.y > 0.3:
+		sk._enter_air()
+		sk.yaw += deg_to_rad(yaw_off)
+		sk.hdg = sk.heading_h()
+		sk.air_time = 0.5
+
+
+func _watch(label: String, secs: float) -> Dictionary:
+	var t: float = 0.0
+	var bailed: bool = false
+	var done: bool = false
+	var board_min_z: float = 99.0
+	var board_max_z: float = -99.0
+	var body_path: float = 0.0
+	var last_focus: Vector3 = sk.global_position
+	var kind: String = ""
+	var t_bail: float = -1.0
+	var t_done: float = -1.0
+	var next_print: float = 0.0
+	while t < secs:
+		await get_tree().physics_frame
+		t += 1.0 / 60.0
+		if sk.state == Skater.State.BAIL:
+			if not bailed:
+				bailed = true
+				t_bail = t
+				kind = "%s/%s" % [sk.bail_kind, sk.bail_mode]
+			var rig: RiderRig = sk.visual as RiderRig
+			if rig.loose != null:
+				board_min_z = minf(board_min_z, rig.loose.global_position.z)
+				board_max_z = maxf(board_max_z, rig.loose.global_position.z)
+			var f: Vector3 = sk.rider_position()
+			body_path += f.distance_to(last_focus)
+			last_focus = f
+			if t >= next_print:
+				next_print = t + 0.5
+				var bp: Vector3 = rig.loose.global_position if rig.loose != null else Vector3.ZERO
+				print("[bail]   %s t=%.1f phase=%s body=(%.1f,%.2f,%.1f) board=(%.1f,%.2f,%.1f) wheels_down=%s" % [label, t,
+					rig.phys_phase, f.x, f.y, f.z, bp.x, bp.y, bp.z, rig.loose.wheels_down if rig.loose != null else false])
+		elif bailed and not done:
+			done = true
+			t_done = t
+			break
+	return {"bailed": bailed, "done": done, "kind": kind, "t_bail": t_bail, "t_done": t_done, "board_z": [board_min_z, board_max_z],
+		"end": sk.global_position, "body_path": body_path}
+
+
+func _run() -> void:
+	Game.steer_mode = "screen"
+	level = Level.new()
+	add_child(level)
+	level.load_glb("res://assets/levels/greybox.glb", "grey")
+	await get_tree().physics_frame
+	var which: String = OS.get_environment("BAIL") if OS.get_environment("BAIL") != "" else "all"
+	if which in ["halfpipe", "all"]:
+		# coming down onto the far transition of the mini ramp, 80 degrees crooked
+		await _spawn("mini", Vector3(0, 2.4, -6.1), Vector3(0, -2.0, 3.0), 80.0)
+		var r: Dictionary = await _watch("halfpipe", 14.0)
+		print("[bail] halfpipe: %s" % r)
+	if which in ["flat", "all"]:
+		await _spawn("flat", Vector3(0, 1.2, 0), Vector3(0, 1.0, -12.0), 85.0)
+		var r2: Dictionary = await _watch("flat", 14.0)
+		print("[bail] flat: %s" % r2)
+	if which in ["wall", "all"]:
+		await _spawn("wall", Vector3(0, 0, -2.0), Vector3(0, 0, -11.0), 0.0)
+		for i in 240:
+			sk.inp.world_dir = Vector3(0, 0, -1)
+			sk.inp.move = Vector2(0, -1)
+			await get_tree().physics_frame
+			if sk.state == Skater.State.BAIL:
+				break
+		sk.inp.world_dir = Vector3.ZERO
+		sk.inp.move = Vector2.ZERO
+		var r3: Dictionary = await _watch("wall", 14.0)
+		print("[bail] wall: %s" % r3)
+	get_tree().quit()

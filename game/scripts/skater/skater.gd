@@ -76,6 +76,10 @@ var _plant_hold: float = 0.0
 var _plant_v: Vector3 = Vector3.ZERO
 var bail_origin: Vector3 = Vector3.ZERO  # where the rider went down (the board rolls on from here)
 var bail_getup: float = 0.0              # seconds into the bail when the rider is back up and walks to the board
+var bail_mode: String = ""               # "physical": ragdoll + loose board (the rig runs it); "" = timed
+var bail_velocity: Vector3 = Vector3.ZERO  # how the rider was moving when it went wrong (the ragdoll starts with it)
+var bail_focus: Vector3 = Vector3.ZERO   # the rider's body during a physical bail (the rig keeps it current)
+var _impact_v: Vector3 = Vector3.ZERO
 var _vert_up0: Vector3 = Vector3.UP
 var _vert_fwd0: Vector3 = Vector3.FORWARD
 var _vert_yaw0: float = 0.0
@@ -242,6 +246,7 @@ func place_at(xf: Transform3D) -> void:
 	velocity = Vector3.ZERO
 	state = State.GROUND
 	stance = "regular"
+	bail_mode = ""
 	floor_n = Vector3.UP
 	_last_safe = xf.origin
 	_reset_air()
@@ -262,6 +267,8 @@ func speed() -> float:
 func rider_position() -> Vector3:
 	if state != State.BAIL:
 		return global_position
+	if bail_mode == "physical":
+		return bail_focus
 	var t: float = bail_time
 	if bail_kind == "runout":
 		var u: float = clampf(t / maxf(bail_duration, 0.1), 0.0, 1.0)
@@ -630,6 +637,7 @@ func _check_wall_crash(vel_before: Vector3) -> void:
 		if absf(nn.y) < 0.3:
 			var impact: float = -vel_before.dot(nn)
 			if impact > tune.wall_crash_speed:
+				_impact_v = vel_before
 				_start_bail("crash")
 				return
 
@@ -994,6 +1002,23 @@ func _land() -> void:
 			_ollie_buf = tune.buffer
 
 
+## The rider has walked back to the loose board and stepped on: carry on from there.
+func finish_physical_bail(stand: Transform3D) -> void:
+	global_position = stand.origin + Vector3.UP * 0.03
+	var f: Vector3 = -stand.basis.z
+	f.y = 0.0
+	hdg = f.normalized() if f.length() > 0.1 else hdg
+	velocity = Vector3.ZERO
+	stance = "regular"
+	bail_mode = ""
+	state = State.GROUND
+	floor_n = Vector3.UP
+	board_n = Vector3.UP
+	floor_snap_length = tune.floor_snap
+	crouch = 1.0
+	_reset_air()
+
+
 ## Tony Hawk's manual input: tap up then down (manual) or down then up (nose manual) on the stick / W and S.
 ## The first press must be a tap (so holding W to push and then braking does not count).
 func _stick_combo() -> String:
@@ -1211,6 +1236,16 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 	var travel: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
 	if travel.length() > 1.0:
 		hdg = travel.normalized()             # fall (and run it out) the way the body was going
+	# a run-out only works on flat ground: anywhere else it is a real fall
+	var under: Vector3 = get_floor_normal() if is_on_floor() else floor_n
+	if bail_kind == "runout" and under.y < 0.97:
+		bail_kind = "slam"
+		bail_duration = tune.slam_time
+	bail_velocity = _impact_v if _impact_v != Vector3.ZERO else velocity
+	_impact_v = Vector3.ZERO
+	# a rider that can ragdoll falls for real: the body and a loose board are handed to physics (RiderRig)
+	bail_mode = "physical" if bail_kind != "runout" and visual != null and visual.has_method("physical_bail") else ""
+	bail_focus = global_position
 	# the physics body is the board from here: it rolls on and stops; the rider goes down where it fell,
 	# gets up and walks to the board (a run-out runs with it), so nothing snaps back at the end
 	bail_origin = global_position
@@ -1235,6 +1270,11 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 
 func _bail(dt: float) -> void:
 	bail_time += dt
+	if bail_mode == "physical":
+		velocity = Vector3.ZERO           # the rig drives this bail; the capsule waits
+		if bail_time > 12.0:
+			finish_physical_bail(Transform3D(Basis.looking_at(hdg, Vector3.UP), bail_origin))
+		return
 	velocity.y -= tune.gravity * dt
 	# a run-out keeps moving on foot; slams and rolls slide to a stop
 	var ground_damp: float = 1.6 if bail_kind == "runout" else tune.board_roll_damp
