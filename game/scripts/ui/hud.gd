@@ -12,6 +12,7 @@ const INFO: Color = UiKit.INFO
 const PAPER: Color = UiKit.PAPER
 const MUTED: Color = UiKit.MUTED
 const BALANCE_W: float = 280.0
+const BACKDROP: Shader = preload("res://shaders/menu_backdrop.gdshader")
 const LETTER_SIZE: float = 54.0
 const LETTER_GAP: int = 10
 
@@ -59,6 +60,7 @@ var _trick_state: String = ""           # "", "live", "banked", "lost"
 var _trick_t: float = 0.0
 var _last_names: int = 0
 var _hint_entries: Array = []
+var _saved_vis: Dictionary = {}
 
 
 func _ready() -> void:
@@ -335,7 +337,9 @@ func _build_results() -> void:
 func _dim_layer() -> Control:
 	var d: ColorRect = ColorRect.new()
 	d.set_anchors_preset(Control.PRESET_FULL_RECT)
-	d.color = Color(UiKit.INK, 0.72)
+	var m: ShaderMaterial = ShaderMaterial.new()
+	m.shader = BACKDROP
+	d.material = m
 	root.add_child(d)
 	return d
 
@@ -618,7 +622,18 @@ func is_paused() -> bool:
 	return pause_layer.visible
 
 
+## Everything but the menus: hidden behind the pause and results screens (the blurred backdrop would smear it).
+func _set_hud_visible(v: bool) -> void:
+	for c in root.get_children():
+		if c != pause_layer and c != results_layer:
+			(c as CanvasItem).visible = v
+
+
 func open_pause() -> void:
+	_saved_vis.clear()
+	for c in root.get_children():
+		_saved_vis[c] = (c as CanvasItem).visible
+	_set_hud_visible(false)
 	pause_layer.visible = true
 	_show_controls(false)
 	_pause_select(0)
@@ -627,6 +642,9 @@ func open_pause() -> void:
 
 
 func close_pause() -> void:
+	for c in _saved_vis:
+		if is_instance_valid(c):
+			(c as CanvasItem).visible = _saved_vis[c]
 	pause_layer.visible = false
 	get_tree().paused = false
 	Sound.set_paused(false)
@@ -736,6 +754,7 @@ func show_results(r: Dictionary) -> void:
 	gap2.custom_minimum_size = Vector2(0, 14)
 	results_box.add_child(gap2)
 	results_box.add_child(UiKit.hints([["ENTER", "skate again", "A"], ["ESC", "title", "START"]]))
+	_set_hud_visible(false)
 	results_layer.visible = true
 	results_layer.modulate.a = 0.0
 	create_tween().tween_property(results_layer, "modulate:a", 1.0, 0.5)
