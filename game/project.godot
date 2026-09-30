@@ -58,6 +58,9 @@ lights_and_shadows/directional_shadow/soft_shadow_filter_quality=4
 
 [importer_defaults]
 
+scene={
+"meshes/create_shadow_meshes": false
+}
 texture={
 "compress/mode": 2,
 "detect_3d/compress_to": 1,

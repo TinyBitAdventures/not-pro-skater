@@ -309,11 +309,14 @@ def _shrink_textures(rig, npc=False):
                     continue
                 done.add(img.name)
                 w, h = img.size
-                # faces need the skin at 1K; clothes, hair, eyes and normal maps read fine at 512 at play distance;
-                # bystanders (npc) are 512 throughout
+                # faces need the skin at 1K; clothes, hair and normal maps read fine at 512 at play distance;
+                # bystanders (npc) are 512 throughout. Eyes, eyebrows and eyelashes are a few pixels on screen even
+                # on the title's close-up: 256 (at 512 they were 10 MB of the web build across the cast)
                 cap = 512
                 if "skin" in img.name.lower() and not npc:
                     cap = TEXTURE_MAX
+                if any(k in ob.name.lower() for k in ("eyebrow", "eyelash", "low-poly")):
+                    cap = 256
                 if max(w, h) > cap:
                     k = cap / max(w, h)
                     img.scale(max(1, int(w * k)), max(1, int(h * k)))
