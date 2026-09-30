@@ -42,6 +42,9 @@ var _swing_boost: float = 0.0      # extra swing speed just after a vert landing
 var _was_state: int = -1
 
 
+const EYE_R: float = 0.22                  # the camera keeps this far from walls
+var _eye_ball: SphereShape3D = null
+
 func _ready() -> void:
 	current = true
 	fov = fov_base
@@ -147,16 +150,30 @@ func _collide_rise(from: Vector3, to: Vector3) -> Vector3:
 	return _collide(from, to)
 
 
-## Keep a clear line from the skater to the camera: if a wall is in the way, sit just in front of it.
+## Keep a clear line from the skater to the camera: if a wall is in the way, sit just in front of it. A sphere
+## is swept rather than a ray: a ray running along a wall let the eye graze it, and the near plane cut the wall.
 func _collide(from: Vector3, to: Vector3) -> Vector3:
 	if not is_inside_tree():
 		return to
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	if _eye_ball == null:
+		_eye_ball = SphereShape3D.new()
+		_eye_ball.radius = EYE_R
+	var sq: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+	sq.shape = _eye_ball
+	sq.transform = Transform3D(Basis.IDENTITY, from)
+	sq.motion = to - from
+	sq.collision_mask = WORLD_MASK
+	var frac: PackedFloat32Array = space.cast_motion(sq)
+	if frac.size() == 2 and frac[0] > 0.05:
+		return from + (to - from) * frac[0]
+	# wedged from the start (a wall right at the rider): a ray, its hit pushed off the surface it met
 	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, to, WORLD_MASK)
-	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
+	var hit: Dictionary = space.intersect_ray(q)
 	if hit.is_empty():
 		return to
 	var p: Vector3 = hit["position"]
-	return p + (from - p).normalized() * 0.25
+	return p + (hit["normal"] as Vector3) * EYE_R + (from - p).normalized() * 0.1
 
 
 func _process(dt: float) -> void:
@@ -199,7 +216,9 @@ func _process(dt: float) -> void:
 	var min_r: float = maxf(min_distance, distance * 0.7)
 	if off.length() < min_r and off.length() > 0.01:
 		_pos = f + off.normalized() * min_r
-	_pos = _collide(r["look"], _pos)           # the smoothed position must not pass through walls either
+	# the smoothed position must not pass through walls either: tested from the rider's chest, not the look-ahead
+	# point (with speed, that point is round a corner, and from there the eye dropped into the floor behind it)
+	_pos = _collide(sk.rider_position() + Vector3.UP * 1.0, _pos)
 	_look = _look.lerp(r["look"], 1.0 - exp(-14.0 * dt))
 	var spd: float = sk.velocity.length()
 	_fov_kick = move_toward(_fov_kick, 0.0, dt * 12.0)

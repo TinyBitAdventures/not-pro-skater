@@ -147,6 +147,8 @@ var _manual_started: bool = false
 var _flip_done_air: bool = false
 var _air_popped: bool = false
 var _last_safe: Vector3 = Vector3.ZERO
+var _glance_dir: Vector3 = Vector3.ZERO      # glanced off a wall in the air: the board turns toward this
+const GLANCE_TURN: float = 9.0              # rad/s
 var _safe_timer: float = 0.0
 var _spawn: Transform3D = Transform3D.IDENTITY
 
@@ -579,13 +581,20 @@ func _ground(dt: float) -> void:
 		if absf(wn.y) < 0.3 and v_want.dot(wn) < 0.0:
 			v_want = v_want.slide(wn)
 	var vdir: Vector3 = v_want.normalized() if v_want.length() > 0.1 else hdg
-	if is_on_floor() and _off_an_edge(n_before, vdir, v_want.length()):
-		# the capsule's round bottom is on an edge that falls away ahead with nothing under the board: that
-		# contact made the floor turn down the face (3-6 ticks diving down a dock's side at full speed). Fly off
-		# the edge instead, with the speed we had
+	var edge: int = _edge_step(n_before, vdir, v_want.length()) if is_on_floor() else EDGE_NONE
+	if edge == EDGE_LAUNCH:
+		# the capsule's round bottom is on an edge that falls away ahead: that contact made the floor turn down
+		# the face (3-6 ticks diving down a dock's side at full speed). Fly off the edge instead
 		velocity = v_want
 		_enter_air()
 		_maybe_vert(false)
+		_check_wall_crash(vel_before)
+		return
+	if edge == EDGE_STEP:                      # a curb or a slow roll off something low: the wheels drop onto it
+		var tangent_s: Vector3 = v_want - floor_n * v_want.dot(floor_n)
+		velocity = tangent_s.normalized() * v_want.length() if tangent_s.length_squared() > 0.0001 else Vector3.ZERO
+		_coyote = tune.coyote
+		_update_board_n(dt)
 		_check_wall_crash(vel_before)
 		return
 	if is_on_floor():
@@ -606,16 +615,34 @@ func _ground(dt: float) -> void:
 	_check_wall_crash(vel_before)
 
 
-## Rolling off the edge of something flat (a dock, a plaza, a step): the contact leans toward where we're going
-## and straight down from the board there is nothing within a short snap.
-func _off_an_edge(n_before: Vector3, vdir: Vector3, spd: float) -> bool:
-	if n_before.y < 0.9 or spd < 0.8:
-		return false
+## Rolling off the edge of something flat (a dock, a plaza, a step, a curb): the contact leans toward where
+## we're going. Nothing below within the snap, or a real drop at speed: fly off it (EDGE_LAUNCH). A curb, or a
+## slow roll off something low: drop straight onto the ground below (EDGE_STEP; the capsule would otherwise
+## hang on the edge with a wall for a floor).
+const EDGE_NONE: int = 0
+const EDGE_LAUNCH: int = 1
+const EDGE_STEP: int = 2
+
+
+func _edge_step(n_before: Vector3, vdir: Vector3, spd: float) -> int:
+	if n_before.y < 0.85 or spd < 0.05:
+		return EDGE_NONE
 	var cn: Vector3 = get_floor_normal()
-	if cn.dot(vdir) < n_before.dot(vdir) + 0.05:
-		return false
+	if cn.dot(vdir) < 0.03:                    # (against level ground: rolling slowly it tilts a little a tick)
+		return EDGE_NONE
 	var c: Vector3 = _board_centre(n_before)
-	return _ray(c + Vector3.UP * 0.3, c + Vector3.DOWN * (tune.floor_snap_flat + 0.05)).is_empty()
+	var hit: Dictionary = _ray(c + Vector3.UP * 0.3, c + Vector3.DOWN * (tune.floor_snap + 0.05))
+	if hit.is_empty():
+		return EDGE_LAUNCH if spd > 0.8 else EDGE_NONE
+	var drop: float = c.y - (hit["position"] as Vector3).y
+	var hn: Vector3 = hit["normal"]
+	if drop > tune.floor_snap_flat + 0.05 and spd > 3.0:
+		return EDGE_LAUNCH
+	if drop > 0.03 and hn.y > 0.9:
+		global_position.y -= drop
+		floor_n = hn
+		return EDGE_STEP
+	return EDGE_NONE
 
 
 ## The physics engine can briefly lose floor contact on a curved transition (Jolt does, every other tick, and
@@ -632,8 +659,9 @@ func _stick_to_ground(v_want: Vector3) -> bool:
 	var hn: Vector3 = hit["normal"]
 	if hn.angle_to(n) > 0.6:
 		return false
-	# the same flat surface further down is a step off something, not a transition: fly off it
-	if hn.angle_to(n) < 0.05 and (c - (hit["position"] as Vector3)).dot(n) > 0.08:
+	# the same flat ground further down is a step off something, not a transition: fly off it (inclines, a
+	# bank to wall, keep the rider on them)
+	if n.y > 0.97 and hn.angle_to(n) < 0.05 and (c - (hit["position"] as Vector3)).dot(n) > 0.08:
 		return false
 	# only through a surface that curves UP ahead (a transition), never over a crest or an edge that falls
 	# away (kicker lips, stair tops, pyramid edges: those launch you)
@@ -832,6 +860,7 @@ func _enter_ground() -> void:
 
 
 func _reset_air() -> void:
+	_glance_dir = Vector3.ZERO
 	air_time = 0.0
 	spin_vel = 0.0
 	spin_total = 0.0
@@ -877,6 +906,15 @@ func _air(dt: float) -> void:
 		var step: float = minf(_vert_turn_rate * dt, absf(_vert_turn_left)) * signf(_vert_turn_left)
 		yaw += step                           # the automatic vert 180 is not a trick: not in spin_total
 		_vert_turn_left -= step
+	if _glance_dir != Vector3.ZERO:           # glanced off a wall: swing round to where we're going now
+		var h_now: Vector3 = heading_h()
+		var off: float = h_now.signed_angle_to(_glance_dir, Vector3.UP)
+		if absf(off) > PI * 0.5:
+			off = off - signf(off) * PI       # riding backwards (fakie) the tail leads: line up the other end
+		var turn_g: float = clampf(off, -GLANCE_TURN * dt, GLANCE_TURN * dt)
+		yaw += turn_g
+		if absf(off) < 0.02:
+			_glance_dir = Vector3.ZERO
 	hdg = heading_h()
 	if vert_air:
 		air_up = _vert_up0
@@ -966,6 +1004,11 @@ func _air(dt: float) -> void:
 			var body: Object = c.get_collider()
 			if absf(cn.y) < 0.3 and velocity.dot(cn) < 0.0 and not (body != null and bool(body.get_meta("vert", false))):
 				velocity -= cn * velocity.dot(cn)
+				# a glancing hit turns the board along the wall with the speed that's left, as a real board
+				# glances off (facing into the wall, the rider would land sideways to where it's going)
+				var along_w: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+				if along_w.length() > 1.5 and _wall_t <= 0.0:
+					_glance_dir = along_w.normalized()
 	if _wall_t > 0.0 and _ollie_buf > 0.0:
 		_wallplant()
 		return
