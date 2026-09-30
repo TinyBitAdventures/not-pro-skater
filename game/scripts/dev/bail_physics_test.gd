@@ -104,4 +104,40 @@ func _run() -> void:
 		sk.inp.move = Vector2.ZERO
 		var r3: Dictionary = await _watch("wall", 14.0)
 		print("[bail] wall: %s" % r3)
+	if which in ["runout", "all"]:
+		# a small crooked landing on the flat: runs it out, stops, walks to the board
+		await _spawn("flat", Vector3(0, 0.9, 0), Vector3(0, 1.0, -5.0), 64.0)
+		var r4: Dictionary = await _watch_run("runout", 12.0)
+		print("[bail] runout: %s" % r4)
+	if which in ["runout_trip", "all"]:
+		# the same small mistake a couple of metres from the wall: runs into it and trips
+		await _spawn("wall", Vector3(0, 0.9, -5.2), Vector3(0, 1.0, -5.5), 64.0)
+		var r5: Dictionary = await _watch_run("runout_trip", 12.0)
+		print("[bail] runout_trip: %s" % r5)
 	get_tree().quit()
+
+
+## Like _watch, but records the run-out phases the rig went through.
+func _watch_run(label: String, secs: float) -> Dictionary:
+	var phases: Array[String] = []
+	var t: float = 0.0
+	var bailed: bool = false
+	var run_dist: float = 0.0
+	var start: Vector3 = Vector3.ZERO
+	var kind0: String = ""
+	while t < secs:
+		await get_tree().physics_frame
+		t += 1.0 / 120.0
+		if sk.state == Skater.State.BAIL:
+			var rig: RiderRig = sk.visual as RiderRig
+			if not bailed:
+				bailed = true
+				start = sk.global_position
+				kind0 = sk.bail_kind
+			if rig.phys_phase != "" and (phases.is_empty() or phases[-1] != rig.phys_phase):
+				phases.append(rig.phys_phase)
+			if sk.run_state == "run":
+				run_dist = start.distance_to(sk.global_position)
+		elif bailed:
+			return {"started_as": kind0, "phases": phases, "ran_m": snappedf(run_dist, 0.01), "back_on_after_s": snappedf(t, 0.01), "done": true}
+	return {"started_as": kind0, "phases": phases, "ran_m": snappedf(run_dist, 0.01), "done": false}

@@ -44,6 +44,8 @@ var _walk_dir: Vector3 = Vector3.FORWARD
 var _step_on: float = 0.0
 var _apart_t: float = 0.0
 var _walk_pace: float = 2.4
+var _gait: float = 0.0                   # leg cycle phase for walking / running
+var _stride: float = 0.28
 const GETUP_TIME: float = 0.75
 const SETTLE_SPEED: float = 0.45
 
@@ -274,7 +276,7 @@ func _apply_rig(sk: Skater) -> void:
 		back = stride[0]
 		back_ang = stride[1]
 		front_ang = lerpf(FRONT_FOOT_ANGLE, 65.0, push_amt)   # front foot swivels to point up the board
-	if bailing and sk.bail_kind == "runout":
+	if bailing and sk.bail_kind == "runout" and not _walk_mode:
 		var phr: float = sk.bail_time * 10.0
 		var on: float = clampf((bail_u - 0.75) / 0.25, 0.0, 1.0)
 		front = Vector3(0.12, maxf(0.0, sin(phr)) * 0.25, -0.05 - cos(phr) * 0.42).lerp(front, on)
@@ -283,10 +285,11 @@ func _apply_rig(sk: Skater) -> void:
 		back_ang = lerpf(80.0, back_ang, on)
 	elif _walk_mode:
 		# walking forward (chest first) to the loose board; the last step lands on the deck
-		var phk: float = _phase_t * 7.0
+		var phk: float = _gait
 		var on_k: float = _step_on
-		front = Vector3(cos(phk) * 0.28, maxf(0.0, sin(phk)) * 0.14, -0.1).lerp(front, on_k)
-		back = Vector3(-cos(phk) * 0.28, maxf(0.0, -sin(phk)) * 0.14, 0.1).lerp(back, on_k)
+		var lift_k: float = 0.14 + (_stride - 0.28) * 0.5
+		front = Vector3(cos(phk) * _stride, maxf(0.0, sin(phk)) * lift_k, -0.1).lerp(front, on_k)
+		back = Vector3(-cos(phk) * _stride, maxf(0.0, -sin(phk)) * lift_k, 0.1).lerp(back, on_k)
 		front_ang = lerpf(0.0, front_ang, on_k)
 		back_ang = lerpf(0.0, back_ang, on_k)
 	elif walking:
@@ -318,8 +321,8 @@ func _apply_rig(sk: Skater) -> void:
 	var free_l: Vector3 = sh_l + Vector3(0.12 + 0.1 * spread, -0.52 + 0.4 * spread, -0.18 - 0.24 * spread)
 	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
 	if (bailing and sk.bail_kind == "runout") or walking:
-		var ph2: float = sk.bail_time * (10.0 if not walking else 7.0)
-		var sw: float = 0.35 if not walking else 0.2
+		var ph2: float = _gait if _walk_mode else sk.bail_time * (10.0 if not walking else 7.0)
+		var sw: float = 0.35 if not walking else (0.12 + (_stride - 0.28) * 0.8)
 		free_l = sh_l + Vector3(0.1, -0.42, -0.05 + cos(ph2) * sw)
 		free_r = sh_r + Vector3(-0.08, -0.42, 0.05 - cos(ph2) * sw)
 	elif bailing:
@@ -364,7 +367,23 @@ func _physical(sk: Skater, dt: float) -> void:
 	_phase_t += dt
 	match phys_phase:
 		"":
-			_begin_fall(sk)
+			_spawn_loose(sk)
+			if sk.run_state == "run":
+				_begin_run(sk)
+			else:
+				_start_ragdoll(sk)
+		"run":
+			if sk.run_state == "run":
+				_run(sk, dt)
+			elif sk.run_state == "stopped":
+				_walk_pos = _ground_under(sk.global_position + Vector3.UP * 0.5)
+				var to: Vector3 = loose.global_position - _walk_pos
+				to.y = 0.0
+				_walk_pace = maxf(sk.tune.walk_speed, to.length() / 1.4)
+				phys_phase = "walk"
+				_walk(sk, dt)
+			else:
+				_start_ragdoll(sk)          # tripped: into the ragdoll from the running pose
 		"fall":
 			sk.bail_focus = ragdoll.pelvis_position() - Vector3.UP * 0.6
 			if _apart_t > 0.0:
@@ -378,11 +397,8 @@ func _physical(sk: Skater, dt: float) -> void:
 			_walk(sk, dt)
 
 
-func _begin_fall(sk: Skater) -> void:
-	phys_phase = "fall"
-	_phase_t = 0.0
-	_still_t = 0.0
-	# the board flies off on its own with the rider's speed (and some of its spin), from where it is now
+## The board flies off on its own with the rider's speed (and some of its spin), from where it is now.
+func _spawn_loose(sk: Skater) -> void:
 	loose = LooseBoard.new()
 	var holder: Node = sk.get_parent()
 	holder.add_child(loose)
@@ -396,7 +412,16 @@ func _begin_fall(sk: Skater) -> void:
 	ragdoll.sim.physical_bones_add_collision_exception(loose.get_rid())
 	_apart_t = 0.35
 	board.visible = false
-	# the body keeps going the way it was going, pitching forward the harder the crash
+
+
+## The body keeps going the way it was going, pitching forward the harder the crash.
+func _start_ragdoll(sk: Skater) -> void:
+	phys_phase = "fall"
+	_phase_t = 0.0
+	_still_t = 0.0
+	_walk_mode = false
+	_blend_w = 1.0
+	var right: Vector3 = sk.hdg.cross(Vector3.UP).normalized()
 	var w: Vector3 = Vector3.UP * sk.spin_vel * 0.4 - right * (1.0 + sk.bail_severity * 4.0)
 	ragdoll.start(sk.bail_velocity * 0.9, w)
 
@@ -435,6 +460,8 @@ func _walk(sk: Skater, dt: float) -> void:
 			_walk_pace = maxf(sk.tune.walk_speed, dist / 1.4)   # a far board: jog to it
 	else:
 		var pace: float = _walk_pace
+		_gait += dt * 7.0
+		_stride = 0.28
 		if dist > 0.02:
 			_walk_dir = _walk_dir.slerp(to / dist, 1.0 - exp(-8.0 * dt)).normalized()
 			_walk_pos += (to / dist) * minf(pace * dt, dist)
@@ -453,6 +480,53 @@ func _walk(sk: Skater, dt: float) -> void:
 	twist = 0.0
 	sway = 0.0
 	arms_out = 0.25
+	feet_lift = 0.0
+	board_lift = 0.0
+	board_pitch = 0.0
+	board_roll = 0.0
+	board_yaw = 0.0
+	grab_amt = 0.0
+	_apply_rig(sk)
+
+
+## A small mistake: off the board and running it out on foot. The capsule is the body (Skater._run_out);
+## this blends from the riding pose into a run whose stride follows the real speed.
+func _begin_run(sk: Skater) -> void:
+	var inv_from: Transform3D = model.global_transform
+	var world: Array[Transform3D] = []
+	for g in _glob:
+		world.append(inv_from * g)
+	var h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
+	_walk_dir = h.normalized() if h.length() > 0.2 else Vector3(sk.hdg.x, 0.0, sk.hdg.z).normalized()
+	_walk_pos = sk.global_position
+	_place_walker()
+	var inv: Transform3D = model.global_transform.affine_inverse()
+	_blend_from.clear()
+	for t in world:
+		_blend_from.append(inv * t)
+	_blend_w = 0.0
+	_walk_mode = true
+	_step_on = 0.0
+	phys_phase = "run"
+	_phase_t = 0.0
+
+
+func _run(sk: Skater, dt: float) -> void:
+	var h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
+	var spd: float = h.length()
+	if spd > 0.2:
+		_walk_dir = _walk_dir.slerp(h / spd, 1.0 - exp(-10.0 * dt)).normalized()
+	_walk_pos = sk.global_position
+	_place_walker()
+	_blend_w = minf(1.0, _blend_w + dt / 0.25)
+	_gait += dt * (4.0 + spd * 1.4)
+	_stride = 0.28 + spd * 0.06
+	sk.bail_focus = _walk_pos
+	hip_h = 0.8
+	lean = 10.0 - spd * 1.5                    # leaning back against the speed
+	twist = 0.0
+	sway = 0.0
+	arms_out = 0.55
 	feet_lift = 0.0
 	board_lift = 0.0
 	board_pitch = 0.0

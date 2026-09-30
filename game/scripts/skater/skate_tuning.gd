@@ -93,6 +93,9 @@ static var _shared: SkateTuning = null
 @export_range(0.5, 3.0, 0.05) var tumble_time: float = 1.6
 @export_range(0.5, 8.0, 0.1) var board_roll_damp: float = 3.2    ## how quickly a loose board rolls to a stop
 @export_range(0.5, 5.0, 0.1) var walk_speed: float = 2.4         ## the rider walks back to the board at this pace
+@export_range(2.0, 12.0, 0.1) var runout_max_speed: float = 6.5  ## faster than this a run-out cannot stay on its feet
+@export_range(0.5, 12.0, 0.1) var runout_brake: float = 4.5      ## how hard the feet slow the body (m/s per second)
+@export_range(0.5, 10.0, 0.1) var trip_impact: float = 2.5       ## running into a wall faster than this trips the rider
 
 @export_group("Grinding")
 @export_range(0.2, 2.5, 0.05) var grind_snap_h: float = 0.9    ## horizontal reach to a rail

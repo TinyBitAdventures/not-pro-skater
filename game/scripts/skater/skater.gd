@@ -80,6 +80,7 @@ var bail_mode: String = ""               # "physical": ragdoll + loose board (th
 var bail_velocity: Vector3 = Vector3.ZERO  # how the rider was moving when it went wrong (the ragdoll starts with it)
 var bail_focus: Vector3 = Vector3.ZERO   # the rider's body during a physical bail (the rig keeps it current)
 var _impact_v: Vector3 = Vector3.ZERO
+var run_state: String = ""               # physical run-out: "run" (on foot, slowing), "stopped", or "" (fell)
 var _vert_up0: Vector3 = Vector3.UP
 var _vert_fwd0: Vector3 = Vector3.FORWARD
 var _vert_yaw0: float = 0.0
@@ -268,7 +269,7 @@ func rider_position() -> Vector3:
 	if state != State.BAIL:
 		return global_position
 	if bail_mode == "physical":
-		return bail_focus
+		return global_position if run_state == "run" else bail_focus
 	var t: float = bail_time
 	if bail_kind == "runout":
 		var u: float = clampf(t / maxf(bail_duration, 0.1), 0.0, 1.0)
@@ -1002,6 +1003,39 @@ func _land() -> void:
 			_ollie_buf = tune.buffer
 
 
+## A physical run-out: the capsule is the rider on foot now. The feet brake it, gravity pulls it down slopes,
+## walls stop it. A wall hit at speed, a steep slope or leaving the ground trips it into the ragdoll.
+func _run_out(dt: float) -> void:
+	var h: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	var spd: float = h.length()
+	spd = maxf(0.0, spd - tune.runout_brake * dt)
+	h = h.normalized() * spd if h.length() > 0.001 else Vector3.ZERO
+	velocity = Vector3(h.x, velocity.y - tune.gravity * dt, h.z)
+	var before: Vector3 = velocity
+	floor_snap_length = tune.floor_snap
+	move_and_slide()
+	var tripped: bool = false
+	for i in get_slide_collision_count():
+		var n: Vector3 = get_slide_collision(i).get_normal()
+		if absf(n.y) < 0.3 and -before.dot(n) > tune.trip_impact:
+			tripped = true
+	if is_on_floor():
+		floor_n = get_floor_normal()
+		if floor_n.y < 0.93:
+			tripped = true
+	elif bail_time > 0.15:
+		tripped = true                    # ran off an edge
+	if tripped:
+		bail_kind = "slam"
+		bail_velocity = before
+		run_state = ""
+		velocity = Vector3.ZERO
+		return
+	if spd < 0.5:
+		run_state = "stopped"
+		velocity = Vector3.ZERO
+
+
 ## The rider has walked back to the loose board and stepped on: carry on from there.
 func finish_physical_bail(stand: Transform3D) -> void:
 	global_position = stand.origin + Vector3.UP * 0.03
@@ -1011,6 +1045,7 @@ func finish_physical_bail(stand: Transform3D) -> void:
 	velocity = Vector3.ZERO
 	stance = "regular"
 	bail_mode = ""
+	run_state = ""
 	state = State.GROUND
 	floor_n = Vector3.UP
 	board_n = Vector3.UP
@@ -1244,7 +1279,16 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 	bail_velocity = _impact_v if _impact_v != Vector3.ZERO else velocity
 	_impact_v = Vector3.ZERO
 	# a rider that can ragdoll falls for real: the body and a loose board are handed to physics (RiderRig)
-	bail_mode = "physical" if bail_kind != "runout" and visual != null and visual.has_method("physical_bail") else ""
+	bail_mode = "physical" if visual != null and visual.has_method("physical_bail") else ""
+	run_state = ""
+	if bail_mode == "physical" and bail_kind == "runout":
+		# too fast to stay on your feet: that small mistake becomes a fall
+		var flat_v: Vector3 = Vector3(bail_velocity.x, 0.0, bail_velocity.z)
+		if flat_v.length() > tune.runout_max_speed:
+			bail_kind = "slam"
+		else:
+			run_state = "run"
+			velocity = flat_v
 	bail_focus = global_position
 	# the physics body is the board from here: it rolls on and stops; the rider goes down where it fell,
 	# gets up and walks to the board (a run-out runs with it), so nothing snaps back at the end
@@ -1270,6 +1314,9 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 
 func _bail(dt: float) -> void:
 	bail_time += dt
+	if bail_mode == "physical" and run_state == "run":
+		_run_out(dt)
+		return
 	if bail_mode == "physical":
 		velocity = Vector3.ZERO           # the rig drives this bail; the capsule waits
 		if bail_time > 12.0:
