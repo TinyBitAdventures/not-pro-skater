@@ -21,8 +21,14 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	# Blender's and Godot's panorama mappings differ by a quarter turn about Y: without this the sun in the sky
 	# image sits 90 degrees away from the baked sun (and the live one).
 	env.sky_rotation = Vector3(0.0, SKY_YAW + float(info.get("sky_yaw", 0.0)), 0.0)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 1.0
+	# Moving things (riders, bystanders, props, the board) get their fill from a flat sky-coloured ambient. In the
+	# Compatibility renderer the sky's own ambient barely reaches them, so anything out of the sun went nearly black
+	# (the Vlogger's red shirt turned black as she turned away from the sun). The baked world ignores ambient
+	# (baked_pbr), so this lifts only live-lit things. `fill` / `fill_color` in <level>.look.json; FILL=<energy> to try.
+	var look: Dictionary = info.get("look", {})
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(String(look.get("fill_color", "#9eb0cc")))
+	env.ambient_light_energy = float(OS.get_environment("FILL")) if OS.get_environment("FILL") != "" else float(look.get("fill", 1.0))
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = float(info.get("look", {}).get("exposure", info.get("exposure", 0.9)))
@@ -61,6 +67,8 @@ static func build(parent: Node, info: Dictionary) -> DirectionalLight3D:
 	sun.light_energy = float(info.get("sun_energy", 1.0))
 	sun.light_color = Color(1.0, 0.96, 0.9)
 	sun.shadow_enabled = true
+	if OS.get_environment("SH_OPACITY") != "":
+		sun.shadow_opacity = float(OS.get_environment("SH_OPACITY"))
 	sun.shadow_blur = float(OS.get_environment("SH_BLUR")) if OS.get_environment("SH_BLUR") != "" else 2.5
 	# two blended splits over 40 m: every split redraws the shadow casters, and four cost more than the sharpness
 	# they add at chase-camera distances. A low sun stretches each shadow texel along the ground: the shorter

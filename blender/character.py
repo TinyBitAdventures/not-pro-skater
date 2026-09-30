@@ -229,6 +229,8 @@ def build(key):
     _eyes(rig, spec.get("eyes", "brown"))
     if spec.get("npc", False):
         _drop_normal_maps(rig)
+    else:
+        _fix_normal_maps(rig)
     rig.name = "Rig"
     basemesh.name = "Body"
     _report(rig)
@@ -363,6 +365,74 @@ def _eyes(rig, eye):
             img.update()
             print(f"[character] eyes recoloured {eye} ({int(iris.sum())} iris texels)")
             return
+
+
+def _fix_normal_maps(rig):
+    """Make every normal texture a real tangent-space normal map before glTF export. MakeHuman bump maps (grey
+    heights through a Bump node) were exported as normal maps: grey decodes as normals tilted ~45 degrees, so the
+    Vlogger's shirt shaded red from one side and black from the other. They become normal maps computed from the
+    heights. Real normal maps get their empty texels (black or transparent UV gaps) set to flat, or mipmaps pull
+    the black into the seams and darken them."""
+    import numpy as np
+    for ob in rig.children_recursive:
+        if ob.type != "MESH":
+            continue
+        for m in ob.data.materials:
+            if m is None or not m.use_nodes:
+                continue
+            nt = m.node_tree
+            bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            if bsdf is None or not bsdf.inputs["Normal"].links:
+                continue
+            src = bsdf.inputs["Normal"].links[0].from_node
+            if any(k in ob.name.lower() for k in ("eyebrow", "eyelash")):
+                nt.links.remove(bsdf.inputs["Normal"].links[0])    # a few pixels on screen: no normal map
+                continue
+            if src.type == "BUMP" and src.inputs["Normal"].links:
+                # a real normal map passed through the Bump node (MakeSkin): wire it straight to the shader
+                inner = src.inputs["Normal"].links[0].from_node
+                if inner.type == "NORMAL_MAP":
+                    nt.links.new(inner.outputs["Normal"], bsdf.inputs["Normal"])
+                    src = inner
+            if src.type == "BUMP":
+                img = _upstream_image(src.inputs["Height"])
+                if img is None:
+                    nt.links.remove(bsdf.inputs["Normal"].links[0])
+                    continue
+                w, h = img.size
+                px = np.empty(w * h * 4, dtype=np.float32)
+                img.pixels.foreach_get(px)
+                px = px.reshape(h, w, 4)
+                height = px[:, :, :3] @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+                k = 2.5                                   # gentle: cloth weave, not quilting
+                du = (np.roll(height, -1, axis=1) - np.roll(height, 1, axis=1)) * 0.5 * k
+                dv = (np.roll(height, -1, axis=0) - np.roll(height, 1, axis=0)) * 0.5 * k
+                n = np.dstack([-du, -dv, np.ones_like(height)])
+                n /= np.linalg.norm(n, axis=2, keepdims=True)
+                out = bpy.data.images.new(img.name.rsplit(".", 1)[0] + "_normal", w, h, alpha=False)
+                out.colorspace_settings.name = "Non-Color"
+                rgba = np.dstack([n * 0.5 + 0.5, np.ones_like(height)]).astype(np.float32)
+                out.pixels.foreach_set(rgba.ravel())
+                out.pack()
+                tex = nt.nodes.new("ShaderNodeTexImage")
+                tex.image = out
+                nmap = nt.nodes.new("ShaderNodeNormalMap")
+                nt.links.new(tex.outputs["Color"], nmap.inputs["Color"])
+                nt.links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
+                print(f"[character] {ob.name}: bump map {img.name} -> normal map {out.name}")
+            elif src.type == "NORMAL_MAP":
+                img = _upstream_image(src.inputs["Color"])
+                if img is None:
+                    continue
+                px = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32)
+                img.pixels.foreach_get(px)
+                px = px.reshape(-1, 4)
+                empty = (px[:, 3] < 0.5) | (px[:, :3].max(axis=1) < 0.03)
+                if empty.any():
+                    px[empty] = (0.5, 0.5, 1.0, 1.0)
+                    img.pixels.foreach_set(px.ravel())
+                    img.update()
+                    print(f"[character] {ob.name}: {int(empty.sum())} empty texels in {img.name} set flat")
 
 
 def _drop_normal_maps(rig):

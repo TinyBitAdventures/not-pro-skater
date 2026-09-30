@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fix: riders don't go black in the shade
+- **The Vlogger's shirt no longer turns from red to black.** Two causes. Its fabric bump map (a grey height image) was exported as a normal map, and grey reads as surfaces tilted about 45 degrees one way, so the shirt shaded from one side and went black from the other; the character build now turns bump maps into real normal maps. And moving things (riders, bystanders, props, the board) got almost no fill light out of the sun: in the Compatibility renderer the sky's ambient barely reaches them, while the baked world around them is brightened, so the shade side of a rider went nearly black. They get a flat sky-coloured fill now (`fill` / `fill_color` in a level's look.json, default 1.0 and a soft sky blue); the baked world ignores it, so only live-lit things lift.
+- Normal maps with empty areas (the Actor's suit, the Musician's fedora) have those areas set flat, so mipmaps don't darken the seams. Eyebrows and eyelashes no longer carry a normal map at all.
+
 ### Our logo on the web loading screen
 - The web build's loading screen shows the Not Pro Skater wordmark (the board, NOT PRO / SKATER, "Skating for everyone else") instead of Godot's splash, with the progress bar in the game's orange. The same image is the boot splash on desktop. `game/assets/brand/splash.png` is the image (swap it for new art any time); the progress bar colour lives in the Web preset's `html/head_include`.
 
