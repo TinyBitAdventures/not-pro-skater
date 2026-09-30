@@ -35,6 +35,9 @@ static var _shared: SkateTuning = null
 @export_range(0.0, 1.0, 0.01) var manual_wobble_growth: float = 0.25 ## ...and how much harder each second
 @export_range(0.0, 20.0, 0.1) var manual_control: float = 5.5    ## how hard up / down push the balance back
 @export_range(0.05, 1.0, 0.01) var floor_snap: float = 0.35
+## On flat ground the snap is only this long: a ledge, planter or pad up to floor_snap high used to be stepped
+## off in one tick, stuck to the ground, instead of flown off
+@export_range(0.02, 1.0, 0.01) var floor_snap_flat: float = 0.12
 
 @export_group("Steering")
 @export_range(0.5, 15.0, 0.1) var turn_slow: float = 6.5       ## rad/s at a standstill

@@ -567,7 +567,8 @@ func _ground(dt: float) -> void:
 		return
 
 	var vel_before: Vector3 = velocity
-	floor_snap_length = tune.floor_snap
+	var n_before: Vector3 = floor_n
+	floor_snap_length = tune.floor_snap if (floor_vert or floor_n.y < 0.97) else tune.floor_snap_flat
 	move_and_slide()
 	# move_and_slide() zeroes velocity.y on any floor (so steep ramp faces lose their downhill speed) and
 	# leaves the speed that runs into a wall in place. Rebuild the velocity from what we asked for: walls
@@ -577,6 +578,16 @@ func _ground(dt: float) -> void:
 		var wn: Vector3 = get_slide_collision(i).get_normal()
 		if absf(wn.y) < 0.3 and v_want.dot(wn) < 0.0:
 			v_want = v_want.slide(wn)
+	var vdir: Vector3 = v_want.normalized() if v_want.length() > 0.1 else hdg
+	if is_on_floor() and _off_an_edge(n_before, vdir, v_want.length()):
+		# the capsule's round bottom is on an edge that falls away ahead with nothing under the board: that
+		# contact made the floor turn down the face (3-6 ticks diving down a dock's side at full speed). Fly off
+		# the edge instead, with the speed we had
+		velocity = v_want
+		_enter_air()
+		_maybe_vert(false)
+		_check_wall_crash(vel_before)
+		return
 	if is_on_floor():
 		floor_n = _probe_floor(floor_n, get_floor_normal())
 		_coyote = tune.coyote
@@ -595,6 +606,18 @@ func _ground(dt: float) -> void:
 	_check_wall_crash(vel_before)
 
 
+## Rolling off the edge of something flat (a dock, a plaza, a step): the contact leans toward where we're going
+## and straight down from the board there is nothing within a short snap.
+func _off_an_edge(n_before: Vector3, vdir: Vector3, spd: float) -> bool:
+	if n_before.y < 0.9 or spd < 0.8:
+		return false
+	var cn: Vector3 = get_floor_normal()
+	if cn.dot(vdir) < n_before.dot(vdir) + 0.05:
+		return false
+	var c: Vector3 = _board_centre(n_before)
+	return _ray(c + Vector3.UP * 0.3, c + Vector3.DOWN * (tune.floor_snap_flat + 0.05)).is_empty()
+
+
 ## The physics engine can briefly lose floor contact on a curved transition (Jolt does, every other tick, and
 ## lets go of steep faces early). If the surface is still right under the board, curving up ahead, and the
 ## board is not moving away from it, stay on it: snap down, take its normal, keep the speed along it.
@@ -608,6 +631,9 @@ func _stick_to_ground(v_want: Vector3) -> bool:
 		return false
 	var hn: Vector3 = hit["normal"]
 	if hn.angle_to(n) > 0.6:
+		return false
+	# the same flat surface further down is a step off something, not a transition: fly off it
+	if hn.angle_to(n) < 0.05 and (c - (hit["position"] as Vector3)).dot(n) > 0.08:
 		return false
 	# only through a surface that curves UP ahead (a transition), never over a crest or an edge that falls
 	# away (kicker lips, stair tops, pyramid edges: those launch you)
@@ -922,6 +948,16 @@ func _air(dt: float) -> void:
 			_wall_t = tune.wallplant_window
 			_wall_n = Vector3(wn.x, 0.0, wn.z).normalized()
 			_plant_v = v_before
+	# a wall takes the part of the air speed that runs into it: move_and_slide() leaves it in the velocity, where
+	# air control kept adding to it, and pressed along a wall the rider was flung round its end at 11-14 m/s. Not
+	# on a ramp's face (a vert air comes back down it) and not once on the floor (_land takes over)
+	if not is_on_floor():
+		for i in get_slide_collision_count():
+			var c: KinematicCollision3D = get_slide_collision(i)
+			var cn: Vector3 = c.get_normal()
+			var body: Object = c.get_collider()
+			if absf(cn.y) < 0.3 and velocity.dot(cn) < 0.0 and not (body != null and bool(body.get_meta("vert", false))):
+				velocity -= cn * velocity.dot(cn)
 	if _wall_t > 0.0 and _ollie_buf > 0.0:
 		_wallplant()
 		return
