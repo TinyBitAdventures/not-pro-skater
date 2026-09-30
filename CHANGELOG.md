@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fix: crashes bend like a body, not a doll
+- Knees are hinges now: they bend the natural way only, about the leg's left-right axis. They hung off cone joints that let them fold 60 degrees sideways and hyperextend backwards by up to 48 (the frog-legged half pipe slams). The legs also ease out of the riding crouch as soon as the fall starts, so a rider face down on the ground no longer lies there with the feet in the air.
+- The bail physics test measures every knee through each crash and fails on hyperextension or sideways bending (before: sideways up to 62 degrees, backwards up to 48; now: at most 3 and none).
+
 ### Fix: holding Space never jumps by itself
 - In hold-to-jump mode, pressing Space on a grind or during a lip stall popped you off at once, on the press, which read as the jump letting go by itself while Space was still held (and the rail magnet can put you on a rail without you noticing). Those pops now wait for the release like every other jump; a release left over from just before a grind or stall no longer bounces you straight off. Tap mode is unchanged, and the wall plant still fires on the press.
 - `scenes/dev_jumphold.tscn` holds Space through real key events (with key repeat) while riding, pushing, tapping other keys, over seams and a curb, up a quarter pipe, onto a kicker, in a manual and on a grind: no jump until the release, and the POP charge never resets under a held key.

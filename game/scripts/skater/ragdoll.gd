@@ -37,7 +37,9 @@ const MUSCLE: Dictionary = {
 	"thigh_l": [8.0, 0.9], "thigh_r": [8.0, 0.9], "calf_l": [8.0, 0.9], "calf_r": [8.0, 0.9],
 	"foot_l": [7.0, 1.0], "foot_r": [7.0, 1.0],
 }
-const LEG_EASE: float = 0.45          # how far the legs straighten out of the riding crouch once the fall begins
+const KNEE_RANGE: Vector2 = Vector2(-3.0, 140.0)   # hinge limits, degrees (straight .. fully bent)
+const KNEE_SIGN: float = 1.0          # flips knee_angles() so that the knee's natural bend reads positive
+const LEG_EASE: float = 0.75          # how far the legs straighten out of the riding crouch once the fall begins
 const MAX_KICK: float = 3.0           # rad/s a muscle may add in one tick (keeps a bad frame from exploding)
 static var limp: bool = OS.get_environment("LIMP") != ""     # LIMP=1: no muscles (the old doll, for comparison)
 
@@ -51,6 +53,7 @@ var _parent: Dictionary = {}        # bone -> the physical bone it hangs from
 var _hold: Dictionary = {}          # bone -> its rotation relative to that parent when the fall began
 var _rest: Dictionary = {}          # bone -> the same at rest (standing straight)
 var _inertia: Dictionary = {}       # bone -> rough moment of inertia about its joint
+var _lateral: Dictionary = {}       # thigh bone -> the body's left-right axis in that bone's own frame (knee hinge axis)
 
 
 func build(skeleton: Skeleton3D) -> void:
@@ -82,6 +85,17 @@ func build(skeleton: Skeleton3D) -> void:
 		pb.body_offset = Transform3D(Basis.IDENTITY, Vector3(0, length * 0.5, 0))
 		if bone == "pelvis":
 			pb.joint_type = PhysicalBone3D.JOINT_TYPE_NONE
+		elif bone.begins_with("calf"):
+			# a knee is a hinge: it bends one way only, about the body's left-right axis, and never sideways
+			var lat: Vector3 = skel.get_bone_global_rest(i).basis.orthonormalized().inverse() * Vector3(1, 0, 0)
+			lat = (lat - Vector3.UP * lat.dot(Vector3.UP)).normalized()
+			var jb: Basis = Basis(Vector3.UP.cross(lat).normalized(), Vector3.UP, lat)
+			pb.joint_type = PhysicalBone3D.JOINT_TYPE_HINGE
+			pb.joint_offset = Transform3D(jb, Vector3(0, -length * 0.5, 0))
+			pb.set("joint_constraints/angular_limit_enabled", true)
+			# the hinge measures the other way round from knee_angles(): natural bend is negative
+			pb.set("joint_constraints/angular_limit_lower", -KNEE_RANGE.y)
+			pb.set("joint_constraints/angular_limit_upper", -KNEE_RANGE.x)
 		else:
 			pb.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
 			pb.joint_offset = Transform3D(Basis.IDENTITY, Vector3(0, -length * 0.5, 0))
@@ -98,6 +112,12 @@ func build(skeleton: Skeleton3D) -> void:
 		bones[bone] = pb
 		var m: float = spec[2]
 		_inertia[bone] = m * (length * length / 3.0 + r * r * 0.25)
+	for side in ["l", "r"]:
+		var th: int = skel.find_bone("thigh_" + side)
+		if th >= 0:
+			var lat: Vector3 = skel.get_bone_global_rest(th).basis.orthonormalized().inverse() * Vector3(1, 0, 0)
+			lat = (lat - Vector3.UP * lat.dot(Vector3.UP)).normalized()     # square to the bone (+Y)
+			_lateral["thigh_" + side] = lat
 	for bone in bones:
 		var p: int = skel.get_bone_parent(skel.find_bone(bone))
 		while p >= 0 and not bones.has(skel.get_bone_name(p)):
@@ -182,6 +202,28 @@ static func _turn(cur: Basis, want: Basis) -> Vector3:
 func stop() -> void:
 	sim.physical_bones_stop_simulation()
 	sim.active = false
+
+
+## Each knee now, in degrees: [flex, side] per leg (l, r). flex > 0 bends the knee the natural way, < 0 is
+## hyperextension; side is the calf bent out of the leg's plane (a knee does not do that).
+func knee_angles() -> Array:
+	var out: Array = []
+	for side in ["l", "r"]:
+		var tb: PhysicalBone3D = bones.get("thigh_" + side)
+		var cb: PhysicalBone3D = bones.get("calf_" + side)
+		if tb == null or cb == null:
+			out.append([0.0, 0.0])
+			continue
+		var t: Basis = (tb.global_transform * tb.body_offset.affine_inverse()).basis.orthonormalized()
+		var c: Basis = (cb.global_transform * cb.body_offset.affine_inverse()).basis.orthonormalized()
+		var lat: Vector3 = (t * _lateral["thigh_" + side]).normalized()
+		var td: Vector3 = t.y
+		var cd: Vector3 = c.y
+		var side_deg: float = rad_to_deg(asin(clampf(cd.dot(lat), -1.0, 1.0)))
+		var cp: Vector3 = (cd - lat * cd.dot(lat)).normalized()
+		var flex: float = rad_to_deg(atan2(td.cross(cp).dot(lat), td.dot(cp))) * KNEE_SIGN
+		out.append([flex, side_deg])
+	return out
 
 
 func simulating() -> bool:

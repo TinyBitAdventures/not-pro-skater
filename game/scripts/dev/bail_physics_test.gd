@@ -47,6 +47,7 @@ func _watch(label: String, secs: float) -> Dictionary:
 	var t_bail: float = -1.0
 	var t_done: float = -1.0
 	var next_print: float = 0.0
+	var knee: Dictionary = {"flex_min": 999.0, "flex_max": -999.0, "side_max": 0.0}
 	while t < secs:
 		await get_tree().physics_frame
 		t += 1.0 / 60.0
@@ -56,6 +57,14 @@ func _watch(label: String, secs: float) -> Dictionary:
 				t_bail = t
 				kind = "%s/%s" % [sk.bail_kind, sk.bail_mode]
 			var rig: RiderRig = sk.visual as RiderRig
+			if rig.ragdoll != null and rig.ragdoll.simulating():
+				if not knee.has("first"):
+					knee["first"] = rig.ragdoll.knee_angles()
+					print("[bail]   knees at the start of the fall (riding crouch): ", knee["first"])
+				for k in rig.ragdoll.knee_angles():
+					knee["flex_min"] = minf(knee["flex_min"], k[0])
+					knee["flex_max"] = maxf(knee["flex_max"], k[0])
+					knee["side_max"] = maxf(knee["side_max"], absf(k[1]))
 			if rig.loose != null:
 				board_min_z = minf(board_min_z, rig.loose.global_position.z)
 				board_max_z = maxf(board_max_z, rig.loose.global_position.z)
@@ -71,7 +80,13 @@ func _watch(label: String, secs: float) -> Dictionary:
 			done = true
 			t_done = t
 			break
-	return {"bailed": bailed, "done": done, "kind": kind, "t_bail": t_bail, "t_done": t_done, "board_z": [board_min_z, board_max_z],
+	# a knee bends one way only: no hyperextension, no bending sideways
+	var knees_ok: bool = knee["flex_min"] > -8.0 and knee["side_max"] < 12.0
+	if not knees_ok:
+		print("[bail] FAIL %s: knees bent the wrong way (flex %.0f, sideways %.0f deg)" % [label, knee["flex_min"], knee["side_max"]])
+	return {"knees": "flex %.0f..%.0f deg, sideways up to %.0f deg%s" % [knee["flex_min"], knee["flex_max"], knee["side_max"],
+		"" if knees_ok else "  FAIL"],
+		"bailed": bailed, "done": done, "kind": kind, "t_bail": t_bail, "t_done": t_done, "board_z": [board_min_z, board_max_z],
 		"end": sk.global_position, "body_path": body_path}
 
 
