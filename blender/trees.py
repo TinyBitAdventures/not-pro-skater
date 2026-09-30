@@ -84,6 +84,15 @@ def make_leaf_cluster(size=512, leaves=90, seed=7):
     return CLUSTER
 
 
+def _litter_material():
+    if "litter" in _mats:
+        return _mats["litter"]
+    m = _leaf_material().copy()
+    m.name = "TreeLitter"
+    _mats["litter"] = m
+    return m
+
+
 def _leaf_material():
     if "leaf" in _mats:
         return _mats["leaf"]
@@ -136,7 +145,7 @@ def _tube(verts, faces, uvs, fmat, path, radii, sides=8, mat=0):
             uvs.append([(ua * 1.2, va), (ub * 1.2, va), (ub * 1.2, vb), (ua * 1.2, vb)])
 
 
-def tree(name, loc, height=7.0, crown=3.2, seed=0, cards=110, parent=None, litter=10):
+def tree(name, loc, height=7.0, crown=3.2, seed=0, cards=110, parent=None, litter=10, collide=False):
     rnd = random.Random(seed)
     verts, faces, uvs, fmat = [], [], [], []
     normals = {}                                  # vertex index -> custom normal (leaf cards)
@@ -175,7 +184,8 @@ def tree(name, loc, height=7.0, crown=3.2, seed=0, cards=110, parent=None, litte
         faces.append((base, base + 1, base + 2, base + 3))
         fmat.append(1)
         uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
-    # fallen leaves: flat cards scattered on the ground under the crown (normals up: lit like the ground)
+    # fallen leaves: small flat cards scattered on the ground under the crown (normals up: lit like the ground),
+    # in their own material (TreeLitter: tinted dry brown in the game; the leaf texture read as green paper)
     for i in range(litter):
         ang = rnd.uniform(0.0, math.tau)
         r = crown * 0.85 * rnd.random() ** 0.6
@@ -183,17 +193,20 @@ def tree(name, loc, height=7.0, crown=3.2, seed=0, cards=110, parent=None, litte
         rot = rnd.uniform(0.0, math.tau)
         u = Vector((math.cos(rot), math.sin(rot), 0.0))
         v = Vector((-u.y, u.x, 0.0))
-        s = rnd.uniform(0.5, 0.8)
+        s = rnd.uniform(0.2, 0.35)
         base = len(verts)
         for (a, b2) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
             verts.append(p + (u * a + v * b2) * s)
             normals[len(verts) - 1] = Vector((0.0, 0.0, 1.0))
         faces.append((base, base + 1, base + 2, base + 3))
-        fmat.append(1)
+        fmat.append(2)
         uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
     from lib import mesh_obj
-    ob = mesh_obj(name, verts, faces, [_bark_material(), _leaf_material()], face_mats=fmat,
+    ob = mesh_obj(name, verts, faces, [_bark_material(), _leaf_material(), _litter_material()], face_mats=fmat,
                   smooth=[True] * len(faces), parent=parent, loc=loc, uvs=uvs)
+    if collide:                                   # the trunk: riders rode through it (and the camera)
+        from lib import col_box, uname
+        col_box(uname("TreeTrunk"), (r0 * 2.5, r0 * 2.5, 2.5), (loc[0], loc[1], loc[2] + 1.25), parent=parent)
     me = ob.data
     # soft, crown-shaped shading for the leaves; the bark keeps its own smooth normals
     me.update()

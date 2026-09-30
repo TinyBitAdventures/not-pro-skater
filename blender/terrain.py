@@ -67,7 +67,10 @@ def lawn_rise(x, y):
     base = 0.35 * math.sin(0.13 * x + 0.7) * math.sin(0.11 * y + 2.1) + 0.2 * math.sin(0.27 * x - 0.19 * y + 1.3) \
         + 0.12 * math.sin(0.41 * x + 0.37 * y) + 0.25
     mound = sum(h * math.exp(-((x - mx) ** 2 + (y - my) ** 2) / (r * r)) for (mx, my, r, h) in MOUNDS)
-    return (base + mound) * k
+    # level again at the square's edge, where the far terrain starts flat: it stood up to 0.6 m above it there
+    # (a step, and cracks you could see the sky through)
+    edge = _smooth((EDGE - max(abs(x), abs(y))) / 6.0)
+    return (base + mound) * k * edge
 
 
 def lawn_z(x, y):
@@ -109,8 +112,11 @@ def _in_street_band(y, margin=0.0):
     return -43.0 - margin <= y <= -30.0 + margin
 
 
-def backdrop(extent=420.0, step=12.0, tree_fn=None):
-    far_grass = mat("FarGrass", "#6a8a44")
+def backdrop(extent=420.0, step=12.0, tree_fn=None, road_top=ROAD_Z, walk_top=0.0, ground=None, far_trees=True, hills=True):
+    """The world past the square: rolling far terrain, the street carrying on both ways, clumps of trees.
+    road_top / walk_top: the level's own road and sidewalk heights, so the street continues without a step.
+    ground: (material name, colour) for the far ground (a city's is paved); far_trees=False for no meadow trees."""
+    far_grass = mat(*ground) if ground else mat("FarGrass", "#6a8a44")
     # terrain: a grid outside the square only (the park's own ground covers the inside)
     n = int(2 * extent / step)
     verts, faces = [], []
@@ -119,9 +125,9 @@ def backdrop(extent=420.0, step=12.0, tree_fn=None):
     def vid(i, j):
         if (i, j) not in index:
             x, y = -extent + i * step, -extent + j * step
-            z = LAWN_Z + _far_rise(x, y)
+            z = LAWN_Z + (_far_rise(x, y) if hills else 0.0)      # a city is flat to the horizon
             if _in_street_band(y, 6.0):
-                z = min(z, LAWN_Z + 0.4 * _smooth((abs(y + 36.5) - 6.5) / 6.0))   # a flat verge along the road
+                z = LAWN_Z                                # the rows either side of the street: flat verge
             index[(i, j)] = len(verts)
             verts.append((x, y, z))
         return index[(i, j)]
@@ -132,18 +138,60 @@ def backdrop(extent=420.0, step=12.0, tree_fn=None):
             xb, yb = xa + step, ya + step
             if xa >= -EDGE and xb <= EDGE and ya >= -EDGE and yb <= EDGE:
                 continue                                  # inside the park
+            if _in_street_band(ya, 6.0) and _in_street_band(yb, 6.0):
+                continue                                  # the street's band: road, walks and verges below
             faces.append((vid(i, j), vid(i + 1, j), vid(i + 1, j + 1), vid(i, j + 1)))
     lib.mesh_obj("Far_Terrain", verts, faces, [far_grass], smooth=[True] * len(faces))
+    # the terrain grid ran one row down the road's centreline, 8 cm above the road: it buried the far street,
+    # its sidewalks poking through as white wedges. The band is flat verge either side of the walks instead
+    band_lo, band_hi = None, None
+    for j in range(n + 1):
+        y = -extent + j * step
+        if _in_street_band(y, 6.0):
+            band_lo = y if band_lo is None else band_lo
+            band_hi = y
+    for sx in (-1, 1):
+        xa, xb = sx * EDGE, sx * extent
+        lo, hi = min(xa, xb), max(xa, xb)
+        for y0, y1 in ((band_lo, -43.0), (-30.0, band_hi)):
+            lib.quad(lib.uname("Far_Verge"), (lo, y0, LAWN_Z), (hi, y0, LAWN_Z), (hi, y1, LAWN_Z), (lo, y1, LAWN_Z), far_grass)
     # the street carries on both ways: road, sidewalks
     road = mat("FarRoad", "#4c4f55")
     walk = mat("FarWalk", "#b9b6ae")
     for sx in (-1, 1):
         xa, xb = sx * EDGE, sx * extent
         lo, hi = min(xa, xb), max(xa, xb)
-        lib.box("Far_Road", (hi - lo, 8.0, 0.1), ((lo + hi) / 2, -36.5, ROAD_Z - 0.05), road)
+        lib.box("Far_Road", (hi - lo, 8.0, 0.1), ((lo + hi) / 2, -36.5, road_top - 0.05), road)
         for y0, y1 in ((-32.5, -30.0), (-43.0, -40.5)):
-            lib.box("Far_Walk", (hi - lo, y1 - y0, -ROAD_Z), ((lo + hi) / 2, (y0 + y1) / 2, ROAD_Z / 2), walk)
-    _far_trees(extent, tree_fn)
+            lib.box("Far_Walk", (hi - lo, y1 - y0, walk_top - road_top), ((lo + hi) / 2, (y0 + y1) / 2, (walk_top + road_top) / 2),
+                    walk)
+    if far_trees:
+        _far_trees(extent, tree_fn)
+
+
+def city_blocks(seed=5, inner=68.0, outer=150.0, keep_clear=()):
+    """A city past the edge: blocks of offices and flats in rings round the square, low near it and taller
+    further out, so every street ends in buildings instead of meadow. Flat live colours (they're far away and must
+    stay out of the bake's atlas). keep_clear: (x0, x1, y0, y1) boxes to leave empty (a street's vista, say)."""
+    rnd = random.Random(seed)
+    colours = [("FarBlockA", "#a39b8f"), ("FarBlockB", "#8c8378"), ("FarBlockC", "#b7b0a5"), ("FarBlockD", "#7d7f84"),
+               ("FarBlockE", "#9a6f5d")]
+    mats = [mat(n, c) for n, c in colours]
+    placed = 0
+    for k in range(2000):
+        if placed >= 90:
+            break
+        x = rnd.uniform(-outer, outer)
+        y = rnd.uniform(-outer, outer)
+        d = max(abs(x), abs(y))
+        if d < inner or _in_street_band(y, 8.0):
+            continue
+        if any(x0 <= x <= x1 and y0 <= y <= y1 for (x0, x1, y0, y1) in keep_clear):
+            continue
+        w, dp = rnd.uniform(12.0, 26.0), rnd.uniform(12.0, 26.0)
+        h = rnd.uniform(8.0, 18.0) + (d - inner) / (outer - inner) * rnd.uniform(10.0, 40.0)
+        lib.box(lib.uname("Far_Block"), (w, dp, h), (x, y, h / 2 - 0.2), mats[k % len(mats)])
+        placed += 1
 
 
 def _far_trees(extent, tree_fn=None):

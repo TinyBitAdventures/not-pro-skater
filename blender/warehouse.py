@@ -137,7 +137,7 @@ def foundry_dock():
     for x in range(int(x0) + 3, int(x1), 5):
         box(lib.uname("DockBumper"), (0.5, 0.14, 0.45), (x, y0 - 0.07, DOCK_H - 0.35), rubber)
     props.place("plastic_crate_02", x0 + 2.0, y1 - 1.0, 10.0, z=DOCK_H, surface="Wall")
-    props.place("plastic_crate_02", x0 + 2.1, y1 - 1.0, -8.0, z=DOCK_H + 0.28, collide=False)
+    props.place("plastic_crate_02", x0 + 2.1, y1 - 1.0, -8.0, z=DOCK_H + props.bounds("plastic_crate_02")[1].z, collide=False)
 
 
 def tour_van():
@@ -154,7 +154,7 @@ def tour_van():
                     seg=16, parent=van)
     box(lib.uname("VanStripe"), (5.2, 2.02, 0.25), (0.0, 0.0, 1.55), mat("VanStripe", "#c8452e"), parent=van)
     for s in (-1, 1):                                            # back doors, swung open
-        box(lib.uname("VanDoor"), (0.06, 0.9, 1.7), (-2.65, s * 1.4, 1.2), paint_, parent=van)
+        box(lib.uname("Wall_VanDoor") + "-col", (0.06, 0.9, 1.7), (-2.65, s * 1.4, 1.2), paint_, parent=van)
     box(lib.uname("VanCargo"), (0.02, 1.8, 1.6), (-2.58, 0.0, 1.25), mat("VanDark", "#1a1c1e"), parent=van)
 
 
@@ -308,11 +308,12 @@ def stage():
     for y in (sy0 + 1.0, sy1 - 1.0):
         box(lib.uname("Wall_SpeakerStack") + "-col", (1.0, 1.2, 2.4), (sx0 - 0.9, y, 1.2), mat("Rubber", "#1e1e1e"))
     for y in ((sy0 + sy1) / 2 - 2.0, (sy0 + sy1) / 2 + 2.0):
-        box(lib.uname("Amp"), (0.7, 1.0, 0.8), (sx1 - 2.0, y, sh + 0.4), mat("Rubber", "#1e1e1e"))
-    box(lib.uname("DrumRiser"), (2.4, 2.4, 0.4), (sx1 - 2.6, (sy0 + sy1) / 2, sh + 0.2), deck)
-    # stairs up the back (decoration: nobody rides round the back)
+        box(lib.uname("Wall_Amp") + "-col", (0.7, 1.0, 0.8), (sx1 - 2.0, y, sh + 0.4), mat("Rubber", "#1e1e1e"))
+    box(lib.uname("Wood_DrumRiser") + "-col", (2.4, 2.4, 0.4), (sx1 - 2.6, (sy0 + sy1) / 2, sh + 0.2), deck)
+    # stairs up the back (riders do come round the back: they collide, a step at a time)
     for k in range(5):
-        box(lib.uname("StageStair"), (0.3, 1.2, 0.22 * (k + 1)), (sx1 + 1.5 - k * 0.3, sy1 - 1.0, 0.11 * (k + 1)), steel)
+        box(lib.uname("Metal_StageStair") + "-col", (0.3, 1.2, 0.22 * (k + 1)), (sx1 + 1.5 - k * 0.3, sy1 - 1.0, 0.11 * (k + 1)),
+            steel)
     props.place("round_wooden_table_02", 30.0, 6.0, 0.0, surface="Wood")          # the merch table
     kicker(root("StageKicker", 34.8, -4.0, -90.0), W=2.2, R=4.0, H=0.8)            # up onto the stage's front edge
 
@@ -326,8 +327,10 @@ def furniture():
         props.place("metal_trash_can", x, y, 0.0, surface="Metal")
     for x, y, rot in ((-6.0, 3.2, 0.0), (26.0, 10.0, 90.0)):
         props.place("trashbag", x, y, rot, collide=False)
+    # two stacks of crates against the Foundry's wall (they used to be buried inside the alley's bank)
+    ch = props.bounds("plastic_crate_02")[1].z
     for k in range(4):
-        props.place("plastic_crate_02", 9.0, 28.0 + k * 0.5, 20.0 * k, z=0.28 * (k % 2), collide=k % 2 == 0,
+        props.place("plastic_crate_02", 1.2, 30.0 + (k // 2) * 0.6, 20.0 * k, z=ch * (k % 2), collide=k % 2 == 0,
                     surface="Wall")
 
 
@@ -338,7 +341,7 @@ def plant_trees():
         spots.append((float(x) + 4.0, -28.4))
     for i, (x, y) in enumerate(spots):
         h = 6.0 + (i * 37 % 5) * 0.7
-        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.4 + (i * 13 % 4) * 0.35, seed=120 + i)
+        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.4 + (i * 13 % 4) * 0.35, seed=120 + i, collide=True)
 
 
 def markers():

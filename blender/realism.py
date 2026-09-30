@@ -63,7 +63,18 @@ SETS = {
     "brick": ("Bricks101", 1.5, (1.0, 1.0, 1.0), 0.0, True),
     "paving": ("PavingStones128", 2.0, (1.0, 1.0, 1.0), 0.0, True),
     "dirt": ("Ground037", 3.0, (1.0, 1.0, 1.0), 0.0, True),
-    "packed_dirt": ("Concrete044D", 3.0, (0.86, 0.72, 0.54), 0.0, True),   # a western set's street: sandy, hard (Ground037 is mossy)
+    "packed_dirt": ("Concrete044D", 3.0, (0.86, 0.72, 0.54), 0.0, True),
+    "post_dark": ("Metal032", 0.6, (0.2, 0.2, 0.22), 0.7, False),         # painted lamp posts: live-lit like props
+    # the backlot's sets (they were flat, unbaked colours next to PBR concrete: the level read as CG)
+    "stucco": ("Concrete046", 3.0, (1.0, 0.94, 0.84), 0.0, True),
+    # long perimeter walls get too few lightmap texels (they baked as purple-green camouflage): lit live instead
+    "stucco_live": ("Concrete046", 3.0, (1.0, 0.94, 0.84), 0.0, False),
+    "brownstone": ("Bricks101", 1.5, (0.66, 0.46, 0.36), 0.0, True),
+    "west_red": ("WoodSiding009", 2.0, (0.68, 0.32, 0.24), 0.0, True),
+    "west_green": ("WoodSiding009", 2.0, (0.44, 0.54, 0.36), 0.0, True),
+    "west_brown": ("WoodSiding009", 2.0, (0.58, 0.42, 0.28), 0.0, True),
+    "west_blue": ("WoodSiding009", 2.0, (0.4, 0.5, 0.62), 0.0, True),
+    "greenscreen": ("Concrete046", 4.0, (0.34, 0.78, 0.38), 0.0, True),   # a western set's street: sandy, hard (Ground037 is mossy)
 }
 
 # flat kit material name -> set
@@ -78,7 +89,9 @@ KIT = {
     "SidePaint": "side_paint", "Timber": "wood_side", "Court": "court",
     "Red": "paint_red", "Yellow": "paint_red", "Orange": "paint_red", "Blue": "paint_red",
     "Siding": "siding", "SidingBlue": "siding_blue", "SidingSage": "siding_sage", "Roof": "roof", "Brick": "brick",
-    "Paving": "paving", "Dirt": "dirt", "PackedDirt": "packed_dirt", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
+    "Paving": "paving", "Dirt": "dirt", "PackedDirt": "packed_dirt", "LampPost": "post_dark", "Stucco": "stucco", "StudioWall": "stucco_live", "Brownstone": "brownstone",
+    "WestPaint-10": "west_red", "WestPaint-11": "west_green", "WestPaint10": "west_brown", "WestPaint11": "west_blue",
+    "TrailerWhite": "siding", "GreenScreen": "greenscreen", "StageDeck": "wood_side", "StallWood": "wood", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
     "SidingCream": "siding_cream", "SidingGrey": "siding_grey", "RoofDark": "roof_dark", "RoofBrown": "roof_brown",
     "Pole": "wood_side", "Driveway": "concrete", "FarGrass": "grass_far",
 }

@@ -141,7 +141,8 @@ def building():
                 continue                                      # the entrance
             if zi == 0 and x > 21.0:
                 continue                                      # the dock door
-            houses._window(r, x, y0, z, 2.6, 1.6, trim, facing=-1)
+            if not (zi == 1 and -17.0 < x < -3.0):            # over the entrance the school's name goes (the sills
+                houses._window(r, x, y0, z, 2.6, 1.6, trim, facing=-1)     # stood out in front of its letters)
             houses._window(r, x, y1, z, 2.6, 1.6, trim, facing=1)
     for z in rows:
         for yy in (cy - 3.5, cy + 3.5):
@@ -251,7 +252,7 @@ def loading_dock():
     rubber = mat("Rubber", "#1e1e1e")
     for y in (14.5, 20.5):
         box(lib.uname("DockBumper"), (0.14, 0.5, 0.45), (x1 + 0.07, y, DOCK_H - 0.35), rubber)
-    box(lib.uname("Dumpster"), (1.9, 1.3, 1.3), (38.5, 21.0, 0.65), mat("DumpsterGreen", "#2f4a36"))
+    box(lib.uname("Wall_Dumpster") + "-col", (1.9, 1.3, 1.3), (38.5, 21.0, 0.65), mat("DumpsterGreen", "#2f4a36"))
     props.place("plastic_crate_02", x0 + 1.2, 21.5, 10.0, z=DOCK_H, collide=False)
     props.place("plastic_crate_02", x0 + 1.3, 21.5, -8.0, z=DOCK_H + 0.25, collide=False)
 
@@ -278,7 +279,8 @@ def front():
     # the flagpole
     z = terrain.lawn_z(-24.0, -18.0)
     cyl_z(lib.uname("Flagpole"), (-24.0, -18.0, z), 9.0, 0.06, M("Galv"), r1=0.04, seg=10)
-    box(lib.uname("FlagBase"), (0.8, 0.8, 0.3), (-24.0, -18.0, z + 0.1), mat("Concrete", "#bbbbbb"))
+    box(lib.uname("Concrete_FlagBase") + "-col", (0.8, 0.8, 0.3), (-24.0, -18.0, z + 0.1), mat("Concrete", "#bbbbbb"))
+    lib.col_box(lib.uname("Flagpole"), (0.14, 0.14, 9.0), (-24.0, -18.0, z + 4.5), surface="Metal")
     lib.mesh_obj(lib.uname("Flag"), [(-24.0, -18.0, z + 8.9), (-22.5, -18.0, z + 8.7), (-22.5, -18.0, z + 7.9),
                                       (-24.0, -18.0, z + 7.9)], [(0, 1, 2, 3)], [mat("FlagBlue", "#2d5fb0")])
     # shrubs along the building front either side of the plaza, and the bake sale's picnic table
@@ -314,7 +316,7 @@ def car_park():
     for yy in (-12.5, -9.5):
         rail(None, f"island_curb_{'s' if yy < -11 else 'n'}", [(-54.8, yy, 0.22), (-33.2, yy, 0.22)], kind="curb")
     for x in (-50.0, -44.0, -38.0):
-        trees.tree(lib.uname("Tree"), (x, -11.0, 0.17), height=6.2, crown=2.4, seed=int(-x))
+        trees.tree(lib.uname("Tree"), (x, -11.0, 0.17), height=6.2, crown=2.4, seed=int(-x), collide=True)
     for x in (-54.0, -34.0):
         props.place("street_lamp_02", x, -11.0, 90.0, z=0.15, surface="Metal")
     # the speed bump across the south aisle
@@ -377,15 +379,17 @@ def playground():
     for x in (0.0, 6.0):                                       # the swing frame
         for dy in (-1.1, 1.1):
             cyl_between(lib.uname("SwingLeg"), (x, 38.0 + dy, 0.0), (x, 38.0, 2.4), 0.045, rust, seg=8)
+            lib.col_box(lib.uname("SwingLeg"), (0.14, 0.14, 1.2), (x, 38.0 + dy * 0.75, 0.6), surface="Metal")
     cyl_between(lib.uname("SwingBar"), (0.0, 38.0, 2.4), (6.0, 38.0, 2.4), 0.05, rust, seg=8)
     for x in (1.8, 4.2):
         for dx in (-0.22, 0.22):
             cyl_between(lib.uname("SwingChain"), (x + dx, 38.0, 2.38), (x + dx, 38.0, 0.55), 0.008, M("Galv"), seg=4)
         box(lib.uname("SwingSeat"), (0.5, 0.2, 0.04), (x, 38.0, 0.54), mat("Rubber", "#1e1e1e"))
-    box(lib.uname("Slide_tower"), (1.2, 1.2, 1.6), (14.0, 38.5, 0.8), rust)
+    box(lib.uname("Metal_Slide_tower") + "-col", (1.2, 1.2, 1.6), (14.0, 38.5, 0.8), rust)
     prism(lib.uname("Slide_chute"), [(39.1, 1.6), (39.1, 1.5), (42.5, 0.2), (42.5, 0.3)], 13.6, 14.4,
           [mat("SlideYellow", "#c9a33a")] * 4, [0, 0, 0, 0], [False] * 4, cap_mat=0)
     box(lib.uname("PlaySignPost"), (0.08, 0.08, 1.8), (7.5, 27.6, 0.9), galv)
+    lib.col_box(lib.uname("PlaySignPost"), (0.14, 0.14, 1.8), (7.5, 27.6, 0.9), surface="Metal")
     box(lib.uname("PlaySign"), (2.4, 0.04, 1.0), (7.5, 27.55, 1.5), mat("SignBoard", "#f4f1e8"))
     text_mesh("PlaySign_text", "OUR NEW PLAYGROUND\nIS COMING!", 0.17, (7.5, 27.52, 1.5), FACING_SOUTH,
               mat("SignNavy", "#22304a"), depth=0.005)
@@ -393,7 +397,7 @@ def playground():
 
 def furniture():
     rise = terrain.lawn_rise
-    for x in range(-50, 51, 20):
+    for x in (-50, -30, -14, 10, 30, 50):                     # (not at -10: that's the crosswalk and the path in)
         props.place("street_lamp_02", float(x), -32.1, 0.0, surface="Metal")
     props.place("fire_hydrant", -26.0, -32.1, 90.0, surface="Metal")          # at the kerb, clear of the laps
     props.place("utility_box_01", 17.5, -29.4, 0.0, z=terrain.lawn_z(17.5, -29.4), surface="Metal")        # on the verge behind the sidewalk
@@ -414,7 +418,7 @@ def plant_trees():
               (-32.0, 29.0), (44.0, 40.0)]
     for i, (x, y) in enumerate(spots):
         h = 6.0 + (i * 37 % 5) * 0.7
-        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=40 + i)
+        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=40 + i, collide=True)
 
 
 def markers():

@@ -262,7 +262,7 @@ def plaza():
     # benches, bins, lamps, a steel sculpture, potted plants along the building
     for x, y, rot in ((6.0, -9.0, 0.0), (22.0, -9.0, 0.0), (-26.0, 0.5, 90.0)):
         props.place("modular_street_seating", x, y, rot, surface="Wood")
-    for x, y in ((9.0, 8.0), (-28.0, -12.0), (28.0, -12.0)):
+    for x, y in ((6.5, 8.0), (-28.0, -12.0), (28.0, -12.0)):          # (clear of the grate tree at 9, 9.5)
         props.place("metal_trash_can", x, y, 0.0, surface="Metal")
     for x, y in ((-30.0, 10.0), (-30.0, -12.0), (30.0, 10.0), (30.0, -12.0), (0.0, -13.0), (-16.0, -13.0), (16.0, -13.0)):
         props.place("street_lamp_02", x, y, 0.0, surface="Metal")
@@ -317,7 +317,9 @@ def amphitheatre():
     for a, sgn in ((a0, 1), (a1, -1)):                     # the tiers' end walls, facing out of the ring's ends
         verts = [(cx + r * math.cos(a), cy + r * math.sin(a), z) for (r, z) in profile]
         idx = tuple(range(len(verts)))
-        lib.mesh_obj(lib.uname("Concrete_AmphiEnd") + "-col", verts, [idx if sgn > 0 else tuple(reversed(idx))], [stone])
+        # wound so the face points out of the ring's end: the other way round (as it was) both end walls faced in,
+        # riders from the lawn passed through them (trimesh colliders are one-sided) and rode round inside
+        lib.mesh_obj(lib.uname("Concrete_AmphiEnd") + "-col", verts, [tuple(reversed(idx)) if sgn > 0 else idx], [stone])
     for i, (r, z) in enumerate(tiers):
         rail(None, f"tier_{i + 1}", ring_pts(cx, cy, r + 0.06, a0 + 0.04, a1 - 0.04, 24, z + 0.07), kind="ledge")
     # the stage: 0.55 m, a ledge along its front (north), banks up at the east and west ends
@@ -332,6 +334,7 @@ def amphitheatre():
     # speakers and a lectern for the demo
     for sx in (-1, 1):
         box(lib.uname("Speaker"), (0.6, 0.5, 1.1), (cx + sx * 3.0, cy - 1.6, sh + 0.55), mat("Rubber", "#1e1e1e"))
+        lib.col_box(lib.uname("Speaker"), (0.6, 0.5, 1.1), (cx + sx * 3.0, cy - 1.6, sh + 0.55))
     box(lib.uname("Lectern"), (0.6, 0.45, 1.1), (cx + 1.4, cy - 1.2, sh + 0.55), M("Steel"))
     lib.col_box(lib.uname("Lectern"), (0.6, 0.45, 1.1), (cx + 1.4, cy - 1.2, sh + 0.55), surface="Metal")
 
@@ -416,7 +419,7 @@ def picnic():
     for x, y in ((-47.0, 2.0), (-47.0, -18.0)):
         props.place("metal_trash_can", x, y, 0.0, surface="Metal")
     props.place("plastic_crate_02", tx + 1.6, ty - 2.2, 20.0, surface="Wall")
-    props.place("plastic_crate_02", tx + 1.6, ty - 2.2, -10.0, z=0.28, collide=False)
+    props.place("plastic_crate_02", tx + 1.6, ty - 2.2, -10.0, z=props.bounds("plastic_crate_02")[1].z, collide=False)
 
 
 def campus_sign():
@@ -452,10 +455,10 @@ def plant_trees():
               (-34.0, -24.0), (22.0, 16.0)]
     for i, (x, y) in enumerate(spots):
         h = 6.5 + (i * 37 % 5) * 0.7
-        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=70 + i)
+        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=70 + i, collide=True)
     for x, y in ((-16.0, 10.0), (9.0, 9.5), (18.0, 10.0)):     # plaza trees in grates, clear of the steps' landing
         box(lib.uname("TreeGrate"), (1.4, 1.4, 0.012), (x, y, 0.006), M("Steel"))
-        trees.tree(lib.uname("Tree"), (x, y, 0.0), height=7.0, crown=2.4, seed=int(x) + 90)
+        trees.tree(lib.uname("Tree"), (x, y, 0.0), height=7.0, crown=2.4, seed=int(x) + 90, collide=True, litter=0)
 
 
 def markers():

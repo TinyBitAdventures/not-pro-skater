@@ -56,6 +56,18 @@ static func apply(root: Node, lightmaps: Dictionary, info: Dictionary) -> void:
 					cache["glass"] = gm
 				mesh.surface_set_material(s, cache["glass"])
 				continue
+			if src.resource_name == "TreeLitter":            # fallen leaves: the leaf texture, dry and brown
+				if not cache.has("litter"):
+					var tm: StandardMaterial3D = StandardMaterial3D.new()
+					tm.albedo_texture = src.albedo_texture
+					tm.albedo_color = Color(0.58, 0.42, 0.24)
+					tm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+					tm.alpha_scissor_threshold = 0.45
+					tm.cull_mode = BaseMaterial3D.CULL_DISABLED
+					tm.roughness = 0.95
+					cache["litter"] = tm
+				mesh.surface_set_material(s, cache["litter"])
+				continue
 			if src.resource_name == "TreeLeaves":
 				if not cache.has("leaves"):
 					var lm: ShaderMaterial = ShaderMaterial.new()

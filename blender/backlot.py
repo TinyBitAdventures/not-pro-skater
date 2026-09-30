@@ -81,6 +81,8 @@ def western():
             # the bracing behind the false front (it's a set: nothing behind it)
             for yy in (y0 + 1.0, (y0 + y1) / 2, y1 - 1.0):
                 cyl_between(lib.uname("Brace"), (fx + side * 0.4, yy, h - 0.6), (fx + side * 3.4, yy, 0.0), 0.08, wood, seg=6)
+            # behind the set the braces stand in rows: one solid block there rather than a thicket to ride through
+            lib.col_box(lib.uname("SetBack"), (3.0, y1 - y0, h), (fx + side * 1.9, (y0 + y1) / 2, h / 2))
             school.text_mesh(f"WestSign{side}{k}", label, 0.7, (fx - side * 0.06, (y0 + y1) / 2, h - 1.2),
                              (math.pi / 2, 0.0, -side * math.pi / 2), mat("SignCream", "#efe4c8"), depth=0.03)
             r = empty(lib.uname("WestWindows"), (0, 0, 0), 0.0, None)
@@ -97,6 +99,7 @@ def western():
             hx = ex - side * 1.2
             for yy in (y0 + 3.0, y1 - 3.0):
                 cyl_z(lib.uname("HitchPost"), (hx, yy, 0.0), 0.95, 0.07, wood, seg=8)
+                lib.col_box(lib.uname("HitchPost"), (0.16, 0.16, 0.95), (hx, yy, 0.475), surface="Wood")
             cyl_between(lib.uname("HitchRail"), (hx, y0 + 2.8, 0.9), (hx, y1 - 2.8, 0.9), 0.05, wood, seg=8)
             c = lib.col_box(lib.uname("HitchRail"), (0.14, y1 - y0 - 5.6, 0.14), (hx, (y0 + y1) / 2, 0.9), surface="Wood")
             rail(None, f"hitching_rail_{'w' if side < 0 else 'e'}{k}", [(hx, y0 + 3.2, 0.97), (hx, y1 - 3.2, 0.97)],
@@ -118,6 +121,7 @@ def new_york():
         box(f"Wall_NYFront{side}-col", (0.5, 40.0, 11.0), (fx + side * 0.25, 0.0, 5.5), brick)
         for yy in (-14.0, -4.0, 6.0, 15.0):            # clear of the director's table and the green screen's warp spot
             cyl_between(lib.uname("Brace"), (fx + side * 0.5, yy, 9.0), (fx + side * 4.0, yy, 0.0), 0.08, M("Timber"), seg=6)
+        lib.col_box(lib.uname("SetBack"), (3.5, 40.0, 9.0), (fx + side * 2.25, 0.0, 4.5))
         r = empty(lib.uname("NYWindows"), (0, 0, 0), 0.0, None)
         for z in (3.2, 6.6):
             for yy in range(-18, 20, 4):
@@ -208,6 +212,7 @@ def lot():
     # craft services: a tent over a table
     for (dx, dy) in ((-2.0, -1.5), (2.0, -1.5), (-2.0, 1.5), (2.0, 1.5)):
         cyl_z(lib.uname("TentPole"), (dx, 18.0 + dy, 0.0), 2.6, 0.035, M("Steel"), seg=6)
+        lib.col_box(lib.uname("TentPole"), (0.1, 0.1, 2.6), (dx, 18.0 + dy, 1.3), surface="Metal")
     box(lib.uname("TentRoof"), (4.6, 3.6, 0.06), (0.0, 18.0, 2.62), mat("TentWhite", "#eeeae2"))
     props.place("wooden_picnic_table", 0.0, 18.0, 90.0, surface="Wood")
     # the director's chair (a table beside it takes the script) and the video village
@@ -217,12 +222,14 @@ def lot():
     school.text_mesh("DirectorChair_text", "DIRECTOR", 0.09, (16.0, -17.71, 1.3), (math.pi / 2, 0.0, math.pi),
                      mat("SignWhite", "#f2f0ea"), depth=0.005)
     props.place("round_wooden_table_02", 17.4, -18.0, 0.0, surface="Wood")
-    box(lib.uname("Monitor"), (0.6, 0.08, 0.4), (17.4, -18.3, 1.1), mat("Rubber", "#1e1e1e"))
+    top = props.bounds("round_wooden_table_02")[1].z             # the monitor stands on the table (it floated above)
+    box(lib.uname("MonitorStand"), (0.12, 0.1, 0.16), (17.4, -18.3, top + 0.08), mat("Rubber", "#1e1e1e"))
+    box(lib.uname("Monitor"), (0.6, 0.08, 0.4), (17.4, -18.3, top + 0.36), mat("Rubber", "#1e1e1e"))
     # sound stages along the north edge (the lot's backdrop)
     for k, x in enumerate((-40.0, -14.0, 16.0, 44.0)):
         box(lib.uname("Wall_SoundStage") + "-col", (22.0, 16.0, 13.0), (x, 52.0, 6.5), mat("Stucco", "#d8cdb8"))
         prism(lib.uname("StageRoof"), [(44.0, 13.0), (60.0, 13.0), (52.0, 15.5)], x - 11.0, x + 11.0,
-              [mat("RoofDark", "#3a3c3e")] * 3, [0, 0, 0], [False] * 3, cap_mat=0)
+              [mat("StoneDk", "#8d8c88")] * 3, [0, 0, 0], [False] * 3, cap_mat=0)    # a stage's roof, not villa tiles
         school.text_mesh(f"StageNum{k}", f"STAGE {k + 4}", 1.2, (x, 43.95, 9.5), school.FACING_SOUTH,
                          mat("SignNavy", "#22304a"), depth=0.04)
         box(lib.uname("StageDoor"), (6.0, 0.1, 6.0), (x, 43.97, 3.0), mat("Galv", "#9ea4a8"))
@@ -235,14 +242,14 @@ def furniture():
         props.place("street_lamp_02", x, y, 0.0, surface="Metal")
     for (x, y) in ((-6.0, 12.0), (20.0, -26.0)):
         props.place("plastic_crate_02", x, y, 30.0, surface="Wall")
-    props.place("standing_chalkboard_01", 2.6, 16.0, 200.0, collide=False)
+    props.place("standing_chalkboard_01", 2.6, 16.0, 200.0, surface="Wood")
 
 
 def plant_trees():
     spots = [(-56.0, -20.0), (-56.0, 10.0), (56.0, -20.0), (56.0, 10.0), (-20.0, -26.0), (46.0, -26.0), (-46.0, 30.0),
              (56.0, 30.0)]
     for i, (x, y) in enumerate(spots):
-        trees.tree(lib.uname("Tree"), (x, y, 0.0), height=7.0 + (i * 37 % 4) * 0.6, crown=2.6, seed=200 + i)
+        trees.tree(lib.uname("Tree"), (x, y, 0.0), height=7.0 + (i * 37 % 4) * 0.6, crown=2.6, seed=200 + i, collide=True)
 
 
 def markers():
@@ -250,7 +257,7 @@ def markers():
     marker("Start_gate", 0.0, -24.0, 0.02, 0.0)
     marker("Start_west", WEST_X, -20.0, 0.02, 0.0)
     marker("Start_ny", NY_X, -20.0, 0.02, 0.0)
-    marker("Start_stunt", 0.0, 22.0, 0.02, 0.0)
+    marker("Start_stunt", 0.0, 27.0, 0.02, 0.0)                 # (at 22 the camera sat in the craft tent)
     marker("Start_green", 44.0, 25.0, 0.02, 0.0)
     marker("Start_dolly", 10.0, -23.4, 0.02, -90.0)
     # the director by the chair, the crew on the two street sets (a character at rot 0 faces south)
@@ -290,6 +297,12 @@ def build(out, bake=True, samples=128):
     terrain.backdrop(tree_fn=lambda name, base, h, crown, seed: trees.tree(name, base, height=h, crown=crown, seed=seed,
                                                                          cards=60, litter=0))
     terrain.edge_trees(tree_fn)
+    # the studio's wall round the other three sides (the lot ran straight into the meadow)
+    stucco = mat("StudioWall", "#d8cdb8")
+    for (cx, cy, w, d) in ((-62.4, 16.0, 0.4, 92.0), (62.4, 16.0, 0.4, 92.0), (0.0, 62.4, 125.2, 0.4)):
+        box(lib.uname("Wall_StudioWall") + "-col", (w, d, 3.6), (cx, cy, 1.8), stucco)
+    for x in range(-60, 61, 12):                      # pilasters along the north wall
+        box(lib.uname("StudioPier"), (0.8, 0.7, 3.9), (float(x), 62.3, 1.95), stucco)
     objs = list(bpy.context.scene.objects)
     realism.dress([o for o in objs if not o.get("library") and not o.name.startswith(("Tree", "Far_Tree", "FarTree"))])
     realism.split_collision()

@@ -99,7 +99,7 @@ def party():
     # lamps with bunting strung between them
     for x in (17.0, 33.0):
         props.place("street_lamp_02", x, 7.0, 180.0, surface="Metal")
-    bunting((17.0, 7.0, 3.6), (33.0, 7.0, 3.6), sag=0.9)
+    bunting((17.0, 7.0, 3.25), (33.0, 7.0, 3.25), sag=0.9)          # tied to the lamp posts' tops
 
 
 def bunting(a, b, sag=0.8, flags=26):
@@ -173,7 +173,7 @@ def plant_trees():
     spots = [(x, y) for (x, y) in spots if not any(x0 - 2.5 < x < x1 + 2.5 and y < -20.0 for (x0, x1) in paths)]
     for i, (x, y) in enumerate(spots):
         h = 6.0 + (i * 37 % 5) * 0.7
-        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=i)
+        trees.tree(lib.uname("Tree"), (x, y, terrain.lawn_z(x, y)), height=h, crown=2.6 + (i * 13 % 4) * 0.35, seed=i, collide=True)
 
 
 def neighbourhood_houses(north=True):
@@ -223,10 +223,11 @@ def street_details(crosswalk_x=-14.0):
     wire = paint("Wire", "#1b1b1c", 0.6)
     tops = []
     for px in (-58.0, -29.0, 0.0, 29.0, 58.0):
-        base = (px, -41.0, 0.0)
+        base = (px, -40.8, 0.0)                             # at the kerb, the sidewalk clear behind it
         lib.cyl_z(lib.uname("Pole"), base, 8.6, 0.14, mat("Pole", "#6b5a48"), r1=0.11, seg=8)
-        box(lib.uname("Pole_arm"), (0.12, 1.9, 0.12), (px, -41.0, 7.9), mat("Pole", "#6b5a48"))
-        tops.append([(px, -41.0 + dy, 8.0) for dy in (-0.85, 0.0, 0.85)])
+        lib.col_box(lib.uname("Pole"), (0.28, 0.28, 8.6), (px, -40.8, 4.3))
+        box(lib.uname("Pole_arm"), (0.12, 1.9, 0.12), (px, -40.8, 7.9), mat("Pole", "#6b5a48"))
+        tops.append([(px, -40.8 + dy, 8.0) for dy in (-0.85, 0.0, 0.85)])
     for a, b in zip(tops, tops[1:]):
         for p0, p1 in zip(a, b):
             pts = []

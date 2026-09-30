@@ -125,9 +125,9 @@ def facade(name, x0, x1, y0, y1, h, material, front_y=None, front_x=None, shop=N
 
 def buildings():
     brick = mat("Brick", "#9a5244")
-    cream = mat("SidingCream", "#d9cdb4")
+    cream = mat("Stucco", "#d9cdb4")          # plaster and stone for city buildings (clapboard read as giant houses)
     stone = mat("Stone", "#bdb8ad")
-    grey = mat("SidingGrey", "#8f9396")
+    grey = mat("Brownstone", "#8f9396")
     # the south-west block: the café on the corner of Second Street, shops down to the avenue
     facade("Cafe", -24.0, -12.0, 0.0, 16.0, 8.2, brick, front_x=-12.0, shop=("MORNING GLORY CAFE", "#2f6f5a"), seed=1)
     facade("ShopSW", -24.0, -12.0, -26.0, -4.0, 11.0, cream, front_x=-12.0, shop=("BOOKS", "#8a3b33"), seed=2)
@@ -169,6 +169,12 @@ def civic_plaza():
     pav = mat("Paving", "#a09c94")
     stone = mat("StoneDk", "#8d8c88")
     box("Plaza_Civic-col", (x1 - x0, y1 - y0, PLAZA_H), ((x0 + x1) / 2, (y0 + y1) / 2, PLAZA_H / 2), pav)
+    # a stone skirt round its sides (the paving on a 1.5 m wall read as pixelated blockwork); the ramp and the
+    # stairs cover parts of it
+    sk = 0.03
+    for (cx_, cy_, w_, d_) in (((x0 + x1) / 2, y0 - sk / 2, x1 - x0 + 2 * sk, sk), ((x0 + x1) / 2, y1 + sk / 2, x1 - x0 + 2 * sk, sk),
+                               (x0 - sk / 2, (y0 + y1) / 2, sk, y1 - y0), (x1 + sk / 2, (y0 + y1) / 2, sk, y1 - y0)):
+        box(lib.uname("PlazaSkirt"), (w_, d_, PLAZA_H - 0.04), (cx_, cy_, (PLAZA_H - 0.04) / 2), stone)
     # the ramp up along the west side, rising north from the sidewalk
     L = 14.0
     rx0, rx1 = x0 - 3.0, x0                                       # on the sidewalk, against the plaza's west wall
@@ -319,9 +325,10 @@ def market():
 def cafe_tables():
     for k, y in enumerate((2.0, 6.0, 10.0)):
         props.place("round_wooden_table_02", -10.2, y, 0.0, z=CURB, surface="Wood")
-    box(lib.uname("Wood_CafeCounter") + "-col", (0.5, 2.2, 0.08), (-11.75, 13.0, CURB + 1.0), mat("StallWood", "#8a6a48"))
+    # the take-away counter under the café's window: solid down to the sidewalk (it was a plank in mid-air)
+    box(lib.uname("Wood_CafeCounter") + "-col", (0.5, 2.2, 1.04), (-11.75, 13.0, CURB + 0.52), mat("StallWood", "#8a6a48"))
     props.place("round_wooden_table_02", TOWER[0] - 1.4, 41.0, 0.0, z=PLAZA_H, surface="Wood")   # the lobby desk
-    props.place("standing_chalkboard_01", -9.6, 13.4, 110.0, z=CURB, collide=False)
+    props.place("standing_chalkboard_01", -9.6, 13.4, 110.0, z=CURB, surface="Wood")
 
 
 def furniture():
@@ -343,7 +350,7 @@ def plant_trees():
     for i, (x, y) in enumerate(spots):
         box(lib.uname("TreeGrate"), (1.2, 1.2, 0.012), (x, y, CURB + 0.006), M("Steel"))
         trees.tree(lib.uname("Tree"), (x, y, CURB), height=6.5 + (i * 37 % 4) * 0.6, crown=2.2 + (i * 13 % 3) * 0.3,
-                   seed=160 + i)
+                   seed=160 + i, collide=True, litter=0)      # in grates on the sidewalk: no leaves on the paving
 
 
 def markers():
@@ -390,8 +397,9 @@ def build(out, bake=True, samples=128):
     furniture()
     plant_trees()
     markers()
-    terrain.backdrop(tree_fn=lambda name, base, h, crown, seed: trees.tree(name, base, height=h, crown=crown, seed=seed,
-                                                                         cards=60, litter=0))
+    # the city goes on: paved to the horizon, blocks all round (the streets used to end in a grassy meadow)
+    terrain.backdrop(road_top=0.0, walk_top=CURB, ground=("FarCity", "#9c988f"), far_trees=False, hills=False)
+    terrain.city_blocks(seed=11)
     objs = list(bpy.context.scene.objects)
     realism.dress([o for o in objs if not o.get("library") and not o.name.startswith(("Tree", "Far_Tree", "FarTree"))])
     realism.split_collision()

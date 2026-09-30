@@ -9,7 +9,7 @@ centre.
 import math
 import random
 
-from lib import box, cyl_between, cyl_z, mat, prism, quad, uname
+from lib import box, col_box, cyl_between, cyl_z, mat, prism, quad, uname
 
 _glass = None
 
@@ -39,6 +39,9 @@ def house(root, w=10.0, d=9.0, h=5.6, siding="Siding", seed=0, storeys=2, roof="
     body = box(uname("House_body"), (w, d, h - base_h), (0, 0, base_h + (h - base_h) / 2), mat(siding, "#dddddd"),
                parent=root)
     box(uname("House_base"), (w + 0.1, d + 0.1, base_h), (0, 0, base_h / 2), mat("Brick", "#aa5544"), parent=root)
+    # the drawn house has no collision of its own: riders rode straight through the walls (and the camera sat
+    # inside them). One box for the body; the roof is out of reach
+    col_box(uname("House"), (w + 0.1, d + 0.1, h), (0, 0, h / 2), parent=root)
     # gable roof along X, 0.4 m overhang
     rise = d * 0.36
     ov = 0.4
@@ -116,6 +119,7 @@ def _garage(root, w, d, siding, roof, trim, left=True):
     gx = s * (w / 2 + gw / 2)
     gy = d / 2 - gd / 2
     box(uname("House_garage"), (gw, gd, gh), (gx, gy, gh / 2), mat(siding, "#dddddd"), parent=root)
+    col_box(uname("Garage"), (gw, gd, gh), (gx, gy, gh / 2), parent=root)
     rise = 1.1
     pts = [(-gw / 2 - 0.3, gh - 0.05), (gw / 2 + 0.3, gh - 0.05), (0.0, gh + rise)]
     # gable with the ridge running front to back: the prism extrudes along its X, turned a quarter to lie along Y
@@ -152,6 +156,7 @@ def _yard(root, w, d, yard, door_x, garage_x, frontage, trim, rnd):
     mx = door_x + 1.2
     box(uname("House_mailpost"), (0.08, 0.08, 1.05), (mx, y1 - 0.25, 0.52), mat("Door", "#6b3b2a"), parent=root)
     box(uname("House_mailbox"), (0.22, 0.46, 0.22), (mx, y1 - 0.25, 1.15), mat("Shutter", "#2f3b36"), parent=root)
+    col_box(uname("Mailbox"), (0.14, 0.14, 1.26), (mx, y1 - 0.25, 0.63), parent=root)
 
 
 def _picket_fence(root, x0, x1, y, gaps, trim, h=0.95):
@@ -173,3 +178,4 @@ def _picket_fence(root, x0, x1, y, gaps, trim, h=0.95):
     for a, b in rails:
         for z in (0.3, h - 0.2):
             box(uname("Fence_rail"), (b - a, 0.03, 0.06), ((a + b) / 2, y - 0.03, z), trim, parent=root)
+        col_box(uname("Fence"), (b - a, 0.12, h), ((a + b) / 2, y - 0.015, h / 2), parent=root)
