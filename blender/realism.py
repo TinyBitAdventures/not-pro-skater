@@ -41,7 +41,11 @@ SETS = {
     "siding": ("WoodSiding009", 2.0, (0.95, 0.93, 0.88), 0.0, True),
     "siding_blue": ("WoodSiding009", 2.0, (0.55, 0.68, 0.82), 0.0, True),
     "siding_sage": ("WoodSiding009", 2.0, (0.62, 0.72, 0.58), 0.0, True),
+    "siding_cream": ("WoodSiding009", 2.0, (0.93, 0.85, 0.68), 0.0, True),
+    "siding_grey": ("WoodSiding009", 2.0, (0.6, 0.62, 0.64), 0.0, True),
     "roof": ("RoofingTiles006", 2.5, (1.0, 1.0, 1.0), 0.0, True),
+    "roof_dark": ("RoofingTiles006", 2.5, (0.36, 0.36, 0.38), 0.0, True),
+    "roof_brown": ("RoofingTiles006", 2.5, (0.6, 0.47, 0.38), 0.0, True),
     "brick": ("Bricks101", 1.5, (1.0, 1.0, 1.0), 0.0, True),
     "paving": ("PavingStones128", 2.0, (1.0, 1.0, 1.0), 0.0, True),
     "dirt": ("Ground037", 3.0, (1.0, 1.0, 1.0), 0.0, True),
@@ -59,6 +63,8 @@ KIT = {
     "Red": "paint_red", "Yellow": "paint_red", "Orange": "paint_red", "Blue": "paint_red",
     "Siding": "siding", "SidingBlue": "siding_blue", "SidingSage": "siding_sage", "Roof": "roof", "Brick": "brick",
     "Paving": "paving", "Dirt": "dirt", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
+    "SidingCream": "siding_cream", "SidingGrey": "siding_grey", "RoofDark": "roof_dark", "RoofBrown": "roof_brown",
+    "Pole": "wood_side", "Driveway": "concrete",
 }
 
 _mats = {}

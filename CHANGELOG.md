@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Polish: the neighbourhood
+- **Concrete looks poured, not tiled:** saw-cut expansion joints on a 2 m grid across the plaza and cross cuts along the sidewalks (world-space, in `baked_pbr.gdshader`, laid out by `<level>.look.json` which `neighborhood.py` writes), and large-scale variation on every baked surface so textures never repeat exactly (grass drifts to dry yellow in patches, concrete and asphalt stain).
+- **Houses with character** (`blender/houses.py`): three roof colours and five sidings, chimneys, porches over the doors, window sills and shutters, attached garages with driveways, front walks, picket fences or rows of shrubs, mailboxes. Seven houses across the street at 17 m spacing so every garage fits.
+- **A real street:** dashed centre line, a crosswalk where the park path meets the road, power poles with sagging wires.
+- **Shaded walls are no longer black:** the bake only contains the park, so a wall facing away from the sun missed the bounce light a real street gives it; baked light is lifted on vertical faces (`wall_fill`) and a touch overall. The dark line along every curb is gone too (raised slabs are only as thick as their step, so no buried face bakes black and bleeds).
+- The world lightmap is 1024 (lawn, street and houses carry soft light; the plaza keeps 2048), which brings the web build back to 77 MB.
+
 ### Polish: characters
 - **Everyone dresses differently now:** five of ten characters wore the same blue tee and jeans. `character.py` can recolour a plain garment (`tint`: the texture's own shading, the new colour); The Vlogger has a red tee and denim shorts, The Dad a green polo, Grandpa a tan one, Maya a yellow tee, Leo (the birthday boy) an orange tee and cargo pants, his mom a red knit sweater with her hair in a bun (her grey bob read as white).
 - **Hair renders properly:** it came in alpha-blended (Blender 5 no longer exports the cutout setting), which left dark patches on the scalp; it is now a hard cutout smoothed by alpha to coverage, and casts real shadows. Brows and lashes stay soft.

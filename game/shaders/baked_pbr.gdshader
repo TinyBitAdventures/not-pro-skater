@@ -2,6 +2,10 @@ shader_type spatial;
 // Static level surfaces with baked light (blender/realism.py). The live sun adds direct light and shadows;
 // the lightmap (second UV set) supplies everything else: sky light, bounce light and soft occlusion.
 // Ambient light is disabled here so the sky is not counted twice. Works in the Compatibility renderer.
+//
+// Two touches that stop big surfaces looking like one repeated tile: large-scale variation from a world-space
+// noise (patchy grass, stained concrete), and saw-cut expansion joints on flat concrete (a grid inside the
+// plaza, cross cuts along sidewalks), laid out by the level's <level>.look.json.
 render_mode ambient_light_disabled;
 
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable, hint_default_white;
@@ -15,17 +19,64 @@ uniform float normal_scale = 1.0;
 uniform sampler2D lightmap : hint_default_black, filter_linear_mipmap;
 uniform float lm_range = 2.0;       // the PNG stores sqrt(light / lm_range)
 uniform float bake_energy = 1.0;
+// Walls get extra baked light. The bake only contains the park, so a wall in shade misses the bounce a real
+// street gives it (the houses opposite, the rest of the neighbourhood) and came out near black next to sunlit
+// ground; this lifts vertical faces only, leaving the ground's shade and contact shadows as baked.
+uniform float wall_fill = 1.0;
+
+uniform sampler2D macro_tex : hint_default_white, filter_linear_mipmap, repeat_enable;   // seamless noise
+uniform float macro_amount = 0.0;          // +- brightness from the large-scale noise
+uniform vec3 macro_tint = vec3(1.0);       // what the patches drift toward (grass: dry and yellow)
+uniform float macro_tint_amount = 0.0;
+uniform vec2 joint_grid = vec2(0.0);       // saw cuts every (x, z) metres inside joint_rect; 0 = none
+uniform vec4 joint_rect = vec4(0.0);       // min x, min z, max x, max z
+uniform float joint_along_x = 0.0;         // elsewhere on flat ground: cross cuts every this many metres along x
+uniform float joint_width = 0.006;
+
+varying vec3 wpos;
+varying vec3 wnorm;
+
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnorm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+
+// 1 on a line every `spacing` metres, antialiased by the screen-space footprint
+float cut(float coord, float spacing) {
+	float d = abs(fract(coord / spacing + 0.5) - 0.5) * spacing;
+	float aa = fwidth(coord);
+	return (1.0 - smoothstep(joint_width, joint_width + aa, d)) * clamp(0.04 / max(aa, 0.0001), 0.0, 1.0);
+}
 
 void fragment() {
 	vec4 a = texture(albedo_tex, UV) * albedo;
-	ALBEDO = a.rgb;
+	vec3 col = a.rgb;
+	if (macro_amount > 0.0) {
+		float n1 = texture(macro_tex, wpos.xz * 0.043).r;
+		float n2 = texture(macro_tex, wpos.xz * 0.011 + vec2(0.37, 0.71)).r;
+		float n = n1 * 0.6 + n2 * 0.4;
+		col *= 1.0 + (n - 0.5) * 2.0 * macro_amount;
+		col = mix(col, col * macro_tint, clamp((n2 - 0.45) * 2.2, 0.0, 1.0) * macro_tint_amount);
+	}
+	float joint = 0.0;
+	if (wnorm.y > 0.9) {
+		bool in_rect = wpos.x > joint_rect.x && wpos.x < joint_rect.z && wpos.z > joint_rect.y && wpos.z < joint_rect.w;
+		if (joint_grid.x > 0.0 && in_rect) {
+			joint = max(cut(wpos.x, joint_grid.x), cut(wpos.z, joint_grid.y));
+		} else if (joint_along_x > 0.0 && abs(wpos.y) < 0.05) {
+			joint = cut(wpos.x, joint_along_x);
+		}
+	}
+	col *= 1.0 - joint * 0.6;
+	ALBEDO = col;
 	vec4 orm = texture(orm_tex, UV);
-	ROUGHNESS = orm.g * roughness;
+	ROUGHNESS = mix(orm.g * roughness, 1.0, joint);
 	METALLIC = orm.b * metallic;
 	if (has_normal) {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
 		NORMAL_MAP_DEPTH = normal_scale;
 	}
 	vec3 lm = texture(lightmap, UV2).rgb;
-	EMISSION = a.rgb * lm * lm * lm_range * bake_energy;
+	float fill = mix(1.0, wall_fill, clamp(1.0 - abs(wnorm.y), 0.0, 1.0));
+	EMISSION = col * lm * lm * lm_range * bake_energy * fill;
 }

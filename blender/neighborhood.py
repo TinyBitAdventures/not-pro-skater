@@ -47,18 +47,19 @@ def marker(name, x, y, z=0.02, rot_deg=0.0):
 def ground():
     # lawn around everything, with holes left for the hard surfaces (separate slabs sit on top)
     slab("Lawn", "Grass", "Grass", -60.0, 60.0, -30.0, 60.0, top=LAWN_Z)
-    # street: sidewalk, curb drop, road, sidewalk
-    slab("SidewalkN", "Concrete", "Sidewalk", -60.0, 60.0, -32.5, -30.0, top=0.0)
-    slab("Road", "Path", "Road", -60.0, 60.0, -40.5, -32.5, top=ROAD_Z)
-    slab("SidewalkS", "Concrete", "Sidewalk", -60.0, 60.0, -43.0, -40.5, top=0.0)
+    # street: sidewalk, curb drop, road, sidewalk. Raised slabs are only as thick as their step down (plus a
+    # little): a buried side face bakes black and bleeds into the visible strip as a dark line along the curb.
+    slab("SidewalkN", "Concrete", "Sidewalk", -60.0, 60.0, -32.5, -30.0, top=0.0, t=0.18)
+    slab("Road", "Path", "Road", -60.0, 60.0, -40.5, -32.5, top=ROAD_Z, t=0.3)
+    slab("SidewalkS", "Concrete", "Sidewalk", -60.0, 60.0, -43.0, -40.5, top=0.0, t=0.18)
     slab("FrontYards", "Grass", "Grass", -60.0, 60.0, -60.0, -43.0, top=LAWN_Z)
     # the skate plaza, the path in from the street and the one across to the party
-    slab("Plaza", "Plaza", "Plaza", -34.0, 6.0, -24.0, 10.0, top=0.0, group="plaza")
-    slab("PathIn", "Path", "Path", -16.0, -12.0, -30.0, -24.0, top=-0.01)
-    slab("PathEast", "Path", "Path", 6.0, 16.0, -4.0, 0.0, top=-0.01)
-    slab("PathNorth", "Path", "Path", -16.0, -12.0, 10.0, 45.0, top=-0.01)
+    slab("Plaza", "Plaza", "Plaza", -34.0, 6.0, -24.0, 10.0, top=0.0, t=0.1, group="plaza")
+    slab("PathIn", "Path", "Path", -16.0, -12.0, -30.0, -24.0, top=-0.01, t=0.08)
+    slab("PathEast", "Path", "Path", 6.0, 16.0, -4.0, 0.0, top=-0.01, t=0.08)
+    slab("PathNorth", "Path", "Path", -16.0, -12.0, 10.0, 45.0, top=-0.01, t=0.08)
     # the picnic area: paving stones
-    slab("Picnic", "Plaza", "Paving", 16.0, 34.0, -12.0, 8.0, top=0.0, group="plaza")
+    slab("Picnic", "Plaza", "Paving", 16.0, 34.0, -12.0, 8.0, top=0.0, t=0.1, group="plaza")
 
 
 def skate_features():
@@ -141,14 +142,64 @@ def plant_trees():
 
 
 def neighbourhood_houses():
-    sidings = ["Siding", "SidingBlue", "SidingSage", "Siding", "SidingSage", "SidingBlue", "Siding", "SidingBlue"]
-    for i, x in enumerate(range(-52, 53, 15)):
+    """Seven houses across the street (garages, yards, fences or shrubs, mailboxes) and five behind the park."""
+    sidings = ["Siding", "SidingBlue", "SidingCream", "SidingSage", "SidingGrey", "Siding", "SidingBlue"]
+    roofs = ["Roof", "RoofDark", "RoofBrown"]
+    for i, x in enumerate(range(-51, 52, 17)):
+        w, d = 9.5 + (i % 3) * 0.75, 8.5
         r = empty(lib.uname("House"), (float(x), -50.5, 0.0), 0.0, None)
-        houses.house(r, w=10.0 + (i % 3), d=8.5, h=5.6 if i % 2 == 0 else 3.2, siding=sidings[i % len(sidings)],
-                     seed=i, storeys=2 if i % 2 == 0 else 1)
+        garage = i % 2 == 0
+        frontage = ["fence", "shrubs", None][i % 3]
+        houses.house(r, w=w, d=d, h=5.6 if i % 2 == 0 else 3.2, siding=sidings[i % len(sidings)], seed=i,
+                     storeys=2 if i % 2 == 0 else 1, roof=roofs[i % 3], garage=garage, chimney=i % 3 != 1,
+                     yard=-43.0 - (-50.5 + d / 2), frontage=frontage)
+        if frontage == "shrubs":
+            for k in range(4):
+                sx = x - w / 2 + 0.8 + k * (w - 1.6) / 3
+                if abs(sx - x) > 1.2:                    # keep the front walk clear
+                    props.place("shrub_03", sx, -43.9, i * 31.0 + k * 77.0, scale=0.8, collide=False)
     for i, x in enumerate(range(-45, 50, 18)):
         r = empty(lib.uname("House"), (float(x), 55.0, 0.0), math.pi, None)
-        houses.house(r, w=11.0, d=9.0, h=5.6, siding=sidings[(i + 3) % len(sidings)], seed=20 + i)
+        houses.house(r, w=11.0, d=9.0, h=5.6, siding=sidings[(i + 3) % len(sidings)], seed=20 + i,
+                     roof=roofs[(i + 1) % 3], chimney=i % 2 == 0)
+
+
+def paint(name, hex_color, rough=0.85):
+    m = mat(name, hex_color)
+    bsdf = m.node_tree.nodes.get("Principled BSDF")
+    if bsdf is not None:
+        bsdf.inputs["Roughness"].default_value = rough
+    return m
+
+
+def street_details():
+    """A dashed centre line, a crosswalk where the park path meets the street, and power poles with sagging
+    wires along the far sidewalk."""
+    z = ROAD_Z + 0.004
+    yellow = paint("LineYellow", "#d9ac3a")
+    white = paint("LineWhite", "#e6e3da")
+    x = -58.0
+    while x < 58.0:
+        if not -17.0 < x < -11.0:
+            box(lib.uname("Line"), (3.0, 0.12, 0.008), (x + 1.5, -36.5, z), yellow)
+        x += 9.0
+    for k in range(7):
+        box(lib.uname("Crosswalk"), (3.2, 0.5, 0.008), (-14.0, -39.6 + k * 1.05, z), white)
+    wire = paint("Wire", "#1b1b1c", 0.6)
+    tops = []
+    for px in (-58.0, -29.0, 0.0, 29.0, 58.0):
+        base = (px, -41.0, 0.0)
+        lib.cyl_z(lib.uname("Pole"), base, 8.6, 0.14, mat("Pole", "#6b5a48"), r1=0.11, seg=8)
+        box(lib.uname("Pole_arm"), (0.12, 1.9, 0.12), (px, -41.0, 7.9), mat("Pole", "#6b5a48"))
+        tops.append([(px, -41.0 + dy, 8.0) for dy in (-0.85, 0.0, 0.85)])
+    for a, b in zip(tops, tops[1:]):
+        for p0, p1 in zip(a, b):
+            pts = []
+            for i in range(9):
+                t = i / 8
+                pts.append((p0[0] + (p1[0] - p0[0]) * t, p0[1], p0[2] - 0.6 * 4 * t * (1 - t)))
+            for q0, q1 in zip(pts, pts[1:]):
+                lib.cyl_between(lib.uname("Wire"), q0, q1, 0.012, wire, seg=4, caps=False)
 
 
 def event_markers():
@@ -165,12 +216,22 @@ def event_markers():
         marker(f"Event_letter_{letter}", x, y, z)
 
 
+def write_look(out_glb):
+    """Surface dressing Godot applies to the baked concrete (baked_pbr.gdshader): a 2 m saw-cut grid across the
+    plaza (its edges sit on the grid) and cross cuts every 1.5 m along the sidewalks. Godot axes (x, -y)."""
+    import json
+    look = {"joints": {"PBR_concrete": {"grid": [2.0, 2.0], "rect": [-34.0, -10.0, 6.0, 24.0], "along_x": 1.5}}}
+    with open(out_glb[:-4] + ".look.json", "w") as f:
+        json.dump(look, f, indent=1)
+
+
 def build(out_glb, bake=True, samples=128):
     ground()
     skate_features()
     party()
     furniture()
     neighbourhood_houses()
+    street_details()
     plant_trees()
     event_markers()
     objs = list(lib.bpy.context.scene.objects)
@@ -185,6 +246,7 @@ def build(out_glb, bake=True, samples=128):
     if bake:
         base = out_glb[:-4]
         realism.bake(plaza, base + ".lightmap.plaza.png", samples=samples)
-        realism.bake(world, base + ".lightmap.world.png", samples=samples)
+        realism.bake(world, base + ".lightmap.world.png", size=1024, samples=samples)     # lawn, street, houses: soft light
     props.remove_library()
     realism.join_live()
+    write_look(out_glb)

@@ -60,6 +60,8 @@ func load_glb(path: String, look: String = "real") -> void:
 		var base: String = path.get_basename()
 		if FileAccess.file_exists(base + ".lightmap.json"):
 			lightmap_info = JSON.parse_string(FileAccess.get_file_as_string(base + ".lightmap.json"))
+		if FileAccess.file_exists(base + ".look.json"):      # surface dressing: expansion joints and the like
+			lightmap_info["look"] = JSON.parse_string(FileAccess.get_file_as_string(base + ".look.json"))
 		var maps: Dictionary = {}
 		if ResourceLoader.exists(base + ".lightmap.png"):
 			maps[""] = load(base + ".lightmap.png")
