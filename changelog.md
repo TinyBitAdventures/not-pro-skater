@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### Four more levels: every rider has a home event
+Six events now, one for each rider plus the Skate-a-thon everyone rides. Each new level is a real-scale place built like the first two (a Blender script, CC0 PBR materials, light baked in Cycles, grind lines as curves) with its own sky, bystanders and item to carry, and every one is free to skate without a timer (Free Skate on the title menu).
+
+- **Launch Day at Hilltop Tech** (the Dev, `scenes/launchday.tscn`, level `blender/campus.py`): an office campus at midday on the day the team ships. Eight granite atrium steps with three handrails and a hubba, a plaza with two long planter ledges, a fountain with a grindable rim and a manual pad, a sunken amphitheatre with three curved tiers of ledges round a stage, a 1.6 m parking deck with a railed ramp, the campus sign's ledge, and the company picnic on the lawn with a food truck. Goals: D-E-P-L-O-Y, the pizzas from the food truck to the picnic, a long planter ledge, show the team, a 6,000 demo combo at the stage, 30,000 points. 19 grind lines.
+- **Record Release in the Warehouse District** (the Musician, `scenes/recordrelease.tscn`, `blender/warehouse.py`): an old industrial block in the late afternoon, the band's record release show at the Foundry. The Foundry's 1.2 m loading dock (its edge a ledge, a ramp down) with the tour van below, a parking lot with bays, wheel stops and a long median curb, a scaffold stage with speaker stacks and the fans, an alley with a bank up the wall and a railed side door, corrugated sheds up a long railed ramp. Goals: V-I-N-Y-L, the merch box from the van to the table, grind the dock, hype the fans, a 7,000 combo in front of the stage, 35,000 points. 22 grind lines.
+- **Rush Hour Downtown** (the Vlogger, `scenes/rushhour.tscn`, `blender/downtown.py`): a few city blocks on a market morning. Market Street is closed to cars with stalls on the road and grindable curbs both sides, a café with sidewalk tables, a civic plaza raised 1.5 m (a railed ramp up, wide stairs down with the big rail and a hubba, the office tower's lobby), a bank to wall, a corner mini plaza where the camera is set up, a subway kiosk. Goals: V-I-R-A-L, the one-take run (six checkpoints from the market to the plaza and back round in 45 s, no bails), the coffee order to the office lobby, film the intro (a 5,000 combo on camera), grind the big rail, 35,000 points. 13 grind lines.
+- **Between Takes at Big Moon Studios** (the Actor, `scenes/betweentakes.tscn`, `blender/backlot.py`): a film studio backlot in the afternoon. A western street of false fronts with raised boardwalks (their edges ledges) and hitching rails, a New York street of brownstones with railed stoops, a big stunt quarter pipe, a green screen cyclorama wall to ride like a quarter pipe, two long dolly tracks to grind, trailers, craft services and the director's chair. Goals: A-C-T-I-O-N, hit your four chalk marks (stop on each one), the script pages to the director's chair, grind the dolly track, impress the director and crew, 40,000 points. 23 grind lines.
+- New bystanders for each: three coworkers, three fans, the director and two crew (MPFB, CC0 assets only), and new carried items (pizza boxes, a merch box, a coffee tray, script pages).
+- New goal kinds: `zone_combo` (a combo landed inside an area, drawn as a ring on the ground), `timed_run` (checkpoints in order against the clock; a bail or the clock ruins the take and sends you back to the start) and `marks` (chalk X marks to stop on, like an actor's). `deliver` takes any item.
+- Tests: the event test drives every new goal kind (`EVENT=launchday|recordrelease|rushhour|betweentakes`), the rail audit grinds every line on each level (`LEVEL=campus|warehouse|downtown|backlot`), and the route ride test rides the one-take run's checkpoints with real physics (`EVENT=rushhour scenes/dev_lapride.tscn`).
+- `./build.sh` runs one Blender process per target (a level's module caches don't survive the next level's scene reset), and `build.py` loads any level module by name.
+
+### Desktop builds
+- macOS (universal, ad-hoc signed), Windows and Linux builds, every level in one package, with the board icon. They open an event or level straight away with `-- --scene=<id>`, like the web build's `?scene=`.
+
+### Title menu: every event, every level
+- The title menu's Event row cycles through the six events (their home rider, goals done and best score or money raised), and Free Skate cycles through the six levels. Progress totals count goals across all events.
+
+### Web: later levels download when you play them
+- The web build's first download holds the first two levels; each later level is its own resource pack next to `index.html` (`levels/<level>.pck`, 10 to 20 MB), fetched the first time in a session you start its event or free skate there (the browser's cache usually keeps it for next time), with a download line in the corner. So the first download stays under the 80 MB budget however many levels the game has. `tools/web_packs.py` writes the pack presets into `export_presets.cfg` from each level's glTF (the textures only it uses, its characters, items and sky).
+
+### Fixes
+- House and school windows no longer flicker: their glass was a thin box whose back face fought the wall behind it; it is a single quad just in front of the wall now.
+- The school's doors are wide enough to see as doors (1.15 m).
+- The Warehouse District's sky was drawn so bright it washed the lot out (its sky image is three times brighter than the others'); drawn at the others' brightness now. No car parked in front of the spawn.
+
 ### Sounds with known licences only
 - Six sound effects (ollie, land, hard landing, grab, grind start, manual) were made with community synth patches whose terms were never confirmed. They are replaced by stand-ins made only from Wavelength's own instruments, loudness-matched to the originals, so everything the game ships has known terms. The music and sound effects are released with the game under its MIT licence (readme, audio credits).
 
