@@ -67,6 +67,13 @@ static var _shared: SkateTuning = null
 
 @export_group("Vert")
 @export_range(0.0, 0.9, 0.01) var vert_normal_y: float = 0.45   ## leaving a face steeper than this (normal.y) locks the air to the wall
+@export_range(0.2, 2.0, 0.05) var lip_reach: float = 0.85         ## lip tricks: how far from the coping (horizontally) grind still catches it
+@export_range(0.0, 2.0, 0.05) var lip_reach_above: float = 1.1   ## and how high above it (coming back down onto it)
+@export_range(0.0, 2.0, 0.05) var lip_reach_below: float = 0.9   ## and how far below (riding up to it)
+@export_range(0.1, 1.5, 0.05) var lip_arm_time: float = 0.7      ## grind pressed on the way up waits this long for the coping
+@export_range(0.5, 10.0, 0.5) var lip_max_time: float = 5.0      ## a stall held this long drops back in by itself
+@export_range(0.0, 6.0, 0.1) var lip_wobble: float = 1.6         ## how fast the stall's balance tips away
+@export_range(0.0, 6.0, 0.1) var lip_control: float = 4.5        ## how hard left / right brings it back
 @export_range(0.3, 0.99, 0.01) var vert_face_y: float = 0.93     ## on a quarter / half pipe, leaving the face anywhere steeper than this (normal.y) going up locks the air
 @export_range(40.0, 89.0, 1.0) var vert_along_angle: float = 78.0 ## on a quarter / half pipe, only riding this close to along the coping skips the lock
 @export_range(10.0, 90.0, 1.0) var transfer_angle: float = 50.0  ## riding across a face at more than this many degrees skips the lock (hips)

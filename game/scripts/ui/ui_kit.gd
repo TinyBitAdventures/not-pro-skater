@@ -124,6 +124,7 @@ const CONTROLS: Array = [
 	["J", "X", "flip trick (hold a direction for variations)"],
 	["K", "B", "hold to grab (hold a direction for variations)"],
 	["L", "Y", "grind: press near or toward a rail, ledge or coping"],
+	["L + stick", "Y + STICK", "at the top of a quarter / half pipe: lip trick (stall; left / right balance, jump to drop in)"],
 	["W, S", "UP, DOWN", "quick taps: manual     S, W / DOWN, UP  nose manual"],
 	["W / S", "STICK", "in a manual: keep the balance meter centred"],
 	["M", "RT", "at a ramp lip: transfer; after a ramp landing: revert"],

@@ -10,6 +10,13 @@ const GRABS: Dictionary = {
 	"none": ["Indy", 200], "left": ["Melon", 250], "right": ["Mute", 250],
 	"forward": ["Nosegrab", 300], "back": ["Method", 500],
 }
+## Lip tricks: stalls on a quarter / half pipe's coping, by stick direction relative to the board:
+## [name, points, comes back in fakie]
+const LIPS: Dictionary = {
+	"none": ["Rock to Fakie", 400, true], "forward": ["Nose Stall", 350, false], "back": ["Blunt to Fakie", 550, true],
+	"left": ["Axle Stall", 400, false], "right": ["Disaster", 500, true],
+}
+const LIP_HOLD_RATE: float = 180.0
 const GRIND_HOLD_RATE: float = 220.0
 const GRAB_HOLD_RATE: float = 140.0
 const MANUAL_HOLD_RATE: float = 110.0

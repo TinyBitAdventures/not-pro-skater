@@ -120,7 +120,7 @@ func tick(_dt: float) -> void:
 	var s: Skater = skater
 	var foot: Vector3 = s.global_position + Vector3.UP * 0.05
 	# sparks off metal (rails, coping) while grinding; grit off concrete (ledges, curbs)
-	var grinding: bool = s.state == Skater.State.GRIND
+	var grinding: bool = s.state == Skater.State.GRIND and s.lip_kind == ""      # a lip stall does not slide
 	var metal: bool = grinding and s.grind_line != null and (s.grind_line.kind == "rail" or s.grind_line.kind == "coping")
 	_sparks.global_position = foot
 	_sparks.emitting = metal

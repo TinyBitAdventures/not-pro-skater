@@ -104,6 +104,13 @@ var flip_kind: String = ""
 var flip_t: float = 0.0
 var grab_kind: String = ""
 var grind_kind: String = ""
+var lip_kind: String = ""                # a lip stall in progress (Rock to Fakie, Axle Stall, ...): GRIND on a coping, standing still
+var lip_balance: float = 0.0             # -1..1: past either end the stall is lost (HUD meter, like a manual)
+var _lip_time: float = 0.0
+var _lip_vel: float = 0.0
+var _lip_out: Vector3 = Vector3.ZERO     # horizontal, away from the wall: back into the ramp
+var _lip_arm: float = 0.0                # grind pressed on the way up: stall when the coping comes in reach
+var _lip_fakie: bool = false
 var grind_line: GrindLine = null
 var grind_dist: float = 0.0
 var grind_dir: float = 1.0
@@ -301,6 +308,7 @@ func _step(delta: float) -> void:
 	_release_buf = maxf(0.0, _release_buf - delta)
 	charge_mode = force_charge or (not scripted and Game.jump_mode == "hold")
 	_grind_buf = maxf(0.0, _grind_buf - delta)
+	_lip_arm = maxf(0.0, _lip_arm - delta)
 	_flip_buf = maxf(0.0, _flip_buf - delta)
 	_grind_cd = maxf(0.0, _grind_cd - delta)
 	_coyote = maxf(0.0, _coyote - delta)
@@ -474,6 +482,10 @@ func _ground(dt: float) -> void:
 	else:
 		crouch = move_toward(crouch, 0.25 if on_ramp else 0.0, 6.0 * dt)
 
+	if floor_vert and velocity.y > 0.5 and (_grind_buf > 0.0 or _lip_arm > 0.0):
+		_lip_arm = maxf(_lip_arm, tune.lip_arm_time if _grind_buf > 0.0 else 0.0)
+		if _try_lip():
+			return
 	if _grind_buf > 0.0 and _try_grind():
 		return
 	if charge_mode:
@@ -816,6 +828,11 @@ func _air(dt: float) -> void:
 		if score != null:
 			score.release_hold("grab")
 
+	if vert_air and (_grind_buf > 0.0 or _lip_arm > 0.0):
+		_lip_arm = maxf(_lip_arm, tune.lip_arm_time if _grind_buf > 0.0 else 0.0)
+		if _try_lip():
+			return
+		_grind_buf = 0.0                    # armed for the coping: not a grind search
 	if _grind_buf > 0.0 or _magnet_t > 0.0:
 		if _try_grind():
 			return
@@ -1178,6 +1195,9 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 
 
 func _grind(dt: float) -> void:
+	if lip_kind != "":
+		_lip(dt)
+		return
 	var d: Vector3 = grind_line.dir_at(grind_dist) * grind_dir
 	grind_speed += -d.y * tune.gravity * tune.grind_slope_gravity * dt
 	grind_speed *= exp(-tune.grind_friction * dt)
@@ -1218,6 +1238,132 @@ func _end_grind(pop: bool) -> void:
 	flip_kind = ""
 	if pop:
 		sfx.emit("ollie")
+
+
+# ------------------------------------------------------------------ lip tricks
+
+## Grind at the top of a quarter or half pipe while crossing its coping (going up the wall, not along it) is
+## a lip trick: the rider stalls on the coping, the stick picks the trick (Tricks.LIPS), left / right keep the
+## balance, jump drops back in (the "to Fakie" ones come back in backwards). Riding along a coping and
+## pressing grind is still a coping grind.
+func _try_lip() -> bool:
+	if _grind_cd > 0.0 or grind_lines.is_empty():
+		return false
+	var out: Vector3 = vert_out if vert_air else Vector3(floor_n.x, 0.0, floor_n.z)
+	if out.length() < 0.2:
+		return false
+	out = out.normalized()
+	var p: Vector3 = global_position
+	for line in grind_lines:
+		if line.kind != "coping":
+			continue
+		var c: Dictionary = line.closest(p + Vector3.UP * 0.1)
+		var cp: Vector3 = c["point"]
+		var hgap: float = Vector2(p.x - cp.x, p.z - cp.z).length()
+		var dy: float = p.y - cp.y
+		if hgap > tune.lip_reach or dy < -tune.lip_reach_below or dy > tune.lip_reach_above:
+			continue
+		var d: Vector3 = line.dir_at(c["dist"])
+		if absf(d.dot(out)) > 0.5:
+			continue                           # not this ramp's coping (a corner piece)
+		if not vert_air and velocity.length() > 0.5 and absf(velocity.normalized().dot(d)) > 0.64:
+			continue                           # riding along the coping: that is a grind
+		_start_lip(line, c, out)
+		return true
+	return false
+
+
+func _start_lip(line: GrindLine, c: Dictionary, out: Vector3) -> void:
+	var d: Vector3 = line.dir_at(c["dist"])
+	var up_wall: Vector3 = -out
+	var entry: Array = Tricks.LIPS[Tricks.direction_word(inp.world_dir, up_wall)]
+	grind_line = line
+	grind_dist = c["dist"]
+	grind_dir = 1.0
+	grind_speed = 0.0
+	grind_board_turn = 0.0
+	lip_kind = String(entry[0])
+	_lip_fakie = bool(entry[2])
+	_lip_out = out
+	_lip_time = 0.0
+	lip_balance = randf_range(-0.1, 0.1)
+	_lip_vel = 0.2 * (1.0 if randf() < 0.5 else -1.0)
+	_lip_arm = 0.0
+	# nose over the deck; an axle stall sits along the coping, chest to the ramp
+	hdg = up_wall
+	if lip_kind == "Axle Stall":
+		hdg = d if d.cross(Vector3.UP).dot(out) > 0.0 else -d
+	yaw = atan2(-hdg.x, -hdg.z)
+	stance = "regular"
+	grind_kind = lip_kind
+	state = State.GRIND
+	vert_air = false
+	_vert_turn_left = 0.0
+	_magnet_t = 0.0
+	_ollie_buf = 0.0
+	_grind_buf = 0.0
+	flip_kind = ""
+	grab_kind = ""
+	manual_on = false
+	velocity = Vector3.ZERO
+	global_position = Vector3(c["point"].x, c["point"].y + GRIND_ORIGIN_DY, c["point"].z)
+	stats["grinds"] += 1
+	if score != null:
+		score.release_hold("grab")
+		score.add_trick(lip_kind, int(entry[1]))
+	sfx.emit("grind_start")
+
+
+func _lip(dt: float) -> void:
+	_lip_time += dt
+	velocity = Vector3.ZERO
+	if score != null:
+		score.hold("grind", dt, Tricks.LIP_HOLD_RATE)
+	# balance: tips away faster and faster; the stick left / right (across the coping) brings it back
+	var across: Vector3 = hdg.cross(Vector3.UP).normalized()
+	var input: float = inp.move.x if Game.steer_mode == "tank" else inp.world_dir.dot(across)
+	var wobble: float = tune.lip_wobble * (1.0 + _lip_time * 0.35)
+	_lip_vel += (lip_balance * wobble - input * tune.lip_control) * dt
+	lip_balance += _lip_vel * dt
+	if absf(lip_balance) > 1.0:
+		_end_lip(false)
+		_start_bail("lip")
+		return
+	if _ollie_buf > 0.0 or _lip_time >= tune.lip_max_time:
+		_end_lip(true)
+
+
+## Drop back into the ramp: a small hop out over the transition, landing forward or (to Fakie) backwards.
+func _end_lip(pop: bool) -> void:
+	if score != null:
+		score.release_hold("grind")
+	hdg = -_lip_out if _lip_fakie else _lip_out
+	yaw = atan2(-hdg.x, -hdg.z)
+	velocity = _lip_out * (2.4 if pop else 1.2) + Vector3.UP * (2.0 if pop else 0.4)
+	global_position += _lip_out * 0.3 + Vector3.UP * 0.05
+	lip_kind = ""
+	lip_balance = 0.0
+	grind_line = null
+	grind_kind = ""
+	_ollie_buf = 0.0
+	_grind_cd = 0.35
+	state = State.AIR
+	floor_snap_length = 0.0
+	_reset_air()
+	_air_ref = hdg
+	air_up = Vector3.UP
+	air_fwd = heading_h()
+	if pop:
+		sfx.emit("ollie")
+
+
+## The HUD's balance meter: a manual or a lip stall.
+func balance_value() -> float:
+	return lip_balance if lip_kind != "" else manual_balance
+
+
+func balancing() -> bool:
+	return manual_on or lip_kind != ""
 
 
 # ------------------------------------------------------------------ bail

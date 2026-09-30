@@ -46,6 +46,8 @@ Steering, jump style (hold-release or instant tap) and music are in the title me
 
 **Grinds:** press L in the air when you are heading for a rail; the air path bends onto rails up to about 1.2 m to the side.
 
+**Lip tricks:** at the top of a quarter or half pipe, press L as you reach the coping (in the air, or on the way up the wall: it waits for the coping) to stall on it. The stick picks the trick: none Rock to Fakie, up Nose Stall, down Blunt to Fakie, left Axle Stall, right Disaster. Keep the BALANCE meter centred with left / right and press Space to drop back in (the "to Fakie" ones come back in backwards). Ride along the coping and L is a coping grind instead.
+
 Combos: every trick adds points and, if it is new to the combo, one to the multiplier. Land cleanly and keep going within about a second; stop and the combo is banked. Bail and you lose it.
 
 ## The game (Not Pro Skaters)

@@ -44,6 +44,7 @@ func _pose_as(state: int, fields: Dictionary) -> void:
 	sk.push_anim = -1.0
 	sk.wallplant_t = 0.0
 	sk.manual_kind = ""
+	sk.lip_kind = ""
 	sk.global_position = SPOT
 	for k in fields:
 		sk.set(k, fields[k])
@@ -74,6 +75,10 @@ func _tour() -> void:
 		["runout", Skater.State.BAIL, {"bail_kind": "runout", "bail_time": 0.35, "bail_duration": 0.85}],
 		["slam", Skater.State.BAIL, {"bail_kind": "slam", "bail_time": 0.6, "bail_duration": 1.3}],
 		["carry", Skater.State.GROUND, {"velocity": Vector3(0, 0, -3)}],
+		["lip_rock", Skater.State.GRIND, {"lip_kind": "Rock to Fakie", "velocity": Vector3.ZERO}],
+		["lip_nose", Skater.State.GRIND, {"lip_kind": "Nose Stall", "velocity": Vector3.ZERO}],
+		["lip_blunt", Skater.State.GRIND, {"lip_kind": "Blunt to Fakie", "velocity": Vector3.ZERO}],
+		["lip_disaster", Skater.State.GRIND, {"lip_kind": "Disaster", "velocity": Vector3.ZERO}],
 	]
 	var cake: Node3D = (load("res://assets/models/cake.glb") as PackedScene).instantiate()
 	add_child(cake)

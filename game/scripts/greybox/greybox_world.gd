@@ -132,7 +132,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	hud.set_speed(skater.velocity.length())
 	hud.set_charge(skater.charge_frac())
-	hud.set_balance(skater.manual_balance, skater.manual_on)
+	hud.set_balance(skater.balance_value(), skater.balancing())
 	hud.set_combo(score.mult, score.names, score.pending, score.live)
 	Sound.set_rolling(skater.velocity.length(), skater.surface, skater.state == Skater.State.GROUND, delta)
 	Sound.set_grinding(skater.state == Skater.State.GRIND, skater.grind_speed, delta)
@@ -140,6 +140,18 @@ func _process(delta: float) -> void:
 		if skater.scripted:
 			skater.inp.move = Vector2(0, -1)
 			skater.inp.world_dir = skater.hdg if skater.state == Skater.State.GROUND else Vector3.ZERO
+			if OS.get_environment("SHOT_WHEN") == "lip":
+				# lip trick: grind at the top of the air; LIP_STICK = forward/back/left/right picks the stall
+				var stick: String = OS.get_environment("LIP_STICK")
+				var up_wall: Vector3 = -skater.vert_out
+				var dirs: Dictionary = {"forward": up_wall, "back": -up_wall, "left": -up_wall.cross(Vector3.UP), "right": up_wall.cross(Vector3.UP)}
+				if skater.vert_air:
+					skater.inp.world_dir = dirs.get(stick, Vector3.ZERO)
+					skater.inp.move = Vector2.ZERO
+					skater.inp.grind_pressed = skater.global_position.y > 1.3
+				elif skater.lip_kind != "":
+					skater.inp.move = Vector2.ZERO
+					skater.inp.world_dir = Vector3.ZERO
 			if OS.get_environment("SHOT_WHEN") == "grind":
 				var st: Transform3D = level.starts[start_names[start_i]]
 				var run: float = (skater.global_position - st.origin).dot(-st.basis.z)
@@ -152,12 +164,16 @@ func _process(delta: float) -> void:
 			ready = skater.state == Skater.State.AIR and skater.velocity.y < 0.3 and skater.air_time > 0.2
 		elif when == "grind":
 			ready = skater.state == Skater.State.GRIND and skater.grind_dist > 1.5
+		elif when == "lip":
+			_lip_t = _lip_t + delta if skater.lip_kind != "" else 0.0
+			ready = _lip_t > 0.45
 		if ready:
 			_shot_t = -1.0
 			_take_shot.call_deferred()
 
 
 var _seq_n: int = 0
+var _lip_t: float = 0.0
 
 
 func _take_shot() -> void:

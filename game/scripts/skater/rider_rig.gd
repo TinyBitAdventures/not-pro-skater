@@ -345,6 +345,33 @@ func _pose(sk: Skater, dt: float) -> void:
 			yaw_t = rad_to_deg(sk.grind_board_turn)
 			roll_t = 6.0
 			sway_t = sin(_t * 9.0) * 3.0
+			if sk.lip_kind != "":
+				# stalled on the coping: weight back over the ramp, arms out, swaying with the balance
+				sway_t = sk.lip_balance * 18.0
+				arms_t = 0.9
+				roll_t = 0.0
+				match sk.lip_kind:
+					"Rock to Fakie":
+						hip_t = 0.64
+						lean_t = 6.0
+						pitch_t = 10.0
+					"Nose Stall":
+						hip_t = 0.62
+						lean_t = -4.0
+						pitch_t = 28.0
+					"Blunt to Fakie":
+						hip_t = 0.56
+						lean_t = 18.0
+						pitch_t = 58.0
+					"Disaster":
+						hip_t = 0.6
+						lean_t = 10.0
+						pitch_t = -14.0
+						roll_t = 12.0
+					"Axle Stall":
+						hip_t = 0.66
+						lean_t = 4.0
+						pitch_t = 0.0
 	if sk.wallplant_t > 0.12:
 		pitch_t = -70.0              # tail up, wheels on the wall
 		hip_t = 0.62

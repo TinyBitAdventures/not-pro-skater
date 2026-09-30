@@ -8,7 +8,7 @@ const DT: float = 1.0 / 120.0
 const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert", "transfer", "curve_rail", "kink",
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
 	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
-	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate"]
+	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate", "lip_stall", "lip_arm"]
 
 var level: Level
 var sk: Skater
@@ -674,4 +674,50 @@ func _t_spin_rate() -> void:
 			break
 		sk.velocity.y = 0.0                     # hold it in the air
 	_result("spin_rate", t360 > 0.75 and t360 < 1.2 and t_half > 0.08, "360 in %.2f s (want 0.75 - 1.2), half speed after %.2f s" % [t360, t_half])
+
+
+## Lip trick from a half pipe air: grind near the coping stalls on it (Rock to Fakie with no stick), jump
+## drops back in, and it rolls away fakie on the transition without a bail.
+func _t_lip_stall() -> void:
+	await _spawn("mini", 10.5, Vector3(0.6, 0, 0))
+	_coast()
+	var stalled: bool = false
+	var stall_t: float = 0.0
+	var landed: String = ""
+	var pressed: bool = false
+	for i in 900:
+		if not pressed and sk.vert_air and sk.global_position.y > 1.4:
+			sk.inp.grind_pressed = true
+			pressed = true
+		if sk.lip_kind != "":
+			stalled = true
+			stall_t += 1.0 / 120.0
+			if stall_t > 0.8:
+				sk.inp.ollie_pressed = true
+		var was: int = sk.state
+		await _tick()
+		if stalled and sk.lip_kind == "" and was == Skater.State.AIR and sk.state == Skater.State.GROUND:
+			landed = "fakie" if sk.stance == "fakie" else "regular"
+			await _tick(30)
+			break
+	var ok: bool = stalled and tricks.has("Rock to Fakie") and stall_t >= 0.8 and landed == "fakie" and bails.is_empty()
+	_result("lip_stall", ok, "stalled %s for %.2f s, tricks %s, dropped in and rolled away %s, bails=%s" % [stalled, stall_t, tricks, landed, bails])
+
+
+## Grind pressed while still riding up the face waits for the coping: stall on arrival (Nose Stall with up).
+func _t_lip_arm() -> void:
+	await _spawn("mini", 9.6, Vector3(0.6, 0, 0))
+	_coast()
+	var armed: bool = false
+	var kind: String = ""
+	for i in 600:
+		if not armed and sk.state == Skater.State.GROUND and sk.floor_n.y < 0.75 and sk.velocity.y > 0.5:
+			sk.inp.grind_pressed = true
+			sk.inp.world_dir = sk.hdg          # stick toward the deck: nose stall
+			armed = true
+		await _tick()
+		if sk.lip_kind != "":
+			kind = sk.lip_kind
+			break
+	_result("lip_arm", kind == "Nose Stall", "grind pressed halfway up the face: stall %s (want Nose Stall), bails=%s" % [kind if kind != "" else "none", bails])
 
