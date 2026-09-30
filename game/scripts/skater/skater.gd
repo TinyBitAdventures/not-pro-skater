@@ -24,6 +24,9 @@ const BAIL_TIME: float = 1.5
 const CAPSULE_R: float = 0.32
 const CAPSULE_H: float = 1.35
 const SNAP_EASE: float = 0.045            # seconds: how fast the drawn rider catches up after a snap
+## How quickly each grind tips off balance (x SkateTuning.grind_wobble): a 50-50 sits on both trucks, a nose or
+## tail slide balances on one end of the board.
+const GRIND_TIP: Dictionary = {"50-50": 0.85, "Lip Slide": 0.9, "Boardslide": 1.0, "Noseslide": 1.3, "Tailslide": 1.3}
 
 var state: int = State.GROUND
 var tune: SkateTuning = SkateTuning.shared()
@@ -118,6 +121,9 @@ var grind_dist: float = 0.0
 var grind_dir: float = 1.0
 var grind_speed: float = 0.0
 var grind_board_turn: float = 0.0        # 0 = 50-50, +-PI/2 = boardslide
+var grind_balance: float = 0.0           # -1..1 across the rail (+ = leaning right of travel): past either end the rider falls off (HUD meter)
+var _grind_bal_vel: float = 0.0
+var _grind_time: float = 0.0
 var bail_time: float = 0.0
 var stats: Dictionary = {"air": 0, "grinds": 0, "bails": 0, "max_air": 0.0, "max_speed": 0.0, "grind_time": 0.0}
 
@@ -1182,6 +1188,12 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 	elif word == "back":
 		gname = "Tailslide"
 	grind_kind = gname
+	# the balance starts near the middle; coming in across the rail leans it the way the body was going
+	var across: Vector3 = _grind_across(d * grind_dir)
+	var tip: float = clampf(velocity.dot(across) / 5.0, -1.0, 1.0) * tune.grind_entry_tip
+	grind_balance = tip + randf_range(-0.05, 0.05)
+	_grind_bal_vel = tune.grind_kick * (signf(tip) if absf(tip) > 0.05 else (1.0 if randf() < 0.5 else -1.0))
+	_grind_time = 0.0
 	state = State.GRIND
 	vert_air = false
 	_magnet_t = 0.0
@@ -1224,10 +1236,44 @@ func _grind(dt: float) -> void:
 	if grind_dist <= 0.0 or grind_dist >= grind_line.length:
 		_end_grind(false)
 		return
+	if not _balance_grind(d, dt):
+		return
 	global_position = grind_line.point_at(grind_dist) + Vector3.UP * GRIND_ORIGIN_DY
 	velocity = d * grind_speed
 	if _ollie_buf > 0.0:
 		_end_grind(true)
+
+
+## Right of the travel direction along a rail, level (steep stair rails included).
+func _grind_across(travel: Vector3) -> Vector3:
+	var a: Vector3 = travel.cross(Vector3.UP)
+	return a.normalized() if a.length() > 0.01 else heading_h().cross(Vector3.UP)
+
+
+## Grinds balance across the rail, like a manual: the lean tips away faster and faster (quicker the longer the
+## grind and on the harder slides) and the stick left / right shifts the weight back. Past either end the rider
+## falls off that side. Returns false when the grind was lost.
+func _balance_grind(d: Vector3, dt: float) -> bool:
+	_grind_time += dt
+	var across: Vector3 = _grind_across(d)
+	var input: float = inp.world_dir.dot(across)      # tank steering fills world_dir relative to the board too
+	var wobble: float = tune.grind_wobble * float(GRIND_TIP.get(grind_kind, 1.0)) * (1.0 + _grind_time * tune.grind_wobble_growth)
+	_grind_bal_vel += (grind_balance * wobble + input * tune.grind_control) * dt
+	grind_balance += _grind_bal_vel * dt
+	if absf(grind_balance) < 1.0:
+		return true
+	# off the side it leaned to: the body keeps most of its speed along the rail and tips over beside it
+	var side: Vector3 = across * signf(grind_balance)
+	if score != null:
+		score.release_hold("grind")
+	velocity = d * grind_speed * 0.8 + side * 1.8 + Vector3.UP * 0.5
+	grind_line = null
+	grind_kind = ""
+	grind_balance = 0.0
+	_grind_cd = 0.35
+	air_time = 0.0
+	_start_bail("grind")
+	return false
 
 
 func _end_grind(pop: bool) -> void:
@@ -1241,6 +1287,7 @@ func _end_grind(pop: bool) -> void:
 	_grind_cd = 0.35
 	grind_line = null
 	grind_kind = ""
+	grind_balance = 0.0
 	state = State.AIR
 	floor_snap_length = 0.0
 	_air_ref = hdg
@@ -1331,11 +1378,12 @@ func _lip(dt: float) -> void:
 	velocity = Vector3.ZERO
 	if score != null:
 		score.hold("grind", dt, Tricks.LIP_HOLD_RATE)
-	# balance: tips away faster and faster; the stick left / right (across the coping) brings it back
+	# balance: tips away faster and faster; the stick left / right (across the coping) shifts the weight back
+	# (like grinds: lean the other way from the tip)
 	var across: Vector3 = hdg.cross(Vector3.UP).normalized()
 	var input: float = inp.move.x if Game.steer_mode == "tank" else inp.world_dir.dot(across)
 	var wobble: float = tune.lip_wobble * (1.0 + _lip_time * 0.35)
-	_lip_vel += (lip_balance * wobble - input * tune.lip_control) * dt
+	_lip_vel += (lip_balance * wobble + input * tune.lip_control) * dt
 	lip_balance += _lip_vel * dt
 	if absf(lip_balance) > 1.0:
 		_end_lip(false)
@@ -1369,13 +1417,15 @@ func _end_lip(pop: bool) -> void:
 		sfx.emit("ollie")
 
 
-## The HUD's balance meter: a manual or a lip stall.
+## The HUD's balance meter: a manual, a lip stall or a grind.
 func balance_value() -> float:
-	return lip_balance if lip_kind != "" else manual_balance
+	if lip_kind != "":
+		return lip_balance
+	return grind_balance if state == State.GRIND else manual_balance
 
 
 func balancing() -> bool:
-	return manual_on or lip_kind != ""
+	return manual_on or state == State.GRIND
 
 
 # ------------------------------------------------------------------ bail
@@ -1390,7 +1440,7 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 	if err > 0.0:
 		sev += clampf((err - tune.bail_angle_rad()) / maxf(PI * 0.5 - tune.bail_angle_rad(), 0.1), 0.0, 1.0) * 0.2
 	bail_severity = clampf(sev, 0.0, 1.0)
-	if bail_severity < tune.runout_below and reason != "crash":
+	if bail_severity < tune.runout_below and reason != "crash" and reason != "grind":
 		bail_kind = "runout"
 		bail_duration = tune.runout_time
 	elif bail_severity < tune.tumble_above:

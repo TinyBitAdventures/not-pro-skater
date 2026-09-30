@@ -416,7 +416,7 @@ func set_charge(v: float) -> void:
 	charge_bar.value = v
 
 
-## Manual balance, -1..1 (0 = perfect). Hidden when not in a manual.
+## Balance (manual, lip stall or grind), -1..1 (0 = perfect). Hidden when not balancing.
 func set_balance(v: float, active: bool) -> void:
 	balance_box.visible = active
 	if not active:

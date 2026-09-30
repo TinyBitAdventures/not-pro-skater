@@ -8,7 +8,8 @@ const DT: float = 1.0 / 120.0
 const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert", "transfer", "curve_rail", "kink",
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
 	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
-	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate", "lip_stall", "lip_arm"]
+	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate", "lip_stall", "lip_arm",
+	"grind_hold", "grind_drop", "grind_lean"]
 
 var level: Level
 var sk: Skater
@@ -111,6 +112,17 @@ func _push() -> void:
 func _coast() -> void:
 	sk.inp.world_dir = Vector3.ZERO
 	sk.inp.move = Vector2.ZERO
+
+
+## Grinding: lean against the tip like a player watching the balance meter (stick across the rail).
+func _steady() -> void:
+	var u: float = clampf(-(sk.grind_balance * 3.0 + sk._grind_bal_vel * 0.8), -1.0, 1.0)
+	sk.inp.world_dir = _right_of_travel() * u
+	sk.inp.move = Vector2.ZERO
+
+
+func _right_of_travel() -> Vector3:
+	return sk.velocity.cross(Vector3.UP).normalized()
 
 
 func _ang(a: Vector3, b: Vector3) -> float:
@@ -251,6 +263,8 @@ func _t_curve_rail() -> void:
 			sk.inp.ollie_pressed = true
 		if sk.state == Skater.State.AIR and sk.velocity.y < 1.0:
 			sk.inp.grind_pressed = true
+		if sk.state == Skater.State.GRIND:
+			_steady()
 		await _tick()
 		if sk.state == Skater.State.GRIND:
 			got = true
@@ -261,9 +275,9 @@ func _t_curve_rail() -> void:
 			end_dir = sk.velocity.normalized()
 		elif got:
 			break
-	var ok: bool = got and max_dev < 0.03 and end_dir.x > 0.8
-	_result("curve_rail", ok, "grind=%s for %.2f s, off the arc by %.3f m max (want < 0.03), exit dir (%.2f, %.2f, %.2f)" % [
-		got, ground_s, max_dev, end_dir.x, end_dir.y, end_dir.z])
+	var ok: bool = got and max_dev < 0.03 and end_dir.x > 0.8 and bails.is_empty()
+	_result("curve_rail", ok, "grind=%s for %.2f s, off the arc by %.3f m max (want < 0.03), exit dir (%.2f, %.2f, %.2f), bails=%s" % [
+		got, ground_s, max_dev, end_dir.x, end_dir.y, end_dir.z, bails])
 
 
 func _t_kink() -> void:
@@ -277,13 +291,15 @@ func _t_kink() -> void:
 			sk.inp.ollie_pressed = true
 		if sk.state == Skater.State.AIR and sk.velocity.y < 2.0:
 			sk.inp.grind_pressed = true
+		if sk.state == Skater.State.GRIND:
+			_steady()
 		await _tick()
 		if sk.state == Skater.State.GRIND:
 			got = true
 			last_z = sk.global_position.z
 		elif got:
 			break
-	_result("kink", got and last_z < -13.0, "grind=%s, rode to z %.1f (rail ends at -14)" % [got, last_z])
+	_result("kink", got and last_z < -13.0 and bails.is_empty(), "grind=%s, rode to z %.1f (rail ends at -14), bails=%s" % [got, last_z, bails])
 
 
 ## Rail 1.1 m to the side of the air path, grind pressed ~0.25 s before the rail: magnetism should lock on.
@@ -727,4 +743,63 @@ func _t_lip_arm() -> void:
 			kind = sk.lip_kind
 			break
 	_result("lip_arm", kind == "Nose Stall", "grind pressed halfway up the face: stall %s (want Nose Stall), bails=%s" % [kind if kind != "" else "none", bails])
+
+
+
+# ------------------------------------------------------------------ grind balance
+
+## Ollie onto the curved rail and slow the grind to 3 m/s (about four seconds of rail left). `stick` runs every
+## grinding tick; returns {t: seconds grinding, lean: balance on the last grinding tick, at: body there,
+## right: right of travel there, meter: the HUD showed the balance}.
+func _slow_grind(stick: Callable) -> Dictionary:
+	await _spawn("curve", 8.0)
+	var r: Dictionary = {"t": 0.0, "lean": 0.0, "at": Vector3.ZERO, "right": Vector3.ZERO, "meter": false, "got": false}
+	for i in 900:
+		if sk.state == Skater.State.GROUND:
+			_push()
+		if not r["got"] and sk.state == Skater.State.GROUND and sk.global_position.z < -2.2:
+			sk.inp.ollie_pressed = true
+		if sk.state == Skater.State.AIR and sk.velocity.y < 1.0:
+			sk.inp.grind_pressed = true
+		if sk.state == Skater.State.GRIND:
+			if not r["got"]:
+				sk.grind_speed = 3.0
+			r["got"] = true
+			stick.call()
+			r["meter"] = r["meter"] or sk.balancing()
+			r["lean"] = sk.grind_balance
+			r["at"] = sk.global_position
+			r["right"] = _right_of_travel()
+		await _tick()
+		if sk.state == Skater.State.GRIND:
+			r["t"] += DT
+		elif r["got"]:
+			break
+	return r
+
+
+## Leaning against the tip keeps a long, slow grind going to the end of the rail, with the meter up.
+func _t_grind_hold() -> void:
+	var r: Dictionary = await _slow_grind(_steady)
+	_result("grind_hold", r["got"] and r["t"] > 3.0 and bails.is_empty() and r["meter"],
+		"balancing: grind %.2f s at 3 m/s (want > 3, to the rail's end), meter shown=%s, bails=%s" % [r["t"], r["meter"], bails])
+
+
+## Hands off the stick: the lean tips over and the rider falls off the rail, to the side it leaned.
+func _t_grind_drop() -> void:
+	var r: Dictionary = await _slow_grind(_coast)
+	await _tick(60)
+	var off: float = (sk.global_position - r["at"]).dot(r["right"]) * signf(r["lean"])
+	var ok: bool = bails == ["grind"] and r["t"] > 0.9 and r["t"] < 2.4 and off > 0.2
+	_result("grind_drop", ok, "no balancing: fell off after %.2f s (want 0.9 - 2.4), bails=%s, landed %.2f m to the side it leaned (want > 0.2)" % [
+		r["t"], bails, off])
+
+
+## The stick is the rider's weight: holding it right leans right (and over, soon).
+func _t_grind_lean() -> void:
+	var r: Dictionary = await _slow_grind(func() -> void:
+		sk.inp.world_dir = _right_of_travel()
+		sk.inp.move = Vector2.ZERO)
+	_result("grind_lean", bails == ["grind"] and r["lean"] > 0.9 and r["t"] < 1.2,
+		"stick held right: fell off after %.2f s (want < 1.2), leaning %.2f (want > 0.9, right), bails=%s" % [r["t"], r["lean"], bails])
 

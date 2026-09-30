@@ -379,7 +379,10 @@ func _pose(sk: Skater, dt: float) -> void:
 			arms_t = 0.95
 			yaw_t = rad_to_deg(sk.grind_board_turn)
 			roll_t = 6.0
-			sway_t = sin(_t * 9.0) * 3.0
+			# leaning with the grind's balance (+ = right of travel: the chest side, the back side when fakie),
+			# wobbling harder as it nears the edge
+			var bal: float = sk.grind_balance * (-1.0 if fakie else 1.0)
+			sway_t = bal * 16.0 + sin(_t * 9.0) * (2.0 + absf(bal) * 5.0)
 			if sk.lip_kind != "":
 				# stalled on the coping: weight back over the ramp, arms out, swaying with the balance
 				sway_t = sk.lip_balance * 18.0
