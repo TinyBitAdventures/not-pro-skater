@@ -24,6 +24,7 @@ var rider_blurb: Label
 var _hint: Control
 var _hint_root: Control
 var _orbit: float = 0.0             # set in _ready: starts on the sunny side, the rider's front three-quarter
+var _swing_t: float = 0.0           # the camera swings either side of that
 
 
 func _ready() -> void:
@@ -69,11 +70,15 @@ func _sun_h() -> Vector3:
 
 
 func _process(delta: float) -> void:
-	_orbit += delta * 0.05
+	# a slow swing either side of the opening view (a full circle spent half a minute of every two behind the
+	# quarter pipe, looking through its handrail)
+	_swing_t += delta
+	var a: float = _orbit + sin(_swing_t * 0.09) * 0.9
 	var at: Vector3 = rider.global_position + Vector3.UP * 1.0
-	var pos: Vector3 = at + Vector3(sin(_orbit) * 5.5, 1.2, cos(_orbit) * 5.5)
-	# the rider sits right of centre, clear of the menu
-	cam.global_transform = Transform3D(Basis.looking_at(at - pos + Vector3(-1.4, 0.0, 0.0), Vector3.UP), pos)
+	var pos: Vector3 = at + Vector3(sin(a) * 5.5, 1.2, cos(a) * 5.5)
+	# the rider sits right of centre, clear of the menu: look a little to the camera's left of them
+	var right: Vector3 = (at - pos).cross(Vector3.UP).normalized()
+	cam.global_transform = Transform3D(Basis.looking_at(at - right * 1.4 - pos, Vector3.UP), pos)
 
 
 # ------------------------------------------------------------------ UI
