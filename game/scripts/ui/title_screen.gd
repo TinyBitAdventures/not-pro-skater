@@ -236,7 +236,7 @@ func _refresh() -> void:
 	var done: int = Game.event_goals(Game.event_choice).size()
 	var best: int = int(Game.best.get(Game.event_choice, {}).get("score", 0))
 	var money: float = float(ev.get("money", 0.0))
-	var best_text: String = ("$" + UiKit.commas(int(best * money))) if money > 0.0 else UiKit.commas(best)
+	var best_text: String = ("$" + UiKit.commas(int(round(best * money)))) if money > 0.0 else UiKit.commas(best)
 	var all_done: int = 0
 	var all_goals: int = 0
 	for eid in Events.ALL:
@@ -270,11 +270,11 @@ func _input(event: InputEvent) -> void:
 			controls_layer.visible = false
 			get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("move_down") or event.is_action_pressed("ui_down"):
+	if Controls.nav_pressed(event, "move_down") or Controls.nav_pressed(event, "ui_down"):
 		selected = (selected + 1) % items.size()
 		_refresh()
 		Sound.play("ui_ok", -6.0, 0.9)
-	elif event.is_action_pressed("move_up") or event.is_action_pressed("ui_up"):
+	elif Controls.nav_pressed(event, "move_up") or Controls.nav_pressed(event, "ui_up"):
 		selected = (selected - 1 + items.size()) % items.size()
 		_refresh()
 		Sound.play("ui_ok", -6.0, 0.9)
@@ -283,9 +283,9 @@ func _input(event: InputEvent) -> void:
 			selected = items.find("quit")          # Esc on the title: onto Quit (Enter then quits)
 			_refresh()
 			Sound.play("ui_ok", -6.0, 0.9)
-	elif event.is_action_pressed("move_left") or event.is_action_pressed("ui_left"):
+	elif Controls.nav_pressed(event, "move_left") or Controls.nav_pressed(event, "ui_left"):
 		_change(-1)
-	elif event.is_action_pressed("move_right") or event.is_action_pressed("ui_right"):
+	elif Controls.nav_pressed(event, "move_right") or Controls.nav_pressed(event, "ui_right"):
 		_change(1)
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ollie"):
 		# Space is the jump key: it only starts a session, it never flips a setting (use Enter or the mouse)

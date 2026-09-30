@@ -22,9 +22,34 @@ const PAD_AXES: Dictionary = {
 signal device_changed(pad: bool)
 
 var using_pad: bool = false       # the last input came from a gamepad: hints show pad buttons
+var _axis_zone: Dictionary = {}   # "device:axis" -> -1 / 0 / 1: where each stick axis was, for menu navigation
+var _nav_event: int = 0
+var _nav_fresh: bool = false
+
+
+## A menu press: keys and buttons as usual (no echo), but a stick only when it crosses into a direction. Every
+## stick motion past the dead zone reports "pressed", so one push used to move a menu five or six rows.
+func nav_pressed(event: InputEvent, action: StringName) -> bool:
+	var m: InputEventJoypadMotion = event as InputEventJoypadMotion
+	if m == null:
+		return event.is_action_pressed(action)
+	_track_axis(m)
+	return _nav_fresh and event.is_action_pressed(action)
+
+
+func _track_axis(m: InputEventJoypadMotion) -> void:
+	if m.get_instance_id() == _nav_event:
+		return
+	_nav_event = m.get_instance_id()
+	var key: String = "%d:%d" % [m.device, m.axis]
+	var zone: int = 0 if absf(m.axis_value) < 0.5 else (1 if m.axis_value > 0.0 else -1)
+	_nav_fresh = zone != 0 and zone != int(_axis_zone.get(key, 0))
+	_axis_zone[key] = zone
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventJoypadMotion:
+		_track_axis(event as InputEventJoypadMotion)
 	var pad: bool = using_pad
 	if event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf((event as InputEventJoypadMotion).axis_value) > 0.5):
 		pad = true
@@ -57,6 +82,11 @@ func _ready() -> void:
 		e.axis = ax[0] as JoyAxis
 		e.axis_value = ax[1]
 		InputMap.action_add_event(action, e)
+	# menus: A accepts and B goes back, as the hints say (Godot's ui_accept / ui_cancel are keys only)
+	for pair in [["ui_accept", JOY_BUTTON_A], ["ui_cancel", JOY_BUTTON_B]]:
+		var jb: InputEventJoypadButton = InputEventJoypadButton.new()
+		jb.button_index = pair[1] as JoyButton
+		InputMap.action_add_event(pair[0], jb)
 
 
 func _ensure(action: String) -> void:

@@ -49,6 +49,16 @@ func _run() -> void:
 	await _wait(1.0)
 	_check("title loads", _scene().ends_with("title.tscn"))
 	var title: Node = get_tree().current_scene
+	# one push of the stick is a stream of motion events: it moves one row, not one per event
+	var before: int = int(title.get("selected"))
+	for v in [0.3, 0.55, 0.7, 0.85, 1.0, 1.0, 0.8, 0.2, 0.0]:
+		var m: InputEventJoypadMotion = InputEventJoypadMotion.new()
+		m.axis = JOY_AXIS_LEFT_Y
+		m.axis_value = v
+		Input.parse_input_event(m)
+		await get_tree().process_frame
+	_check("one stick push moves the title one row", int(title.get("selected")) == before + 1)
+	await _press("ui_up")
 	await _press("pause")                     # Esc on the title: onto Quit (not pressed: it would end the test)
 	var items: Array[String] = title.get("items")
 	_check("ESC on the title selects Quit", items[int(title.get("selected"))] == "quit")
@@ -82,6 +92,10 @@ func _run() -> void:
 	await _wait(0.8)
 	var hud: Hud = w.get("hud")
 	_check("session end shows results", w.get("finished") and hud.results_layer.visible)
+	await _press("ui_accept")                      # a jump pressed as the buzzer goes doesn't skip the results
+	await _wait(0.3)
+	_check("an instant press keeps the results up", _scene().ends_with("birthday.tscn") and hud.results_layer.visible)
+	await _wait(1.0)
 	await _press("ui_accept")
 	await _wait(1.8)
 	var music: AudioStreamPlayer = Sound.get("_music")

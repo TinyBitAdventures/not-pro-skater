@@ -55,6 +55,7 @@ var controls_card: PanelContainer
 var pause_menu: VBoxContainer
 var results_layer: Control
 var results_box: VBoxContainer
+var _results_at: int = 0             # when the results came up (msec)
 var _shown_score: float = 0.0
 var _target_score: int = 0
 var _card_t: float = 0.0
@@ -698,6 +699,8 @@ func _pause_activate() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if results_layer.visible:
+		if Time.get_ticks_msec() < _results_at + 1000:
+			return                 # a jump pressed just as the buzzer went mustn't skip the results
 		if event.is_action_pressed("ui_accept") or event.is_action_pressed("respawn"):
 			get_viewport().set_input_as_handled()
 			restart_requested.emit()
@@ -722,10 +725,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
 			_show_controls(false)
 		return
-	if event.is_action_pressed("move_down") or event.is_action_pressed("ui_down"):
+	if Controls.nav_pressed(event, "move_down") or Controls.nav_pressed(event, "ui_down"):
 		_pause_select(pause_sel + 1)
 		Sound.play("ui_ok", -6.0, 0.9)
-	elif event.is_action_pressed("move_up") or event.is_action_pressed("ui_up"):
+	elif Controls.nav_pressed(event, "move_up") or Controls.nav_pressed(event, "ui_up"):
 		_pause_select(pause_sel - 1)
 		Sound.play("ui_ok", -6.0, 0.9)
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ollie"):
@@ -772,6 +775,7 @@ func show_results(r: Dictionary) -> void:
 	results_box.add_child(UiKit.hints([["ENTER", "skate again", "A"], ["ESC", "title", "START"]]))
 	_set_hud_visible(false)
 	results_layer.visible = true
+	_results_at = Time.get_ticks_msec()
 	results_layer.modulate.a = 0.0
 	create_tween().tween_property(results_layer, "modulate:a", 1.0, 0.5)
 
