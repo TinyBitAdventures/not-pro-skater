@@ -49,6 +49,8 @@ var _run_shown: int = -1
 const GATE_RADIUS: float = 3.2
 
 var _occl_i: int = 0
+var _pick_label: Label3D                 # over the item to carry, while it waits
+var _drop_label: Label3D                 # over where it goes, while it's carried
 var _hinted: String = ""               # the trick_on goal just hinted at, until this grind ends
 var active: bool = true                # false once the session is over: nothing more completes or saves
 var _kids_pending: Dictionary = {}     # kids a trick was shown to in the live combo: they count when it lands
@@ -97,6 +99,14 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 				_cake = (load(String(g["item"])) as PackedScene).instantiate() if g.has("item") else CAKE_SCENE.instantiate()
 				add_child(_cake)
 				_cake.global_position = (level.markers[String(g["from"])] as Transform3D).origin
+				# floating labels: what to pick up (the item's name, the first word of its drop text), and where
+				# it goes while it's carried
+				var item_word: String = String(g.get("drop_text", "CAKE DROPPED!")).split(" ")[0]
+				_pick_label = _float_text(item_word, 0.004)
+				add_child(_pick_label)
+				_drop_label = _float_text("DROP IT HERE", 0.004)
+				add_child(_drop_label)
+				_drop_label.visible = false
 			"show_kids":
 				var keys: Array = ev.get("kids", [])
 				for i in keys.size():
@@ -140,6 +150,22 @@ func goal_list() -> Array:
 					text += "  (in the zone!)"
 		out.append({"text": text, "done": done.has(id) or saved.has(id), "new": done.has(id) and not saved.has(id)})
 	return out
+
+
+## What the rider is working on right now and where it is, for the HUD's edge pointer: the drop point while
+## carrying, the next checkpoint in a take, the next gate once the laps have started. {} when nothing is under way.
+func objective() -> Dictionary:
+	if not active:
+		return {}
+	if _cake_state == "carried" and _cake != null:
+		for g in ev["goals"]:
+			if g["kind"] == "deliver":
+				return {"pos": (level.markers[String(g["to"])] as Transform3D).origin, "text": "DROP"}
+	if _run_t >= 0.0 and not gates.is_empty():
+		return {"pos": gates[_next_gate].origin, "text": "NEXT"}
+	if _lap_started and not gates.is_empty():
+		return {"pos": gates[_next_gate].origin, "text": "LAP" if _next_gate == 0 else "NEXT"}
+	return {}
 
 
 ## Seconds left in the one-take run's current take, or -1 when no take is running.
@@ -249,6 +275,10 @@ func _cake_tick() -> void:
 			goal = g
 	var from: Vector3 = (level.markers[String(goal["from"])] as Transform3D).origin
 	var to: Vector3 = (level.markers[String(goal["to"])] as Transform3D).origin
+	_pick_label.visible = _cake_state == "waiting" and not done.has(goal["id"]) and active
+	_pick_label.global_position = from + Vector3.UP * (1.7 + sin(_t * 2.5) * 0.08)
+	_drop_label.visible = _cake_state == "carried" and active
+	_drop_label.global_position = to + Vector3.UP * (1.6 + sin(_t * 2.5) * 0.08)
 	match _cake_state:
 		"waiting":
 			_cake.global_position = from

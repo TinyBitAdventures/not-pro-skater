@@ -31,6 +31,11 @@ var clock_box: VBoxContainer
 var timer_label: Label
 var best_label: Label
 var take_label: Label                         # a timed take's own countdown, under the session clock
+var pause_goals: VBoxContainer                # the event's goals on the pause screen
+var _last_goals: Array = []
+var pointer: Control                          # the objective pointer at the screen's edge
+var pointer_arrow: Polygon2D
+var pointer_label: Label
 var trick_box: VBoxContainer
 var trick_names: Label
 var trick_points: Label
@@ -83,6 +88,7 @@ func _ready() -> void:
 	_build_meters()
 	_build_letters()
 	_build_card()
+	_build_pointer()
 	_build_hints()
 	_build_pause()
 	_build_results()
@@ -247,6 +253,52 @@ func _build_letters() -> void:
 	root.add_child(letters_box)
 
 
+## The objective pointer: an arrow at the screen's edge toward an off-screen target (set_pointer).
+func _build_pointer() -> void:
+	pointer = Control.new()
+	pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pointer.visible = false
+	root.add_child(pointer)
+	pointer_arrow = Polygon2D.new()
+	pointer_arrow.polygon = PackedVector2Array([Vector2(22, 0), Vector2(-12, -15), Vector2(-5, 0), Vector2(-12, 15)])
+	pointer_arrow.color = ACCENT
+	pointer.add_child(pointer_arrow)
+	pointer_label = UiKit.label("", 22, ACCENT, "bold")
+	_outline(pointer_label, 8)
+	pointer.add_child(pointer_label)
+
+
+## Point at a world target from the screen's edge when it's off screen (or behind the camera); hidden when it's
+## in view (its own marker shows it) or when there's no target.
+func set_pointer(cam: Camera3D, target: Dictionary) -> void:
+	if target.is_empty() or cam == null:
+		pointer.visible = false
+		return
+	var at: Vector3 = target["pos"]
+	var size: Vector2 = get_viewport().get_visible_rect().size
+	var behind: bool = cam.is_position_behind(at)
+	var sp: Vector2 = cam.unproject_position(at + Vector3.UP * 1.5)
+	var margin: float = 70.0
+	if not behind and Rect2(Vector2.ONE * margin, size - Vector2.ONE * margin * 2.0).has_point(sp):
+		pointer.visible = false
+		return
+	var centre: Vector2 = size * 0.5
+	var d: Vector2 = sp - centre
+	if behind:
+		d = -d
+		if d.y < 0.0:                         # behind: say so along the bottom edge, it's back there
+			d.y = -d.y
+	if d.length() < 1.0:
+		d = Vector2(0, 1)
+	var half: Vector2 = size * 0.5 - Vector2.ONE * margin
+	var k: float = minf(half.x / maxf(absf(d.x), 0.001), half.y / maxf(absf(d.y), 0.001))
+	pointer.position = centre + d * k
+	pointer_arrow.rotation = d.angle()
+	pointer_label.text = String(target.get("text", ""))
+	pointer_label.position = -d.normalized() * 34.0 - pointer_label.size * 0.5
+	pointer.visible = true
+
+
 func _build_card() -> void:
 	card = VBoxContainer.new()
 	card.anchor_left = 0.5
@@ -323,6 +375,14 @@ func _build_pause() -> void:
 				_pause_activate())
 		v.add_child(l)
 		pause_items.append(l)
+	# in an event, the goals under the menu (people pause to read them again)
+	pause_goals = VBoxContainer.new()
+	pause_goals.add_theme_constant_override("separation", 2)
+	pause_goals.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var pg_gap: Control = Control.new()
+	pg_gap.custom_minimum_size = Vector2(0, 22)
+	v.add_child(pg_gap)
+	v.add_child(pause_goals)
 	controls_card = _controls_card()
 	controls_card.visible = false
 	c.add_child(controls_card)
@@ -601,6 +661,7 @@ func blink(seconds: float = 0.45) -> void:
 
 ## The event's goal list: [{"text": String, "done": bool}, ...]. Empty hides it.
 func set_goals(items: Array) -> void:
+	_last_goals = items
 	goals_panel.visible = not items.is_empty()
 	_fill_goals(goals_box, items)
 
@@ -699,6 +760,14 @@ func open_pause() -> void:
 		_saved_vis[c] = (c as CanvasItem).visible
 	_set_hud_visible(false)
 	pause_layer.visible = true
+	for c in pause_goals.get_children():
+		c.queue_free()
+	if not _last_goals.is_empty():
+		pause_goals.add_child(UiKit.caption(title_label.text if title_label.text != "" else "Goals", 19, ACCENT))
+		var list: VBoxContainer = VBoxContainer.new()
+		list.add_theme_constant_override("separation", 2)
+		pause_goals.add_child(list)
+		_fill_goals(list, _last_goals, 440.0)
 	_show_controls(false)
 	_pause_select(0)
 	get_tree().paused = true

@@ -45,6 +45,9 @@ func _run() -> void:
 	await _wait(0.5)
 	await _shot("drop")
 	await _wait(2.4)
+	await _shot("carry")                     # still carrying: the edge pointer toward the drop, off screen
+	r0._cake_state = "waiting"
+	r0.changed.emit()
 	# the kids in their party hats, close up
 	var runner: EventRunner = world.get("runner")
 	var kid: Node3D = runner._kids[0]
