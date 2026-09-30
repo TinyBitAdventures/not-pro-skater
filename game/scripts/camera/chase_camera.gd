@@ -31,9 +31,9 @@ var _fov_kick: float = 0.0
 var _vert_hold: bool = false
 var _vert_anchor: Vector3 = Vector3.ZERO
 var _vert_lip: Vector3 = Vector3.ZERO
-var vert_back: float = 2.9         # how far out from the wall the vert shot sits
-var vert_rise: float = 0.6         # and how far above the lip
-var vert_side: float = 1.8         # and how far to the side along the coping
+var vert_back: float = 4.8         # how far out from the wall the vert shot sits (2.9 was too tight: a flip or a
+var vert_rise: float = 1.2         # grab's full shape left the frame), how far above the lip
+var vert_side: float = 3.0         # and how far to the side along the coping
 const VERT_FOLLOW_Y: float = 0.7   # share of the rider's height above the lip the vert shot rises with
 const VERT_LOOK_RIDER: float = 0.95  # how far from the lip toward the rider the vert shot looks
 const AIR_ZOOM: float = 12.0       # degrees of field of view taken off at the top of a big air
@@ -226,9 +226,7 @@ func _process(dt: float) -> void:
 	# push in on the rider through a big air (vert above the lip, or high off a kicker): the trick fills the frame
 	if st == Skater.State.AIR:
 		var into: float = clampf(sk.air_time / 0.3, 0.0, 1.0)
-		if _vert_hold:
-			want_fov -= AIR_ZOOM * into                          # every vert air is a moment
-		else:
+		if not _vert_hold:                                      # (the vert shot is framed wide: no push-in there)
 			var high: float = sk.render_position().y - _ground_y
 			want_fov -= AIR_ZOOM * clampf(high / 2.0, 0.0, 1.0) * into
 	fov = lerpf(fov, want_fov, 1.0 - exp(-5.0 * dt))
