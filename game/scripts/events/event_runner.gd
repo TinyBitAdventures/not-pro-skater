@@ -258,6 +258,7 @@ func _bunch(at: Vector3, rng: RandomNumberGenerator) -> void:
 		sph.material = _latex(PARTY_COLORS[rng.randi_range(0, PARTY_COLORS.size() - 1)])
 		var b: MeshInstance3D = MeshInstance3D.new()
 		b.mesh = sph
+		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF   # dozens of them: each would redraw per shadow split
 		b.position = top
 		b.rotation = Vector3(rng.randf_range(-0.2, 0.2), 0.0, rng.randf_range(-0.2, 0.2))
 		root.add_child(b)
