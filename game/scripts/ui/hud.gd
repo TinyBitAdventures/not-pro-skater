@@ -35,6 +35,7 @@ var speed_bar: ProgressBar
 var card: VBoxContainer
 var card_label: Label
 var card_rule: ColorRect
+var card_sub: Label
 var hint_box: Control
 var pause_layer: Control
 var pause_items: Array[Label] = []
@@ -232,6 +233,10 @@ func _build_card() -> void:
 	card_rule.color = ACCENT
 	rule_row.add_child(card_rule)
 	card.add_child(rule_row)
+	card_sub = UiKit.label("", 30, PAPER, "body")
+	card_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	card_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card.add_child(card_sub)
 	card.modulate.a = 0.0
 
 
@@ -451,8 +456,10 @@ static func _fill_goals(box_parent: VBoxContainer, items: Array) -> void:
 		box_parent.add_child(row)
 
 
-## A title card in the upper middle of the screen.
-func announce(text: String, color: Color = PAPER, seconds: float = 1.6) -> void:
+## A title card in the upper middle of the screen, with an optional line of text under the rule.
+func announce(text: String, color: Color = PAPER, seconds: float = 1.6, sub: String = "") -> void:
+	card_sub.text = sub
+	card_sub.visible = sub != ""
 	card_label.text = text.to_upper()
 	var w: float = get_viewport().get_visible_rect().size.x if is_inside_tree() else 1600.0
 	# short titles big; long lines smaller and wrapped onto two lines within the card
