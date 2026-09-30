@@ -97,7 +97,7 @@ static func get_event(id: String) -> Dictionary:
 					{"id": "party", "kind": "letters", "text": "Grab the P-A-R-T-Y balloons", "letters": "PARTY"},
 					{"id": "cake", "kind": "deliver", "text": "Bring the cake from the street to the party",
 						"from": "cake_pickup", "to": "cake_drop"},
-					{"id": "bench", "kind": "trick_on", "text": "Boardslide the party bench", "rail": "party_bench",
+					{"id": "bench", "kind": "trick_on", "text": "Boardslide the party bench (ride at it across)", "rail": "party_bench",
 						"trick": "Boardslide"},
 					{"id": "kids", "kind": "show_kids", "text": "Show the kids a trick"},
 					{"id": "combo", "kind": "combo", "text": "Party trick: a 10,000 combo", "points": 10000},

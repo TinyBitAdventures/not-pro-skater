@@ -31,6 +31,7 @@ func _ready() -> void:
 	runner.setup(event_id, level, skater, score)
 	runner.changed.connect(_refresh_goals)
 	runner.goal_done.connect(_on_goal)
+	runner.hint.connect(func(text: String, sub: String) -> void: hud.announce(text, Hud.PAPER, 1.8, sub))
 	score.awarded.connect(func(award_name: String, points: int) -> void:
 		hud.announce("%s  +%s" % [award_name.to_upper(), hud.amount(points)], Hud.GOOD, 1.6))
 	var word: String = runner.letters_word()

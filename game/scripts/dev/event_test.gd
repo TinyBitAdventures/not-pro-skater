@@ -74,6 +74,21 @@ func _run() -> void:
 			"trick_on":
 				var rails: Array = g.get("rails", [g.get("rail", "")])
 				var found: bool = false
+				var want: String = String(g.get("trick", ""))
+				if want != "":
+					# the right rail with the wrong grind: a hint, and the goal stays open
+					var hints: Array = []
+					r.hint.connect(func(t: String, _s: String) -> void: hints.append(t))
+					for line in sk.grind_lines:
+						if line.id == String(rails[0]):
+							sk.state = Skater.State.GRIND
+							sk.grind_line = line
+							sk.grind_kind = "50-50"
+					await _frames(2)
+					sk.state = Skater.State.GROUND
+					sk.grind_line = null
+					await _frames(2)
+					report.append("%s (wrong grind first): hinted %s, counted %s" % [gid, hints, r.done.has(gid)])
 				for line in sk.grind_lines:
 					if line.id == String(rails[0]):
 						found = true
@@ -157,7 +172,8 @@ func _run() -> void:
 	for line in report:
 		print("[event] ", line)
 	var all_done: bool = r.done.size() == (ev["goals"] as Array).size() and not report.any(func(l: String) -> bool:
-		return l.contains("done outside counted true") or l.contains("counted while rolling true") \
+		return (l.contains("wrong grind first") and (l.contains("counted true") or l.contains("hinted []"))) \
+			or l.contains("done outside counted true") or l.contains("counted while rolling true") \
 			or l.contains("bailed trick counted true"))
 	print("[event] %s all goals: %s" % [id, all_done])
 	get_tree().quit(0 if all_done else 1)

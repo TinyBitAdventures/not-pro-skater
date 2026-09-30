@@ -6,6 +6,7 @@ extends Node3D
 signal goal_done(goal_id: String, text: String)
 signal changed
 signal letter_got(letter: String, at: Vector3)     # a balloon letter grabbed, where it was (the HUD flies it home)
+signal hint(text: String, sub: String)             # a nudge, not a goal: the right rail, the wrong trick
 
 const CAKE_SCENE: PackedScene = preload("res://assets/models/cake.glb")
 const PICK_RADIUS: float = 1.7
@@ -48,6 +49,7 @@ var _run_shown: int = -1
 const GATE_RADIUS: float = 3.2
 
 var _occl_i: int = 0
+var _hinted: String = ""               # the trick_on goal just hinted at, until this grind ends
 var active: bool = true                # false once the session is over: nothing more completes or saves
 var _kids_pending: Dictionary = {}     # kids a trick was shown to in the live combo: they count when it lands
 var _zone_hit: Dictionary = {}         # zone_combo goal id -> a trick of the live combo was done in its zone
@@ -224,8 +226,14 @@ func _process(dt: float) -> void:
 				var rails: Array = g.get("rails", [g.get("rail", "")])
 				var trick: String = String(g.get("trick", ""))
 				if skater.state == Skater.State.GRIND and skater.grind_line != null and skater.lip_kind == "" \
-						and rails.has(skater.grind_line.id) and (trick == "" or skater.grind_kind == trick):
-					_complete(id)
+						and rails.has(skater.grind_line.id):
+					if trick == "" or skater.grind_kind == trick:
+						_complete(id)
+					elif _hinted != id:
+						_hinted = id               # the right rail, the wrong grind: say how to get the one asked for
+						hint.emit("THAT'S A %s" % skater.grind_kind.to_upper(), "It needs a %s: ride at it across" % trick)
+				elif skater.state != Skater.State.GRIND:
+					_hinted = ""
 			"score":
 				if score.score >= int(g["points"]):
 					_complete(id)
