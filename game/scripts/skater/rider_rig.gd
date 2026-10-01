@@ -885,9 +885,10 @@ func _apply_rig(sk: Skater) -> void:
 	if walking:
 		hip_y = lerpf(hip_y, float(_gait_now["hip"]), off_k)
 	var stride: Array = []
-	var push_amt: float = 0.0              # 0..1 through a stride: the body turns to face the nose to push
+	var push_amt: float = 0.0              # 0..1 through a stride: the body turns to face the way it's going to push
+	var push_way: float = -1.0 if sk.stance == "fakie" else 1.0     # (toward the nose, or the tail rolling fakie)
 	if sk.push_anim >= 0.0 and sk.state == Skater.State.GROUND and not sk.manual_on:
-		stride = _push_stride(sk.push_anim, bt)
+		stride = _push_stride(sk.push_anim, bt, sk.stance == "fakie")
 		hip_y -= float(stride[2])            # the standing leg bends as the other reaches the ground
 		push_amt = clampf(1.0 - absf(sk.push_anim - 0.42) / 0.42, 0.0, 1.0)
 		push_amt = push_amt * push_amt * (3.0 - 2.0 * push_amt)
@@ -896,13 +897,13 @@ func _apply_rig(sk: Skater) -> void:
 	var pelvis: int = _b["pelvis"]
 	var walk_yaw: float = float(_gait_now["yaw"]) * off_k if walking else 0.0
 	var q_body: Basis = Basis(Vector3.UP, deg_to_rad(body_yaw)) * Basis(Vector3(0, 0, 1), deg_to_rad(-sway)) \
-		* Basis(Vector3.UP, deg_to_rad(twist * 0.3 + 30.0 * push_amt + walk_yaw))
+		* Basis(Vector3.UP, deg_to_rad(twist * 0.3 + 30.0 * push_amt * push_way + walk_yaw))
 	var pg: Transform3D = _rotated(pelvis, q_body)
 	pg.origin = Vector3((-0.03 + pelvis_x) * (1.0 - off_k), hip_y, float(_gait_now["sway"]) * off_k if walking else pelvis_z)
 	_pose_bone(pelvis, pg)
 
 	# spine: lean toward the chest and twist toward the nose, spread over three bones
-	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7 + 25.0 * push_amt - walk_yaw * 1.4)) \
+	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7 + 25.0 * push_amt * push_way - walk_yaw * 1.4)) \
 		* Basis(Vector3(0, 0, 1), deg_to_rad(-lean - _absorb * 110.0))
 	var spine: Array[String] = ["spine_01", "spine_02", "spine_03"]
 	for k in spine.size():
@@ -938,12 +939,19 @@ func _apply_rig(sk: Skater) -> void:
 			back.y = maxf(back.y, on_b.y)
 		turn_f = _slerp_basis(turn_f, Basis(Vector3.UP, deg_to_rad(float(_flip_feet[1]))), free_feet)
 		turn_b = _slerp_basis(turn_b, Basis(Vector3.UP, deg_to_rad(float(_flip_feet[3]))), free_feet)
-	if not stride.is_empty():
+	if not stride.is_empty() and push_way > 0.0:
 		back = stride[0]
 		turn_b = Basis(Vector3.UP, deg_to_rad(float(stride[1])))
 		# the front foot swivels to point up the board, its heel a little back so the toes stay off the nose's kick
 		turn_f = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_f.z, 65.0, push_amt)))
 		front = bt * Vector3(foot_f.x, deck_y(foot_f.y + 0.05 * push_amt), foot_f.y + 0.05 * push_amt)
+	elif not stride.is_empty():
+		# rolling fakie the nose end trails: the front foot pushes, and the back foot swivels to point the way it's
+		# going, toward the tail (the regular stride pushed with the leading foot, toward the way it was going)
+		front = stride[0]
+		turn_f = Basis(Vector3.UP, deg_to_rad(float(stride[1])))
+		turn_b = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_b.z, -65.0, push_amt)))
+		back = bt * Vector3(foot_b.x, deck_y(foot_b.y - 0.05 * push_amt), foot_b.y - 0.05 * push_amt)
 	var front_pitch: float = 0.0
 	var back_pitch: float = 0.0
 	var pole_l: Vector3 = Vector3(1.0, 0.1, -0.35)           # riding: knees over the toes, a little apart
@@ -974,7 +982,7 @@ func _apply_rig(sk: Skater) -> void:
 	# pushing: the arms swing against the pushing leg (the front arm reaches toward the nose as the foot plants,
 	# the back arm goes back as it pushes)
 	if push_amt > 0.0 or (not stride.is_empty()):
-		var sw: float = sin(TAU * (sk.push_anim - 0.1)) * 0.11
+		var sw: float = sin(TAU * (sk.push_anim - 0.1)) * 0.11 * push_way
 		free_l += Vector3(0.03, 0.0, -1.0) * sw
 		free_r += Vector3(-0.03, 0.0, -1.0) * sw
 	# a landing drops the arms a little with the hips; a sketchy one wheels them, out of step with each other
@@ -1943,13 +1951,18 @@ func _end_physical() -> void:
 	_blend_from.clear()
 
 
-## The back foot through one push: up off its mark, out past the deck's edge and down beside the board ahead of the
-## back truck, push back along the ground, then up, back in over the deck and onto it. Returns [foot, angle, hip
-## drop]. (Straight lines from the deck to the ground cut the foot through the deck's edge.)
-func _push_stride(ph: float, bt: Transform3D = Transform3D.IDENTITY) -> Array:
-	var deck: Vector3 = bt * Vector3(foot_b.x, deck_y(foot_b.y), foot_b.y)      # (the board as drawn: tilted to the ground)
-	var plant: Vector3 = Vector3(0.22, 0.0, -0.02)
-	var reach: Vector3 = Vector3(0.22, 0.0, 0.55)
+## The pushing foot through one push: up off its mark, out past the deck's edge and down beside the board, toes
+## pointing the way it's going, push back along the ground, then up, back in over the deck and onto it. Riding
+## regular that's the back foot, planted a little ahead of the board's middle and pushed back toward the tail;
+## fakie (rolling tail first) the front foot, the same toward the nose. Returns [foot, angle, hip drop]. (Straight
+## lines from the deck to the ground cut the foot through the deck's edge; the planted foot used to point back.)
+func _push_stride(ph: float, bt: Transform3D = Transform3D.IDENTITY, fakie: bool = false) -> Array:
+	var mark: Vector3 = foot_f if fakie else foot_b
+	var way: float = -1.0 if fakie else 1.0       # + toward the tail: behind, riding regular
+	var deck: Vector3 = bt * Vector3(mark.x, deck_y(mark.y), mark.y)      # (the board as drawn: tilted to the ground)
+	var plant: Vector3 = Vector3(0.22, 0.0, -0.02 * way)
+	var reach: Vector3 = Vector3(0.22, 0.0, 0.55 * way)
+	var toes: float = 70.0 * way                  # toward the nose (regular) or the tail (fakie): forward
 	var foot: Vector3
 	var ang: float
 	if ph < 0.18:                                   # lift, out and step down beside the board
@@ -1958,21 +1971,21 @@ func _push_stride(ph: float, bt: Transform3D = Transform3D.IDENTITY) -> Array:
 		var down: float = smoothstep(0.3, 1.0, k)
 		foot = Vector3(lerpf(deck.x, plant.x, out), lerpf(deck.y, plant.y, down) + sin(k * PI) * 0.05,
 			lerpf(deck.z, plant.z, smoothstep(0.0, 1.0, k)))
-		ang = lerpf(foot_b.z, -75.0, smoothstep(0.0, 1.0, k))
+		ang = lerpf(mark.z, toes, smoothstep(0.0, 1.0, k))
 	elif ph < 0.62:                                 # push back along the ground
 		var k2: float = (ph - 0.18) / 0.44
 		foot = plant.lerp(reach, k2 * k2 * (3.0 - 2.0 * k2))
-		ang = -75.0
+		ang = toes
 	elif ph < 0.88:                                 # swing up, back in over the deck and onto it
 		var k3: float = (ph - 0.62) / 0.26
 		var up: float = smoothstep(0.0, 0.5, k3)
 		var inward: float = smoothstep(0.4, 1.0, k3)
 		foot = Vector3(lerpf(reach.x, deck.x, inward), lerpf(reach.y, deck.y, up) + sin(k3 * PI) * 0.1,
 			lerpf(reach.z, deck.z, smoothstep(0.0, 1.0, k3)))
-		ang = lerpf(-75.0, foot_b.z, smoothstep(0.0, 1.0, k3))
+		ang = lerpf(toes, mark.z, smoothstep(0.0, 1.0, k3))
 	else:
 		foot = deck
-		ang = foot_b.z
+		ang = mark.z
 	var on_ground: float = clampf(1.0 - absf(ph - 0.4) / 0.3, 0.0, 1.0)
 	return [foot, ang, on_ground * 0.06]
 

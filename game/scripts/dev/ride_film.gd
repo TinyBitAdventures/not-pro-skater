@@ -213,7 +213,7 @@ static func metrics(s: Skater) -> Dictionary:
 		var turn: Basis = f.basis * rg._rest_model[fi].basis.inverse()
 		var sole: Vector3 = inv * (f.origin - turn * rg._ankle_off)
 		var over: bool = absf(sole.x) < HALF_W + 0.03 and absf(sole.z) < HALF_L
-		if side == "r" and s.push_anim >= 0.0 and s.state == Skater.State.GROUND:
+		if side == ("l" if s.stance == "fakie" else "r") and s.push_anim >= 0.0 and s.state == Skater.State.GROUND:
 			over = false                      # the pushing foot leaves the deck on purpose
 		soles.append([sole.y - RiderRig.deck_y(sole.z), over])
 		# the shin and foot (knee -> ankle -> ball) must stay out of the deck
@@ -330,6 +330,14 @@ func _clips() -> Dictionary:
 				if d["phase"] == 1 and sk.state == Skater.State.AIR and sk._wall_t > 0.0:
 					sk.inp.ollie_pressed = true,
 			"begin": func() -> bool: return sk.wallplant_t > 0.0},
+		"push_fakie": {"v0": 1.5, "every": 0.1, "n": 16, "cam": "side", "dist": 2.6,
+			"drive": func() -> void:
+				if ticks == 1:
+					sk.stance = "fakie"             # rolling tail first
+				_push(),
+			"begin": func() -> bool: return ticks > 2},
+		"push_side": {"v0": 1.5, "every": 0.1, "n": 16, "cam": "side", "dist": 2.6, "drive": _push,
+			"begin": func() -> bool: return ticks > 2},
 		"idle": {"v0": 0.0, "every": 0.4, "n": 32, "drive": _coast, "begin": func() -> bool: return ticks > 1},
 		"cheer": {"v0": 5.0, "every": 0.1, "n": 10,
 			"drive": func() -> void:
