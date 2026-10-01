@@ -8,6 +8,8 @@
 - **Manuals balance on two wheels:** a manual tips the board up about its back axle (9 degrees, rocking with the balance) with the hips over the back wheels, a nose manual about the front one. It used to tip 24 degrees about the deck's middle, sinking the back wheels 8 cm into the ground and floating the front ones.
 - The pushing foot steps out past the deck's edge before it comes down (it cut through the edge on the way), and the front foot's toes stay off the nose's kick as it turns to point up the board.
 - Grabs keep the feet on the board (it rides a little higher, up to the hand).
+- **Pumping a ramp looks like pumping:** holding push on a transition (and across the flat between two) no longer plays the push stride, which kicked a foot at the ramp. The rider sinks low through the flat, drives the legs out as the board rises up the curve, stands tall near the top and sinks again on the way down.
+- **The board sits on its wheels through transitions:** the body follows a smoothed tilt that lags behind a curve, and the board's ends dug up to 8 cm into the ramp. The board now sets all four wheels on what's under them (the feet ride it).
 - **Landings make a sound:** touching down was silent everywhere (the landing sounds were never routed to the mixer). A normal landing thuds, louder and a touch lower the harder you come down; a drop or a big air lands with the heavy sound; rolling back into a ramp is quiet.
 
 ## v0.2.0 (2026-10-01)

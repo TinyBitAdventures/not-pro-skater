@@ -176,7 +176,8 @@ func tick(_dt: float) -> void:
 	_grit.emitting = grinding and not metal
 	# push dust from the back wheels on the flat
 	_dust_push.global_position = foot
-	var kicking: bool = s.state == Skater.State.GROUND and s.pushing and not s.braking and s.velocity.length() < 7.0 and s.surface != "grass"
+	var kicking: bool = s.state == Skater.State.GROUND and s.pushing and not s.pumping and not s.braking and s.velocity.length() < 7.0 \
+		and s.surface != "grass"
 	var braking: bool = s.state == Skater.State.GROUND and s.braking and s.velocity.length() > 3.0
 	_dust_push.emitting = kicking or braking
 

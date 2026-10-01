@@ -107,6 +107,8 @@ var crouch: float = 0.0
 var lean: float = 0.0
 var push_phase: float = 0.0
 var pushing: bool = false
+var pumping: bool = false                # pushing on a ramp: pumps it (the visual compresses and extends, no foot down)
+var _ramp_t: float = 9.0                 # seconds since the board was last on a ramp
 var braking: bool = false
 var manual_on: bool = false
 var spin_vel: float = 0.0
@@ -490,6 +492,7 @@ func _ground(dt: float) -> void:
 	var mode: String = steer_mode if steer_mode != "" else Game.steer_mode
 	var tank: bool = mode == "tank"
 	pushing = false
+	pumping = false
 	braking = inp.brake
 	var turn_applied: float = 0.0
 
@@ -554,12 +557,16 @@ func _ground(dt: float) -> void:
 	velocity = hdg * fwd + lat
 	velocity += (Vector3.DOWN - n * Vector3.DOWN.dot(n)) * tune.gravity * dt
 
-	# a stride, once started, finishes (the foot comes back onto the deck) even if the push is let go
-	if (pushing and not braking) or push_anim >= 0.0:
+	# a stride, once started, finishes (the foot comes back onto the deck) even if the push is let go. On a ramp
+	# the same push pumps it instead: no foot goes down (it kicked at the ramp)
+	_ramp_t = 0.0 if on_ramp else _ramp_t + dt
+	pumping = pushing and not braking and not manual_on and _ramp_t < 0.5    # (the flat between two ramps too)
+	var striding: bool = pushing and not braking and not pumping
+	if striding or push_anim >= 0.0:
 		var before: float = push_phase
 		push_phase += dt * (tune.push_rate + spd * tune.push_rate_speed)
 		push_anim = fposmod(push_phase, 1.0)
-		if not (pushing and not braking) and floorf(push_phase) > floorf(before):
+		if not striding and floorf(push_phase) > floorf(before):
 			push_anim = -1.0
 			push_phase = floorf(push_phase)
 	if charge_mode:

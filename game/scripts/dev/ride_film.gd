@@ -230,7 +230,7 @@ static func metrics(s: Skater) -> Dictionary:
 		for wx in [-LooseBoard.WHEEL_X, LooseBoard.WHEEL_X]:
 			for wz in [-LooseBoard.TRUCK_Z, LooseBoard.TRUCK_Z]:
 				var p2: Vector3 = rg.global_transform * (bt * Vector3(wx, 0.0, wz))
-				var up: Vector3 = s.board_n
+				var up: Vector3 = rg.global_transform.basis.y.normalized()     # the drawn frame's up
 				var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(p2 + up * 0.3, p2 - up * 0.5, 1)
 				var hit: Dictionary = space.intersect_ray(q)
 				if hit.is_empty():
@@ -319,8 +319,13 @@ func _clips() -> Dictionary:
 			"begin": func() -> bool: return sk.global_position.y < 1.6},
 		"sketchy": {"v0": 7.0, "offset": Vector3(0, 1.2, 0), "air": 1.0, "yaw_off": 46.0, "every": 0.05, "n": 20,
 			"drive": _coast, "begin": func() -> bool: return sk.global_position.y < 0.5},
-		"pump": {"start": "mini", "v0": 3.0, "every": 0.1, "n": 30, "cam": "side", "dist": 6.0, "drive": _push,
-			"begin": func() -> bool: return ticks > 30},
+		"pump": {"start": "mini", "v0": 3.0, "every": 0.08, "n": 24, "dist": 3.0,
+			"drive": func() -> void:
+				if sk.velocity.length() < 5.0:
+					_push()
+				else:
+					_coast(),
+			"begin": func() -> bool: return ticks > 60},
 	}
 	for kind in ["manual", "nose"]:
 		var k: String = kind
