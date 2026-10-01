@@ -16,6 +16,8 @@ extends RefCounted
 ##   marks      hit your marks: stop on each chalk mark (markers Event_mark_<n>)
 ##   timed_run  the one-take run: through the checkpoints (markers Event_check_<n>) in order within `limit`
 ##              seconds of the first; a bail or the clock ruins the take. `points` for finishing it
+##   wallride   wallride a wall inside `area` (Rect2 in Godot x / z round the wall's face); `label` floats over
+##              `label_at` (Godot coordinates) until it's done
 ##
 ## deliver takes `item` (a scene path; the cake by default) and `drop_text`.
 ## `money` (optional): the score is money raised, this many dollars a point (a fundraiser); the HUD, results
@@ -191,6 +193,8 @@ static func get_event(id: String) -> Dictionary:
 					{"id": "fans", "kind": "show_kids", "text": "Hype the fans"},
 					{"id": "front", "kind": "zone_combo", "text": "A 7,000 combo in front of the stage", "zone": "stage",
 						"radius": 9.0, "points": 7000, "label": "FRONT OF STAGE"},
+					{"id": "graffiti", "kind": "wallride", "text": "Wallride the graffiti wall in the alley",
+						"area": Rect2(9.0, -44.0, 1.6, 28.0), "label": "WALLRIDE", "label_at": Vector3(8.6, 4.2, -24.0)},
 					{"id": "score", "kind": "score", "text": "Score 35,000", "points": 35000},
 				],
 			}
@@ -222,6 +226,8 @@ static func get_event(id: String) -> Dictionary:
 						"radius": 7.0, "points": 5000, "label": "ROLLING"},
 					{"id": "bigrail", "kind": "trick_on", "text": "Grind the big rail at the civic plaza",
 						"rails": ["plaza_rail_c", "plaza_rail_side"], "trick": ""},
+					{"id": "bankwall", "kind": "wallride", "text": "Wallride off the bank to wall",
+						"area": Rect2(12.8, 4.0, 1.6, 18.0), "label": "WALLRIDE", "label_at": Vector3(13.0, 4.6, 13.0)},
 					{"id": "score", "kind": "score", "text": "Score 35,000", "points": 35000},
 				],
 			}
@@ -245,6 +251,8 @@ static func get_event(id: String) -> Dictionary:
 						"drop_text": "PAGES EVERYWHERE!  BACK TO THE TRAILER"},
 					{"id": "dolly", "kind": "trick_on", "text": "Grind the dolly track",
 						"rails": ["dolly_track_a", "dolly_track_b"], "trick": ""},
+					{"id": "brownstone", "kind": "wallride", "text": "Wallride a brownstone on the New York street",
+						"area": Rect2(20.5, -20.0, 19.0, 40.0), "label": "WALLRIDE", "label_at": Vector3(30.0, 5.0, 0.0)},
 					{"id": "crew", "kind": "show_kids", "text": "Impress the director and the crew"},
 					{"id": "score", "kind": "score", "text": "Score 40,000", "points": 40000},
 				],

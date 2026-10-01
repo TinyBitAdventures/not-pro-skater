@@ -169,6 +169,49 @@ func _run() -> void:
 				sk.score.score = int(g["points"]) + 100
 				await _frames(2)
 				report.append("%s (score): %s" % [gid, r.done.has(gid)])
+			"wallride":
+				# a real wallride on the wall inside the goal's area: find its face with rays from points along the
+				# area, throw the skater at it about 30 degrees off in the air with grind pressed; try the next spot
+				# if something stands in front of the wall there (a stoop)
+				var a: Rect2 = g["area"]
+				var space: PhysicsDirectSpaceState3D = sk.get_world_3d().direct_space_state
+				var long_x: bool = a.size.x > a.size.y
+				var found: bool = false
+				var rode: bool = false
+				for off in [0.0, 0.15, -0.15, 0.3, -0.3]:
+					if rode:
+						break
+					var c2: Vector2 = a.get_center() + (Vector2(a.size.x * off, 0.0) if long_x else Vector2(0.0, a.size.y * off))
+					var mid: Vector3 = Vector3(c2.x, 40.0, c2.y)
+					var gh: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(mid, mid + Vector3.DOWN * 80.0, 1))
+					var floor_y: float = (gh["position"] as Vector3).y if not gh.is_empty() else 0.0
+					var wall: Dictionary = {}
+					for dir in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
+						var from: Vector3 = Vector3(mid.x, floor_y + 2.4, mid.z)
+						var wh: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + dir * 12.0, 1))
+						if not wh.is_empty() and absf((wh["normal"] as Vector3).y) < 0.2 \
+								and a.grow(0.2).has_point(Vector2((wh["position"] as Vector3).x, (wh["position"] as Vector3).z)):
+							wall = wh
+							break
+					if wall.is_empty():
+						continue
+					found = true
+					var n: Vector3 = wall["normal"]
+					n = Vector3(n.x, 0.0, n.z).normalized()
+					var along: Vector3 = n.cross(Vector3.UP).normalized()
+					var at: Vector3 = (wall["position"] as Vector3) + n * 0.9 - along * 1.5
+					var gu: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(at + Vector3.UP * 4.0, at + Vector3.DOWN * 8.0, 1))
+					at.y = ((gu["position"] as Vector3).y if not gu.is_empty() else floor_y) + 1.5
+					sk.place_at(Transform3D(Basis.looking_at(along, Vector3.UP), at))
+					await _frames(1)
+					sk.velocity = along * 7.0 - n * 3.5 + Vector3.UP * 1.0
+					sk._enter_air()
+					sk.air_time = 0.3
+					sk.inp.grind_pressed = true
+					for i in 120:
+						await get_tree().physics_frame
+						rode = rode or sk.wallriding
+				report.append("%s (wallride): wall found %s, rode it %s, counted %s" % [gid, found, rode, r.done.has(gid)])
 	for line in report:
 		print("[event] ", line)
 	var all_done: bool = r.done.size() == (ev["goals"] as Array).size() and not report.any(func(l: String) -> bool:

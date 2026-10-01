@@ -51,6 +51,7 @@ const GATE_RADIUS: float = 3.2
 var _occl_i: int = 0
 var _pick_label: Label3D                 # over the item to carry, while it waits
 var _drop_label: Label3D                 # over where it goes, while it's carried
+var _wall_labels: Dictionary = {}        # wallride goal id -> its floating label
 var _hinted: String = ""               # the trick_on goal just hinted at, until this grind ends
 var active: bool = true                # false once the session is over: nothing more completes or saves
 var _kids_pending: Dictionary = {}     # kids a trick was shown to in the live combo: they count when it lands
@@ -90,6 +91,12 @@ func setup(event_id: String, p_level: Level, p_skater: Skater, p_score: ScoreKee
 				_build_gates("check", "START", "FINISH")
 			"marks":
 				_build_marks()
+			"wallride":
+				if not saved.has(g["id"]):
+					var wl: Label3D = _float_text(String(g.get("label", "WALLRIDE")), 0.005)
+					add_child(wl)
+					wl.global_position = g["label_at"]
+					_wall_labels[g["id"]] = wl
 			"zone_combo":
 				if level.markers.has("zone_" + String(g["zone"])):
 					_zone_ring((level.markers["zone_" + String(g["zone"])] as Transform3D).origin, float(g.get("radius", 8.0)),
@@ -264,6 +271,18 @@ func _process(dt: float) -> void:
 			"score":
 				if score.score >= int(g["points"]):
 					_complete(id)
+			"wallride":
+				var a: Rect2 = g["area"]
+				if skater.wallriding and a.has_point(Vector2(skater.global_position.x, skater.global_position.z)):
+					_complete(id)
+					if _wall_labels.has(id):
+						(_wall_labels[id] as Node3D).queue_free()
+						_wall_labels.erase(id)
+
+
+## Is a wallride goal's area (Rect2 round the wall's face in x / z) where the rider is now?
+static func in_area(g: Dictionary, p: Vector3) -> bool:
+	return (g["area"] as Rect2).has_point(Vector2(p.x, p.z))
 
 
 func _cake_tick() -> void:
