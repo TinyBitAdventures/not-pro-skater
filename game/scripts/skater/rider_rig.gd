@@ -32,6 +32,11 @@ const POP_PITCH: float = 26.0            # degrees nose up at the snap of an oll
 const TAIL_Z: float = 0.33               # the tail's tip on the ground: the snap tips the board about it
 const OLLIE_TUCK: float = 0.15           # how high the knees bring the board at the top of an ollie
 const MANUAL_PITCH: float = 9.0          # nose up in a manual (rocking with the balance)
+# grinds: the line is the rail's (ledge's, coping's) top and the skater rides Skater.GRIND_ORIGIN_DY under it, which
+# draws the deck 5 cm into the rail: the drawn rider sits up on it, the deck on it for a slide, the trucks for a 50-50
+const ON_RAIL: float = 0.152             # the line above the rider's frame (-GRIND_ORIGIN_DY - CAPSULE_TO_CONTACT)
+const DECK_BOTTOM: float = 0.098
+const HANGER_BOTTOM: float = 0.027
 const ABSORB_W: float = 14.0             # rad/s: the legs' spring taking a landing (damped 0.7: one small rebound)
 const ABSORB_PER: float = 0.012          # hip drop (pose units, ~1.15 m each) per m/s into the floor: a flat ollie ~11 cm
 const SKETCHY_TIME: float = 0.55
@@ -95,6 +100,9 @@ var _sketchy: float = 0.0                # seconds of arm-waving left after a sk
 var _look_down: float = 0.0              # extra head nod: looking at the landing spot
 var _lead: float = 0.0                   # degrees the head leads the shoulders into a spin
 var pelvis_x: float = 0.0                # hips across the board, + toward the toe edge (into a frontside carve)
+var body_yaw: float = 0.0                # the whole body turned with the board (a boardslide faces down the rail)
+var board_shift: Vector2 = Vector2.ZERO  # (across, along) the board moved off the frame's middle (a nose on the rail)
+var grind_lift: float = 0.0              # the drawn rider raised onto the rail (see ON_RAIL)
 var _fit: Vector3 = Vector3.ZERO         # (pitch, roll degrees, lift): sets all four wheels on the ground (_ground_fit)
 var vis_n: Vector3 = Vector3.UP
 var _t: float = 0.0
@@ -346,6 +354,7 @@ func _sync_riding(sk: Skater, dt: float) -> void:
 	global_transform = Transform3D(Basis(fwd.cross(vis_n), vis_n, -fwd), pos)
 	_ground_fit(sk, dt)
 	_pose(sk, dt)
+	global_transform.origin += vis_n * grind_lift
 	_apply_rig(sk)
 
 
@@ -398,6 +407,9 @@ func _pose(sk: Skater, dt: float) -> void:
 	var fb_t: Vector3 = FEET_CRUISE[1]
 	var pz_t: float = 0.0
 	var px_t: float = 0.0
+	var by_t: float = 0.0
+	var shift_t: Vector2 = Vector2.ZERO
+	var glift_t: float = 0.0
 	var feet_rate: float = 14.0
 	var free_t: float = 0.0
 	var lift_rate: float = 18.0
@@ -562,11 +574,35 @@ func _pose(sk: Skater, dt: float) -> void:
 			arms_t = 0.95
 			yaw_t = rad_to_deg(sk.grind_board_turn)
 			roll_t = 6.0
-			exact = sk.lip_kind == ""
 			# leaning with the grind's balance (+ = right of travel: the chest side, the back side when fakie),
 			# wobbling harder as it nears the edge
 			var bal: float = sk.grind_balance * (-1.0 if fakie else 1.0)
 			sway_t = bal * 16.0 + sin(_t * 9.0) * (2.0 + absf(bal) * 5.0)
+			var face: float = -1.0 if fakie else 1.0     # turning the chest toward the way it's sliding
+			glift_t = ON_RAIL - DECK_BOTTOM                # the deck on the rail
+			match sk.grind_kind:
+				"50-50":
+					glift_t = ON_RAIL - HANGER_BOTTOM        # the trucks on it, the wheels either side
+				"Boardslide", "Lip Slide":
+					if sk.grind_board_turn != 0.0:
+						# square across the rail, facing down it, head looking along the line
+						by_t = face * 90.0
+						roll_t = 0.0
+						hip_t = 0.62
+						lean_t = 14.0
+				"Noseslide", "Tailslide":
+					# the board turned across the rail with its nose (tail) on it: weight over that end, the shoulders
+					# opened toward the way it's going
+					var nose: bool = sk.grind_kind == "Noseslide"
+					var turn: float = sk.grind_board_turn
+					shift_t = Vector2((0.3 if nose else -0.3) * sin(turn), 0.0)
+					by_t = face * rad_to_deg(turn) * 0.75
+					px_t = (0.16 if nose else -0.16) * sin(turn)
+					roll_t = 0.0
+					ff_t = Vector3(0.0, -0.27, 12.0) if nose else Vector3(0.0, -0.1, 22.0)
+					fb_t = Vector3(0.0, 0.1, -10.0) if nose else Vector3(0.0, 0.28, -10.0)
+					lean_t = 24.0 if nose else 8.0
+					hip_t = 0.6
 			if sk.lip_kind != "":
 				# stalled on the coping: weight back over the ramp, arms out, swaying with the balance
 				sway_t = sk.lip_balance * 18.0
@@ -578,9 +614,12 @@ func _pose(sk: Skater, dt: float) -> void:
 						lean_t = 6.0
 						pitch_t = 10.0
 					"Nose Stall":
+						# the nose on the coping, the tail dropped down the ramp
 						hip_t = 0.62
 						lean_t = -4.0
 						pitch_t = 28.0
+						piv_t = Vector2(DECK, -0.3)
+						shift_t = Vector2(0.0, 0.3)
 					"Blunt to Fakie":
 						hip_t = 0.56
 						lean_t = 18.0
@@ -594,6 +633,7 @@ func _pose(sk: Skater, dt: float) -> void:
 						hip_t = 0.66
 						lean_t = 4.0
 						pitch_t = 0.0
+						glift_t = ON_RAIL - HANGER_BOTTOM      # both trucks on the coping
 	if sk.wallplant_t > 0.12:
 		pitch_t = -70.0              # tail up, wheels on the wall
 		hip_t = 0.62
@@ -613,7 +653,10 @@ func _pose(sk: Skater, dt: float) -> void:
 	foot_b = foot_b.lerp(fb_t, 1.0 - exp(-feet_rate * dt))
 	board_piv = board_piv.lerp(piv_t, 1.0 - exp(-25.0 * dt))
 	pelvis_z = _approach(pelvis_z, pz_t, 10.0, dt)
-	pelvis_x = _approach(pelvis_x, px_t, 8.0, dt)
+	pelvis_x = _approach(pelvis_x, px_t, 8.0 if st != Skater.State.GRIND else 14.0, dt)
+	body_yaw = _approach(body_yaw, by_t, 14.0, dt)
+	board_shift = board_shift.lerp(shift_t, 1.0 - exp(-20.0 * dt))
+	grind_lift = _approach(grind_lift, glift_t, 30.0, dt)
 	_look_down = _approach(_look_down, look_t, 10.0, dt)
 	_lead = _approach(_lead, lead_t * 0.6, 8.0, dt)
 	free_feet = free_t
@@ -621,6 +664,11 @@ func _pose(sk: Skater, dt: float) -> void:
 		board_roll = roll_t
 		board_yaw = yaw_t
 		board_pitch = pitch_t
+	elif st == Skater.State.GRIND:
+		# locking onto a rail turns the board in about 0.08 s (in one frame it read as a glitch)
+		board_roll = _approach(wrapf(board_roll, -180.0, 180.0), roll_t, 35.0, dt)
+		board_yaw = _approach(wrapf(board_yaw, -180.0, 180.0), yaw_t, 35.0, dt)
+		board_pitch = _approach(wrapf(board_pitch, -180.0, 180.0), pitch_t, 35.0, dt)
 	else:
 		# a flip that just finished stands at 360: that's 0, not a turn back the other way
 		board_roll = _approach(wrapf(board_roll, -180.0, 180.0), roll_t, 20.0, dt)
@@ -775,7 +823,7 @@ func _apply_rig(sk: Skater) -> void:
 	var pivot: Vector3 = Vector3(0, board_piv.x, board_piv.y)
 	var rot: Basis = Basis.from_euler(Vector3(deg_to_rad(board_pitch + _fit.x), deg_to_rad(board_yaw),
 		deg_to_rad(board_roll + _fit.y)), EULER_ORDER_YXZ)
-	bt = Transform3D(rot, pivot - rot * pivot + Vector3(0, board_lift + _fit.z, 0))
+	bt = Transform3D(rot, pivot - rot * pivot + Vector3(board_shift.x, board_lift + _fit.z, board_shift.y))
 	board.transform = bt                       # (hidden while the loose board is out in the world)
 
 	# hips: hip_h is a pose number (0.72 riding tall .. 0.55 deep crouch) mapped onto a share of this leg
@@ -796,7 +844,8 @@ func _apply_rig(sk: Skater) -> void:
 		_rest_follow(i)
 	var pelvis: int = _b["pelvis"]
 	var walk_yaw: float = float(_gait_now["yaw"]) * off_k if walking else 0.0
-	var q_body: Basis = Basis(Vector3(0, 0, 1), deg_to_rad(-sway)) * Basis(Vector3.UP, deg_to_rad(twist * 0.3 + 30.0 * push_amt + walk_yaw))
+	var q_body: Basis = Basis(Vector3.UP, deg_to_rad(body_yaw)) * Basis(Vector3(0, 0, 1), deg_to_rad(-sway)) \
+		* Basis(Vector3.UP, deg_to_rad(twist * 0.3 + 30.0 * push_amt + walk_yaw))
 	var pg: Transform3D = _rotated(pelvis, q_body)
 	pg.origin = Vector3((-0.03 + pelvis_x) * (1.0 - off_k), hip_y, float(_gait_now["sway"]) * off_k if walking else pelvis_z)
 	_pose_bone(pelvis, pg)
@@ -810,7 +859,7 @@ func _apply_rig(sk: Skater) -> void:
 		var part: Basis = Basis(Quaternion.IDENTITY.slerp(q_torso.get_rotation_quaternion(), 1.0 / spine.size()))
 		_pose_bone(i, _rotated(i, part))
 	# head: look along the board toward the nose (and down at it in the air)
-	var look: float = (HEAD_LOOK if sk.stance != "fakie" else -HEAD_LOOK) - twist + _lead
+	var look: float = (HEAD_LOOK if sk.stance != "fakie" else -HEAD_LOOK) - twist + _lead - body_yaw * 0.8
 	if _walk_mode:
 		look = 0.0                             # walking: looking where it goes
 	var nod: float = (10.0 if sk.state == Skater.State.AIR else 4.0) + _look_down
@@ -1601,6 +1650,9 @@ func _rest_board_pose() -> void:
 	pelvis_x = 0.0
 	_look_down = 0.0
 	_lead = 0.0
+	body_yaw = 0.0
+	board_shift = Vector2.ZERO
+	grind_lift = 0.0
 
 
 func _end_physical() -> void:

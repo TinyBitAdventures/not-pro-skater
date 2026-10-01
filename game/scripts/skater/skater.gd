@@ -131,7 +131,7 @@ var grind_line: GrindLine = null
 var grind_dist: float = 0.0
 var grind_dir: float = 1.0
 var grind_speed: float = 0.0
-var grind_board_turn: float = 0.0        # 0 = 50-50, +-PI/2 = boardslide
+var grind_board_turn: float = 0.0        # 0 = 50-50, +-PI/2 = boardslide, about 80 degrees = nose / tail slide (visual)
 var grind_balance: float = 0.0           # -1..1 across the rail (+ = leaning right of travel): past either end the rider falls off (HUD meter)
 var _grind_bal_vel: float = 0.0
 var _grind_time: float = 0.0
@@ -1355,8 +1355,10 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 		grind_board_turn = PI * 0.5
 	elif word == "forward":
 		gname = "Noseslide"
+		grind_board_turn = PI * 0.45
 	elif word == "back":
 		gname = "Tailslide"
+		grind_board_turn = PI * 0.45
 	grind_kind = gname
 	# the balance starts near the middle; coming in across the rail leans it the way the body was going
 	var across: Vector3 = _grind_across(d * grind_dir)

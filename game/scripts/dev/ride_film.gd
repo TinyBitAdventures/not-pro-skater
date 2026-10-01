@@ -167,6 +167,8 @@ func _shot() -> void:
 	if m.has("wheels"):
 		line += " wheels %+.3f..%+.3f" % [m["wheels"][0], m["wheels"][1]]
 	line += " cut %d pitch %.0f" % [m.get("cut", 0), m.get("pitch", 0.0)]
+	if m.has("rail"):
+		line += " rail %s" % [(m["rail"] as Vector3).snapped(Vector3(0.001, 0.001, 0.001))]
 	var w: Dictionary = clip["worst"]
 	var over: bool = false
 	if m.has("soles") and bool(m.get("on_deck", false)):
@@ -228,6 +230,12 @@ static func metrics(s: Skater) -> Dictionary:
 				if OS.get_environment("CUT_DBG") != "":
 					print("    cut: %s point %d at (%.3f, %.3f, %.3f), grip %.3f" % [side, k, p.x, p.y, p.z, RiderRig.deck_y(p.z)])
 	out["soles"] = soles
+	if s.state == Skater.State.GRIND and s.grind_line != null:
+		# where the rail (its top: the grind line) passes under the board, in board space: across, above the
+		# deck's underside (- = into it), along
+		var lp: Vector3 = rg.global_transform.affine_inverse() * s.grind_line.point_at(s.grind_dist)
+		var rb: Vector3 = inv * lp
+		out["rail"] = Vector3(rb.x, rb.y - RiderRig.DECK_BOTTOM, rb.z)
 	out["cut"] = cut
 	out["pitch"] = rg.board_pitch
 	out["on_deck"] = s.state == Skater.State.GROUND or s.state == Skater.State.GRIND or (s.state == Skater.State.AIR \
@@ -348,6 +356,29 @@ func _clips() -> Dictionary:
 				else:
 					_coast(),
 			"begin": func() -> bool: return sk.manual_on}
+	for lp in [["rock", "none"], ["nosestall", "forward"], ["blunt", "back"], ["axle", "left"], ["disaster", "right"]]:
+		var lstick: String = lp[1]
+		c["lip_" + String(lp[0])] = {"start": "mini", "v0": 10.5, "offset": Vector3(0.6, 0, 0), "every": 0.08, "n": 12,
+			"cam": "side", "dist": 3.4,
+			"drive": func() -> void:
+				_coast()
+				if d["phase"] == 0 and sk.vert_air and sk.global_position.y > 1.4:
+					var up_wall: Vector3 = -sk.vert_out
+					var r: Vector3 = up_wall.cross(Vector3.UP)
+					var st: Vector3 = Vector3.ZERO
+					match lstick:
+						"forward": st = up_wall
+						"back": st = -up_wall
+						"left": st = -r
+						"right": st = r
+					sk.inp.world_dir = st
+					sk.inp.grind_pressed = true
+					d["phase"] = 1
+				elif d["phase"] == 1 and sk.lip_kind != "":
+					sk.inp.world_dir = Vector3.ZERO
+					sk.lip_balance = 0.0                     # (hold the stall still for the film)
+					sk._lip_vel = 0.0,
+			"begin": func() -> bool: return sk.lip_kind != ""}
 	for g in [["5050", "none"], ["noseslide", "forward"], ["tailslide", "back"], ["boardslide", "board"]]:
 		var gname: String = g[0]
 		var stick: String = g[1]

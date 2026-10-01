@@ -13,6 +13,8 @@
 - **Carving leans into the turn:** the body leaned the wrong way, out of every turn (toward the heels turning toward the toes, and the other way round). It leans in now, harder at speed, the hips move over the inside edge, the deck rolls a few degrees with it, and a heel-side turn sits back over the heels.
 - **Spins lead with the head:** the shoulders, then the head, turn ahead of the hips into a spin, a fast spin pulls the arms in, and the rider looks down at the landing in the last moments of every air.
 - The arms swing against the pushing leg.
+- **Grinds sit on the rail and each one has its shape:** the rider was drawn 5 cm too low on every rail, ledge and coping (the deck cut into the rail). A 50-50 now rides its trucks with the wheels either side, slides ride the deck. A noseslide or tailslide turns the board across the rail with its nose (or tail) on it, weight over that end and the shoulders opened down the line (they looked exactly like a 50-50). A boardslide turns the whole body to face down the rail, head looking along it. Locking on turns the board in a few frames instead of one.
+- A nose stall sits on its nose on the coping with the tail dropped into the ramp; an axle stall rides both trucks on the coping.
 - **The board sits on its wheels through transitions:** the body follows a smoothed tilt that lags behind a curve, and the board's ends dug up to 8 cm into the ramp. The board now sets all four wheels on what's under them (the feet ride it).
 - **Landings make a sound:** touching down was silent everywhere (the landing sounds were never routed to the mixer). A normal landing thuds, louder and a touch lower the harder you come down; a drop or a big air lands with the heavy sound; rolling back into a ramp is quiet.
 
