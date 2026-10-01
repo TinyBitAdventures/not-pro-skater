@@ -1087,6 +1087,9 @@ func _body_thuds(dt: float) -> void:
 
 func _physical(sk: Skater, dt: float) -> void:
 	_phase_t += dt
+	var hurry: float = sk.tune.bail_hurry if sk.bail_hurried else 0.0
+	if phys_phase == "getup":
+		_phase_t += dt * 0.45 * hurry               # (hurried: a quicker get-up)
 	if loose != null and phys_phase != "":
 		_keep_board_in(sk)
 	match phys_phase:
@@ -1129,8 +1132,9 @@ func _physical(sk: Skater, dt: float) -> void:
 			ragdoll.settle = move_toward(ragdoll.settle, 0.0 if moving else 1.0, dt / 0.8)
 			# a small slam: up while still sliding to a stop; a big one stays down a moment longer
 			var sev: float = sk.bail_severity
-			_still_t = _still_t + dt if ragdoll.core_speed() < lerpf(0.9, SETTLE_SPEED, sev) else 0.0
-			if (_phase_t > lerpf(0.45, 0.9, sev) and _still_t > lerpf(0.1, 0.45, sev)) or _phase_t > 4.5:
+			_still_t = _still_t + dt if ragdoll.core_speed() < lerpf(lerpf(0.9, SETTLE_SPEED, sev), 1.5, hurry) else 0.0
+			if (_phase_t > lerpf(lerpf(0.45, 0.9, sev), 0.3, hurry) and _still_t > lerpf(lerpf(0.1, 0.45, sev), 0.0, hurry)) \
+					or _phase_t > 4.5:
 				_begin_getup(sk)
 				_walk(sk, 0.0)          # pose it now: with the ragdoll off, the skeleton would show its stale riding pose for a frame
 		"getup", "walk":
@@ -1367,6 +1371,8 @@ func _walk(sk: Skater, dt: float) -> void:
 		# past the recovery budget (a board that rolled away down a bank, say) the screen blinks and the rider is
 		# on the board where they stand, facing the way they were walking
 		var late: bool = sk.bail_time > sk.tune.recover_max and dist > 1.5
+		if sk.bail_hurried and sk.tune.bail_hurry > 0.0 and phys_phase == "walk" and _phase_t > 1.5 and dist > 1.5:
+			late = true                             # hurried: no long walk, a blink
 		if up_there or late or _stuck_t > 1.0 or (phys_phase == "walk" and _phase_t > WALK_GIVE_UP):
 			var at: Transform3D = loose.stand_transform()
 			at.origin = _walk_pos
@@ -1402,6 +1408,8 @@ func _walk(sk: Skater, dt: float) -> void:
 ## (SkateTuning.recover_max; about a second goes on turning round, speeding up and the last slow steps).
 func _pace_to(sk: Skater, dist: float) -> float:
 	var pace: float = clampf(dist * 0.8, sk.tune.walk_speed, RUN_BACK_MAX)
+	if sk.bail_hurried:
+		pace = lerpf(pace, maxf(pace, 3.5), sk.tune.bail_hurry)          # (hurried: a jog)
 	var left: float = sk.tune.recover_max - sk.bail_time - 1.0
 	return maxf(pace, minf(dist / maxf(left, 0.3), RUN_BACK_MAX))
 

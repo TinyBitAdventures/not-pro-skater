@@ -122,6 +122,20 @@ func _run() -> void:
 		await _spawn("flat", Vector3(0, 1.2, 0), Vector3(0, 1.0, -12.0), 85.0)
 		var r2: Dictionary = await _watch("flat", 7.0)
 		print("[bail] flat: %s" % r2)
+	if which in ["flat_hurry", "all"]:
+		# the flat crash with jump pressed while down (SkateTuning.bail_hurry at full): riding again in about 3 s
+		var keep: float = SkateTuning.shared().bail_hurry
+		SkateTuning.shared().bail_hurry = 1.0
+		await _spawn("flat", Vector3(0, 1.2, 0), Vector3(0, 1.0, -12.0), 85.0)
+		var presser: Callable = func() -> void:
+			sk.inp.ollie_pressed = sk.state == Skater.State.BAIL and sk.bail_time > 0.4 and sk.bail_time < 0.45
+		get_tree().physics_frame.connect(presser)
+		var rh: Dictionary = await _watch("flat_hurry", 7.0)
+		get_tree().physics_frame.disconnect(presser)
+		SkateTuning.shared().bail_hurry = keep
+		var took: float = float(rh["t_done"]) - float(rh["t_bail"])
+		print("[bail] flat_hurry: %s  jump pressed while down: riding again %.2f s after the crash (want < 3.2)" % [
+			"PASS" if rh["done"] and took < 3.2 else "FAIL", took])
 	if which in ["wall", "all"]:
 		await _spawn("wall", Vector3(0, 0, -2.0), Vector3(0, 0, -11.0), 0.0)
 		for i in 240:

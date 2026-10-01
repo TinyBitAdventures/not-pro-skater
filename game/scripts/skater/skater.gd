@@ -142,6 +142,7 @@ var grind_balance: float = 0.0           # -1..1 across the rail (+ = leaning ri
 var _grind_bal_vel: float = 0.0
 var _grind_time: float = 0.0
 var bail_time: float = 0.0
+var bail_hurried: bool = false           # jump pressed during this crash (SkateTuning.bail_hurry): the rider hurries
 var land_impact: float = 0.0             # m/s into the floor at the last touchdown (the visual sinks with it, sounds scale)
 var lands: int = 0                       # touchdowns so far (the visual starts its landing on a change)
 var land_kind: String = ""               # the last landing: "clean", "sketchy", "fakie", "" (a hop under 0.15 s)
@@ -1696,6 +1697,7 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 	_end_manual()
 	state = State.BAIL
 	bail_time = 0.0
+	bail_hurried = false
 	stats["bails"] += 1
 	manual_on = false
 	flip_kind = ""
@@ -1709,6 +1711,8 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 
 func _bail(dt: float) -> void:
 	bail_time += dt
+	if tune.bail_hurry > 0.0 and bail_time > 0.2 and inp.ollie_pressed:
+		bail_hurried = true
 	if bail_mode == "physical" and run_state == "run":
 		_run_out(dt)
 		return
