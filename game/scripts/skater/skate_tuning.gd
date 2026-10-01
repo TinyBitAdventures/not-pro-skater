@@ -107,7 +107,7 @@ static var _shared: SkateTuning = null
 @export_range(0.0, 6.0, 0.1) var board_roll_resist: float = 1.8  ## m/s per second a crashed board loses rolling on its wheels, on top of its drag
 @export_range(3.0, 15.0, 0.5) var recover_max: float = 6.0       ## most seconds from a crash to riding again: past it the screen blinks and the board is under the rider
 @export_range(0.5, 5.0, 0.1) var walk_speed: float = 1.5         ## walking pace back to a board close by (a far one is jogged or run to)
-@export_range(0.0, 1.0, 0.05) var bail_hurry: float = 0.0        ## jump pressed in a crash hurries it: up sooner, a quicker get-up, a jog back, a blink after 1.5 s of walking (0 = off)
+@export_range(0.0, 1.0, 0.05) var bail_hurry: float = 1.0        ## jump pressed in a crash hurries it: up sooner, a quicker get-up, a jog back, a blink after 1.5 s of walking (0 = off)
 @export_range(2.0, 12.0, 0.1) var runout_max_speed: float = 6.5  ## faster than this a run-out cannot stay on its feet
 @export_range(0.5, 12.0, 0.1) var runout_brake: float = 4.5      ## how hard the feet slow the body (m/s per second)
 @export_range(0.5, 10.0, 0.1) var trip_impact: float = 2.5       ## running into a wall faster than this trips the rider

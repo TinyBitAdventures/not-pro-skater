@@ -44,6 +44,8 @@ Steering, jump style (hold-release or instant tap) and music are in the title me
 
 **Wall plants:** jump at a wall and press Space as you hit it.
 
+**Crashes:** the rider goes down, gets up and walks back to the board. Press Space while you're down to hurry: up sooner, a jog back, and after a moment you're on the board.
+
 **Wallrides:** jump toward a wall at an angle (not straight at it) and press L: the board goes up onto the wall and you ride along it for about a second, sinking as you slow. Press Space on the wall to jump off it (a wallie), or ride it out and drop back down. Rails come first: L near a rail still grinds it.
 
 **Grinds:** press L in the air when you are heading for a rail; the air path bends onto rails up to about 1.2 m to the side. Keep the BALANCE meter in the middle with left / right: the stick is your weight, so push against the lean. Nose and tail slides tip faster than a 50-50, and the longer the grind the harder it gets; past either end you fall off.
@@ -232,7 +234,7 @@ audio/     build_sfx.py build_music.py (numpy placeholders), build_ambience.py (
 
 ## Roadmap
 
-See [`docs/rebuild_plan.md`](docs/rebuild_plan.md). Next: each rider's combos driving their own music stems, a soundtrack per event, a gamepad feel pass, board customisation, replays.
+See [`docs/rebuild_plan.md`](docs/rebuild_plan.md). Done lately: wallrides, a motion and crash pass. Next: a soundtrack per event (under way), each rider's combos driving their own music stems, a gamepad feel pass, board customisation, replays.
 
 ## Licence
 

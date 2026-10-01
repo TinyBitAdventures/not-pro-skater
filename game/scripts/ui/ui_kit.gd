@@ -131,6 +131,7 @@ const CONTROLS: Array = [
 	["M", "RT", "at a ramp lip: transfer; after a ramp landing: revert"],
 	["SPACE", "A", "as you hit a wall: wall plant"],
 	["L", "Y", "in the air, into a wall at an angle: wallride (SPACE on it: wallie)"],
+	["SPACE", "A", "down after a crash: hurry back to the board"],
 	["SHIFT", "LT", "brake"],
 	["R", "BACK", "reset to the start"],
 	["ESC", "START", "pause"],
