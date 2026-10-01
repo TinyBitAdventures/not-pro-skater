@@ -7,8 +7,9 @@ extends RefCounted
 ## Collision layer 8 ("ragdoll"): hits the world and the loose board, not the skater capsule.
 ##
 ## A person is not a doll: every part has a muscle (drive()) that holds the pose the body had when it went down,
-## the head stays on the shoulders, and the arms reach toward where the body is falling to catch it. The rig
-## relaxes the muscles once the body has come to rest.
+## the head stays on the shoulders, and the arms react to the way the body is going down: elbows bent to catch it
+## (the arm on that side), the other arm coming over. Once the body has come to rest the rig relaxes the muscles
+## and it lies like a person (hips and knees bent, one leg drawn up, arms limp), not a plank.
 
 const LAYER: int = 8
 
@@ -39,7 +40,10 @@ const MUSCLE: Dictionary = {
 }
 const KNEE_RANGE: Vector2 = Vector2(-3.0, 140.0)   # hinge limits, degrees (straight .. fully bent)
 const KNEE_SIGN: float = 1.0          # flips knee_angles() so that the knee's natural bend reads positive
-const LEG_EASE: float = 0.75          # how far the legs straighten out of the riding crouch once the fall begins
+const LEG_EASE: float = 0.5           # how far the legs go from the riding crouch toward the lying pose once the fall begins
+# the lying pose (_lying): degrees of hip and knee bend, for the straighter leg and the one drawn up
+const LIE_HIP: Vector2 = Vector2(20.0, 50.0)
+const LIE_KNEE: Vector2 = Vector2(30.0, 75.0)
 const MAX_KICK: float = 3.0           # rad/s a muscle may add in one tick (keeps a bad frame from exploding)
 static var limp: bool = OS.get_environment("LIMP") != ""     # LIMP=1: no muscles (the old doll, for comparison)
 
@@ -48,10 +52,13 @@ var bones: Dictionary = {}          # bone name -> PhysicalBone3D
 var skel: Skeleton3D
 var tone: float = 1.0               # 0..1: muscle strength (1 falling, lower once the body is lying still)
 var reach: float = 0.0              # 0..1: arms reach out toward the fall instead of holding their pose
-var settle: float = 0.0             # 0..1: lying still, the back and legs ease out of the riding crouch toward straight
+var settle: float = 0.0             # 0..1: lying still, the back and legs ease toward the lying pose, the arms go limp
+var fall_dir: Vector3 = Vector3.ZERO   # horizontal: the way the body is going down (the arms react to it); 0 = its velocity
+var drawn_up: int = 0               # which leg the lying pose draws up (0 left, 1 right)
 var _parent: Dictionary = {}        # bone -> the physical bone it hangs from
 var _hold: Dictionary = {}          # bone -> its rotation relative to that parent when the fall began
 var _rest: Dictionary = {}          # bone -> the same at rest (standing straight)
+var _lying: Array = [{}, {}]        # bone -> relative rotation lying down, with the left / right leg drawn up
 var _inertia: Dictionary = {}       # bone -> rough moment of inertia about its joint
 var _lateral: Dictionary = {}       # thigh bone -> the body's left-right axis in that bone's own frame (knee hinge axis)
 
@@ -127,7 +134,39 @@ func build(skeleton: Skeleton3D) -> void:
 			var ra: Basis = skel.get_bone_global_rest(p).basis.orthonormalized()
 			var rb: Basis = skel.get_bone_global_rest(skel.find_bone(bone)).basis.orthonormalized()
 			_rest[bone] = Quaternion((ra.inverse() * rb).orthonormalized())
+	_build_lying()
 	sim.active = false
+
+
+## The lying poses: the hips bend the thighs forward and the knees bend the shins back (the skeleton's own front,
+## from the toes), more on the drawn-up leg. Everything else as at rest.
+func _build_lying() -> void:
+	var foot: int = skel.find_bone("foot_l")
+	var ball: int = skel.find_bone("ball_l")
+	if foot < 0 or ball < 0:
+		return
+	var front: Vector3 = skel.get_bone_global_rest(ball).origin - skel.get_bone_global_rest(foot).origin
+	front.y = 0.0
+	front = front.normalized()
+	for up in 2:
+		var pose: Dictionary = {}
+		for bone in _rest:
+			pose[bone] = _rest[bone]
+		for i in 2:
+			var side: String = "l" if i == 0 else "r"
+			var more: bool = i == up
+			for pair in [["thigh_" + side, "calf_" + side, front, LIE_HIP], ["calf_" + side, "foot_" + side, -front, LIE_KNEE]]:
+				var bone: String = pair[0]
+				if not pose.has(bone) or not _parent.has(bone):
+					continue
+				var b: int = skel.find_bone(bone)
+				var c: int = skel.find_bone(String(pair[1]))
+				var dir: Vector3 = (skel.get_bone_global_rest(c).origin - skel.get_bone_global_rest(b).origin).normalized()
+				var axis: Vector3 = dir.cross(pair[2] as Vector3).normalized()
+				var pb: Basis = skel.get_bone_global_rest(skel.find_bone(_parent[bone])).basis.orthonormalized()
+				var bend: Vector2 = pair[3]
+				pose[bone] = Quaternion((pb.inverse() * axis).normalized(), deg_to_rad(bend.y if more else bend.x)) * (_rest[bone] as Quaternion)
+		_lying[up] = pose
 
 
 ## Take over the skeleton from its current pose, moving with velocity `v` (and a spin `w` about the pelvis).
@@ -141,6 +180,7 @@ func start(v: Vector3, w: Vector3) -> void:
 	tone = 1.0
 	reach = 1.0
 	settle = 0.0
+	drawn_up = randi() % 2
 	sim.active = true
 	sim.physical_bones_start_simulation()
 	var centre: Vector3 = pelvis_position()
@@ -157,9 +197,11 @@ func drive(dt: float) -> void:
 	if limp or tone <= 0.0 or _hold.is_empty() or not simulating():
 		return
 	var pelvis: PhysicalBone3D = bones["pelvis"]
-	var fall: Vector3 = pelvis.linear_velocity
-	fall.y = 0.0
-	fall = fall.normalized() if fall.length() > 0.5 else Vector3.ZERO
+	var fall: Vector3 = fall_dir
+	if fall == Vector3.ZERO:
+		fall = pelvis.linear_velocity
+		fall.y = 0.0
+		fall = fall.normalized() if fall.length() > 0.5 else Vector3.ZERO
 	var right: Vector3 = Vector3.ZERO
 	if bones.has("upperarm_l") and bones.has("upperarm_r"):
 		right = ((bones["upperarm_r"] as PhysicalBone3D).global_position - (bones["upperarm_l"] as PhysicalBone3D).global_position).normalized()
@@ -169,14 +211,25 @@ func drive(dt: float) -> void:
 		var cur: Basis = pb.global_transform.basis.orthonormalized()
 		var arm: bool = bone.begins_with("upperarm") or bone.begins_with("lowerarm")
 		var rel: Quaternion = _hold[bone]
-		# legs let go of the crouch as soon as the board is gone (a slam does not keep its knees bent)
-		var ease: float = maxf(settle, LEG_EASE) if (bone.begins_with("thigh") or bone.begins_with("calf") or bone.begins_with("foot")) else settle
+		# legs let go of the riding crouch as soon as the board is gone, toward lying with the knees bent (a straight
+		# target made every slam a plank)
+		var leg: bool = bone.begins_with("thigh") or bone.begins_with("calf") or bone.begins_with("foot")
+		var ease: float = maxf(settle, LEG_EASE) if leg else settle
 		if ease > 0.0 and not arm:
-			rel = rel.slerp(_rest[bone], ease)
+			rel = rel.slerp((_lying[drawn_up] as Dictionary).get(bone, _rest[bone]), ease)
 		var err: Vector3 = _turn(cur, pa.global_transform.basis.orthonormalized() * Basis(rel))
 		if reach > 0.0 and arm:
 			var side: float = 1.0 if bone.ends_with("_r") else -1.0
-			var want: Vector3 = (fall * 0.8 + Vector3.DOWN * 0.8 + right * side * 0.35).normalized()
+			var toward: float = right.dot(fall) * side          # > 0: this arm is on the side it's falling to
+			var upper: bool = bone.begins_with("upperarm")
+			var want: Vector3
+			if toward > -0.35:
+				# catching: the upper arm out toward the fall and down, the forearm more down (the elbow bends)
+				want = (fall * 0.8 + Vector3.DOWN * 0.8 + right * side * 0.35) if upper else (fall * 0.35 + Vector3.DOWN + right * side * 0.15)
+			else:
+				# the far arm on a fall to the side comes over the body instead of mirroring the near one
+				want = (fall * 0.7 + Vector3.UP * 0.25 - right * side * 0.1) if upper else (fall * 0.6 + Vector3.DOWN * 0.4)
+			want = want.normalized()
 			var dir: Vector3 = cur.y.normalized()             # the bone runs along its +Y
 			var ax: Vector3 = dir.cross(want)
 			var aim: Vector3 = ax.normalized() * dir.angle_to(want) if ax.length() > 0.0001 else Vector3.ZERO
@@ -184,7 +237,8 @@ func drive(dt: float) -> void:
 		var spec: Array = MUSCLE.get(bone, [8.0, 1.0])
 		var wn: float = spec[0]
 		var w_rel: Vector3 = pb.angular_velocity - pa.angular_velocity
-		var dw: Vector3 = (err * wn * wn - w_rel * 2.0 * float(spec[1]) * wn) * dt * tone
+		var strength: float = tone * (1.0 - 0.75 * settle) if arm else tone      # lying still, the arms go limp
+		var dw: Vector3 = (err * wn * wn - w_rel * 2.0 * float(spec[1]) * wn) * dt * strength
 		var imp: Vector3 = dw.limit_length(MAX_KICK) * float(_inertia[bone])
 		PhysicsServer3D.body_apply_torque_impulse(pb.get_rid(), imp)
 		PhysicsServer3D.body_apply_torque_impulse(pa.get_rid(), -imp)

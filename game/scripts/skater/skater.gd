@@ -59,6 +59,11 @@ var stance: String = "regular"           # "fakie": the rider faces against the 
 var air_up: Vector3 = Vector3.UP         # the board's up and forward in the air (vert airs tilt them: see _air)
 var air_fwd: Vector3 = Vector3.FORWARD
 var bail_kind: String = "slam"           # "runout" (step off), "slam" (onto the hip) or "tumble" (a full roll)
+var bail_dir: Vector3 = Vector3.ZERO     # horizontal: the way the body tips as it goes down (the visual's ragdoll): on
+                                         # with the travel, back off a manual that tipped over the tail, off a rail's side
+var _tip: float = 0.0                    # a lost manual's balance as it went (+ nose too high), and its kind
+var _tip_kind: String = ""
+var _tip_side: Vector3 = Vector3.ZERO    # the side a lost grind fell off
 var bail_duration: float = BAIL_TIME
 var bail_severity: float = 0.0
 var _land_jump: float = 0.0              # a jump tapped while falling, waiting for touchdown
@@ -1286,6 +1291,8 @@ func _balance_manual(dt: float) -> void:
 	_balance_vel += (manual_balance * wobble - input * tune.manual_control) * dt
 	manual_balance += _balance_vel * dt
 	if absf(manual_balance) > 1.0:
+		_tip = manual_balance
+		_tip_kind = manual_kind
 		_end_manual()
 		_start_bail("manual")
 
@@ -1446,6 +1453,7 @@ func _balance_grind(d: Vector3, dt: float) -> bool:
 	if score != null:
 		score.release_hold("grind")
 	velocity = d * grind_speed * 0.8 + side * 1.8 + Vector3.UP * 0.5
+	_tip_side = side
 	grind_line = null
 	grind_kind = ""
 	grind_balance = 0.0
@@ -1635,6 +1643,23 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 		bail_kind = "tumble"
 		bail_duration = tune.tumble_time
 	var travel: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	var on: Vector3 = travel.normalized() if travel.length() > 0.5 else Vector3(hdg.x, 0.0, hdg.z).normalized()
+	bail_dir = on                             # a wall, a crooked landing: the body carries on, the board stops
+	match reason:
+		"manual":
+			# over the tail (a manual's nose too high, a nose manual's tail dropped) the board shoots out ahead and
+			# the body goes down backwards; the other way it's a nose catch, forwards
+			var over_tail: bool = _tip < 0.0 if _tip_kind == "nose" else _tip > 0.0
+			if over_tail:
+				bail_dir = -on
+		"grind":
+			if _tip_side != Vector3.ZERO:
+				bail_dir = (_tip_side + on * 0.4).normalized()   # off the side it leaned to
+		"lip":
+			bail_dir = Vector3(_lip_out.x, 0.0, _lip_out.z).normalized() if _lip_out.length() > 0.1 else on   # back into the ramp
+	_tip = 0.0
+	_tip_kind = ""
+	_tip_side = Vector3.ZERO
 	if travel.length() > 1.0:
 		hdg = travel.normalized()             # fall (and run it out) the way the body was going
 	# a run-out only works on flat ground: anywhere else it is a real fall

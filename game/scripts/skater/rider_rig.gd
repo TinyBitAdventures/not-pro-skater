@@ -143,6 +143,7 @@ var _prev_v: float = 0.0
 var _brake: float = 0.0                  # 0..1: slowing hard (a run-out): short quick steps
 var _curl_axis: Dictionary = {}          # finger bone -> the axis it curls about toward the palm (rest, model space)
 var _getup_keys: Array = []              # [time, pose] through the get-up (see _getup_poses)
+var rest_facing: String = ""             # how the body came to rest: "prone", "supine" or "side" (films, tests)
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -1049,15 +1050,19 @@ func _physical(sk: Skater, dt: float) -> void:
 			ragdoll.reach = move_toward(ragdoll.reach, 1.0 if moving else 0.0, dt / 0.35)
 			ragdoll.tone = move_toward(ragdoll.tone, 1.0 if _phase_t < 0.6 or moving else RELAXED_TONE, dt / 0.6)
 			ragdoll.settle = move_toward(ragdoll.settle, 0.0 if moving else 1.0, dt / 0.8)
-			_still_t = _still_t + dt if ragdoll.core_speed() < SETTLE_SPEED else 0.0
-			if (_phase_t > 0.8 and _still_t > 0.3) or _phase_t > 4.5:
+			# a small slam: up while still sliding to a stop; a big one stays down a moment longer
+			var sev: float = sk.bail_severity
+			_still_t = _still_t + dt if ragdoll.core_speed() < lerpf(0.9, SETTLE_SPEED, sev) else 0.0
+			if (_phase_t > lerpf(0.45, 0.9, sev) and _still_t > lerpf(0.1, 0.45, sev)) or _phase_t > 4.5:
 				_begin_getup(sk)
 				_walk(sk, 0.0)          # pose it now: with the ragdoll off, the skeleton would show its stale riding pose for a frame
 		"getup", "walk":
 			_walk(sk, dt)
 
 
-## The board flies off on its own with the rider's speed (and some of its spin), from where it is now.
+## The board flies off on its own with the rider's speed (and some of its spin), from where it is now, the way the
+## crash sends it: shot out ahead from under a rider going down backwards (nose flipping up), flipped onto its
+## side or over by a sideways fall, and otherwise along its length a little faster than the body.
 func _spawn_loose(sk: Skater) -> void:
 	loose = LooseBoard.new()
 	loose.rider_key = char_key
@@ -1066,26 +1071,55 @@ func _spawn_loose(sk: Skater) -> void:
 	holder.add_child(loose)
 	var right: Vector3 = sk.hdg.cross(Vector3.UP).normalized()
 	var spin: Vector3 = Vector3.UP * sk.spin_vel * 0.6 + right * randf_range(-3.0, 3.0) * sk.bail_severity
-	# the board shoots out along its length, a little faster than the body; for a moment the two ignore each
-	# other (the feet start inside the deck, and physics would fling them apart or glue the rider to it)
-	var along: Vector3 = -board.global_transform.basis.z
+	# for a moment the two ignore each other (the feet start inside the deck, and physics would fling them apart or
+	# glue the rider to it)
+	var from: Transform3D = board.global_transform
+	if from.origin.distance_to(sk.global_position) > 2.0:
+		# (a crash before the rider was ever drawn: the board is still where it was made)
+		from = Transform3D(Basis.looking_at(Vector3(sk.hdg.x, 0.0, sk.hdg.z).normalized(), Vector3.UP), sk.global_position)
+	var along: Vector3 = -from.basis.z
 	var kick: Vector3 = along * signf(sk.bail_velocity.dot(along)) * 1.5
-	loose.setup(board.global_transform, sk.bail_velocity * 1.05 + kick, spin)
+	var travel: Vector3 = Vector3(sk.bail_velocity.x, 0.0, sk.bail_velocity.z)
+	var dir: Vector3 = sk.bail_dir
+	if dir != Vector3.ZERO and travel.length() > 1.0:
+		var with_travel: float = dir.dot(travel.normalized())
+		if with_travel < -0.3:
+			# a slip-out: the board shoots out ahead from under the feet, nose flipping up
+			kick = travel.normalized() * 1.5
+			spin += travel.normalized().cross(Vector3.UP) * -4.0
+		elif absf(with_travel) < 0.85:
+			# off to the side: it flips over sideways as it goes
+			spin += along.normalized() * randf_range(4.0, 7.0) * signf(right.dot(dir) + 0.001)
+	loose.setup(from, sk.bail_velocity * 1.05 + kick, spin)
 	ragdoll.sim.physical_bones_add_collision_exception(loose.get_rid())
 	_apart_t = 0.35
 	board.visible = false
 
 
-## The body keeps going the way it was going, pitching forward the harder the crash.
+## The body keeps going the way it was going and tips the way the crash sends it (Skater.bail_dir: on with the
+## travel, back off a manual over the tail, off a rail's side), harder the worse the crash. A tumble rolls as well.
 func _start_ragdoll(sk: Skater) -> void:
 	phys_phase = "fall"
 	_phase_t = 0.0
 	_still_t = 0.0
 	_walk_mode = false
 	_blend_w = 1.0
-	var right: Vector3 = sk.hdg.cross(Vector3.UP).normalized()
-	var w: Vector3 = Vector3.UP * sk.spin_vel * 0.4 - right * (1.0 + sk.bail_severity * 4.0)
-	ragdoll.start(sk.bail_velocity * 0.9, w)
+	var d: Vector3 = sk.bail_dir
+	if d.length() < 0.5:
+		d = Vector3(sk.hdg.x, 0.0, sk.hdg.z).normalized()
+	var sev: float = sk.bail_severity
+	var tip: Vector3 = Vector3.UP.cross(d).normalized()            # turning about this tips the head toward d
+	var w: Vector3 = Vector3.UP * sk.spin_vel * 0.4 + tip * (1.0 + sev * 3.0)
+	var v: Vector3 = sk.bail_velocity * 0.9
+	var travel: Vector3 = Vector3(v.x, 0.0, v.z)
+	if travel.length() > 1.0 and d.dot(travel.normalized()) < -0.3:
+		# a slip-out: the board took the feet out ahead, the body goes down backwards, hips first
+		v += Vector3.UP * 1.0
+		w = Vector3.UP * sk.spin_vel * 0.4 + tip * (3.0 + 1.5 * sev)
+	if sk.bail_kind == "tumble":
+		w += d * (4.0 + 3.0 * sev) * (1.0 if randf() < 0.5 else -1.0)   # a roll, over the shoulder
+	ragdoll.fall_dir = d
+	ragdoll.start(v, w)
 
 
 func _begin_getup(sk: Skater) -> void:
@@ -1096,6 +1130,8 @@ func _begin_getup(sk: Skater) -> void:
 	# on the back, sit up and stand facing where the feet were. Then turn to the board and walk.
 	var chest: Basis = poses[_b["spine_03"]].basis * _rest_model[_b["spine_03"]].basis.inverse()
 	var prone: bool = (chest * Vector3.RIGHT).y < 0.0
+	var up_k: float = (chest * Vector3.RIGHT).y
+	rest_facing = "side" if absf(up_k) < 0.4 else ("prone" if prone else "supine")
 	var head_dir: Vector3 = poses[_b["head"]].origin - pelvis
 	head_dir.y = 0.0
 	if head_dir.length() < 0.1:
