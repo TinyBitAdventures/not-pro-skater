@@ -310,6 +310,8 @@ func _fetch_pack(level_gltf: String) -> bool:
 
 
 func is_dev_run() -> bool:
+	if OS.get_environment("SHOT") != "":       # screenshot runs of real scenes: the player's save stays out of them
+		return true
 	for a in OS.get_cmdline_args():
 		if a.contains("scenes/dev_"):
 			return true
