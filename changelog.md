@@ -1,11 +1,39 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 (2026-10-01)
+
+A polish release: steadier skating, better-looking levels, and events that show you what they want. Not Pro Skater is desktop only now (the browser version lagged): download it for macOS, Windows or Linux.
+
+### Skating and crashes
+- Riding off a dock, a stage or a step flies off at full speed instead of rolling over the edge, and curbs step down cleanly at any speed.
+- Vert airs come down facing down the ramp, so angled airs land instead of always bailing, and speed into a wall in the air no longer flings you round its corner.
+- A crashed board stops a few metres away and you're riding again in about 4 to 5 seconds. At most 6 seconds after a crash the screen blinks and you're back on.
+- R and the edge warp are a clean reset: nothing carries over from a lip stall, a wall plant or a held jump.
+- The walk back to the board swings its arms like a person, and holding S in screen steering stops you instead of spinning you round.
+- Houses, trees, poles, stage gear, trailers and more are solid: the levels had hundreds of spots you could ride straight through.
+
+### Events
+- Goals count what you actually did: laps and the one-take bonus pay straight into the score, a zone combo counts where its tricks were done, and a bailed trick impresses nobody.
+- An arrow at the edge of the screen points to the drop, the next checkpoint or the next gate. Items and drop spots are labelled in the world, and the pause screen lists the goals.
+- Cards queue instead of covering each other, the one-take run shows its own countdown, and the chalk marks are big orange tape X's.
+
+### Look
+- Every level got a pass: real lamp posts, edges that fit the place (a city past downtown, an industrial district past the warehouse, a studio wall round the backlot), and clean light in the shade.
+- The warehouse reads old-industrial (red brick, corrugated sheds, a fire escape, sprayed graffiti), downtown has windows and a skyline, the backlot's sets have porches and parapets, and the campus signs are where you can see them.
+
+### Menus
+- Readable in small windows, gamepad navigation that moves one row at a time, and a title camera that swings instead of circling.
+- Once a day the game asks GitHub whether a newer version is out and offers it on the title menu (turn it off in the save file).
+
+### Downloads
+- macOS (universal; the first time, right-click the app and choose Open), Windows and Linux. The Windows and Linux builds aren't launch-tested on real machines: tell us if something's wrong.
+
+## v0.2.0 in detail
 
 ### New
 - **Update check:** the desktop game asks GitHub once a day whether a newer release is out. If one is, the title menu shows NEW VERSION with its number above Quit, and choosing it opens the release page in your browser. It's quiet when offline, sends nothing but the game's version, and can be turned off in the save file (`[update] check=false`). The web version is always up to date and never checks.
 
-### Fixes
+### Fixes and polish
 - **No more "BPTC_RGBFU not supported" warnings:** the skies were imported as BPTC-compressed HDR, which Macs (and other OpenGL drivers without BPTC) had to convert at load, with a warning each time. They're stored as uncompressed 32-bit HDR (RGBE9995) now; the two in the web build's first download are 768 px wide to keep it under the 80 MB budget (78.7 MB).
 - **The walk back to the board is less stiff:** the arms swing from the shoulder against the legs, worked out from joint angles (the upper arm swings about 26 degrees walking, 40 jogging, more back than forward; the elbow bends as the arm comes forward, near 90 degrees in a jog). Before, walking arms hung all but still and jogging held both forearms up in front like carrying a tray. The pelvis and shoulders turn against each other more with each stride, and the knee takes the weight with a small dip just after the heel lands instead of staying locked.
 - **Half pipe airs are framed wide:** the vert shot sits 4.8 m out from the wall and 3 m to the side (it was 2.9 and 1.8) and no longer zooms in at the top, so a flip or grab's whole shape stays in view.
