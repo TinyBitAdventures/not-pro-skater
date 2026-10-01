@@ -141,9 +141,16 @@ var _prev_ph: Array = [0.0, 0.0]
 var _lift_ph: Array = [-1.0, -1.0]       # the phase each foot lifted at (its swing runs from there to 1)
 var _prev_v: float = 0.0
 var _brake: float = 0.0                  # 0..1: slowing hard (a run-out): short quick steps
+var _stride_v: float = 0.0               # the speed the stride is sized for: it lengthens behind the speed, so speeding up
+                                         # takes short quick steps (a stride growing under a planted foot left it behind)
 var _curl_axis: Dictionary = {}          # finger bone -> the axis it curls about toward the palm (rest, model space)
 var _getup_keys: Array = []              # [time, pose] through the get-up (see _getup_poses)
 var rest_facing: String = ""             # how the body came to rest: "prone", "supine" or "side" (films, tests)
+var _stuck_t: float = 0.0                # seconds the walk back has been getting nowhere (boxed in)
+var _round_sign: float = 0.0             # which way round an obstacle the walk is going (kept, so it doesn't dither)
+var _getup_dir0: Vector3 = Vector3.FORWARD   # the way the body faced lying, and how far the get-up turns toward the board
+var _getup_turn: float = 0.0
+var _walker_shape: CapsuleShape3D = null
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -1137,7 +1144,12 @@ func _begin_getup(sk: Skater) -> void:
 	if head_dir.length() < 0.1:
 		head_dir = Vector3(sk.hdg.x, 0.0, sk.hdg.z)
 	_walk_dir = head_dir.normalized() if prone else -head_dir.normalized()
-	_getup_keys = _getup_poses(prone)
+	_getup_keys = _getup_variant(_getup_poses(prone), prone, sk.bail_severity)
+	# rising, the body turns toward the board (up to 50 degrees), so less is left to turn once up
+	_getup_dir0 = _walk_dir
+	var to_board: Vector3 = loose.global_position - pelvis if loose != null else _walk_dir
+	to_board.y = 0.0
+	_getup_turn = clampf(_walk_dir.signed_angle_to(to_board, Vector3.UP), -0.87, 0.87) if to_board.length() > 0.3 else 0.0
 	# the sequence ends standing at the walker's origin: put it so the first pose lies where the body lies
 	var lie: Vector3 = (_getup_keys[0][1] as Dictionary)["pelvis"]
 	_walk_pos = _ground_under(pelvis - _walk_dir * lie.x)
@@ -1169,6 +1181,9 @@ func _begin_getup(sk: Skater) -> void:
 	_lift_ph = [-1.0, -1.0]
 	_brake = 0.0
 	_prev_v = 0.0
+	_stride_v = _loco_speed
+	_stuck_t = 0.0
+	_round_sign = 0.0
 	phys_phase = "getup"
 	_phase_t = 0.0
 
@@ -1210,8 +1225,10 @@ func _walk(sk: Skater, dt: float) -> void:
 	if phys_phase == "getup":
 		var total: float = float(_getup_keys[-1][0])
 		if _phase_t < total:
-			# from the ragdoll's pose into the first lying pose, then through the get-up
+			# from the ragdoll's pose into the first lying pose, then through the get-up, turning toward the board
+			# as it rises (about the spot it stands up on)
 			_blend_w = smoothstep(0.0, 1.0, _phase_t / float(_getup_keys[1][0]))
+			_walk_dir = _getup_dir0.rotated(Vector3.UP, _getup_turn * smoothstep(total * 0.72, total, _phase_t))
 			_place_walker()
 			sk.bail_focus = _walk_pos
 			_apply_pose(_getup_pose(_phase_t))
@@ -1228,24 +1245,30 @@ func _walk(sk: Skater, dt: float) -> void:
 	else:
 		_blend_w = minf(1.0, _blend_w + dt / 0.2)
 		var turn_rate: float = 0.0
-		if dist > 0.02 and _blend_w >= 1.0:          # (standing still for a moment once up)
-			# turn to face the board first (it is often behind: the run-out carried the rider past it), then
-			# walk; slerping toward a direction right behind never turned, so the rider walked backwards
+		if dist > 0.02 and _blend_w >= 0.5:          # (steps off as the blend out of the get-up finishes)
 			var want: Vector3 = to / dist
-			var ang: float = _walk_dir.signed_angle_to(want, Vector3.UP)
+			# something in the way (a rail, a bench, a wall between the rider and the board): along it instead
+			var steer: Vector3 = _steer_round(want, minf(dist, 0.9))
+			var ang: float = _walk_dir.signed_angle_to(steer, Vector3.UP)
 			if absf(ang) > PI - 0.05:
 				ang = PI - 0.05                 # straight behind: pick a side and turn
-			var turn: float = clampf(ang, -WALK_TURN * dt, WALK_TURN * dt)
+			var turn_max: float = WALK_TURN * lerpf(1.0, 0.55, clampf(_loco_speed / 0.8, 0.0, 1.0))   # (planted feet slide on a fast turn)
+			var turn: float = clampf(ang, -turn_max * dt, turn_max * dt)
 			turn_rate = turn / maxf(dt, 0.0001)
 			_walk_dir = _walk_dir.rotated(Vector3.UP, turn).normalized()
-			var facing: float = clampf(_walk_dir.dot(want), 0.0, 1.0)
+			var facing: float = _walk_dir.dot(steer)
 			_walk_pace = maxf(_walk_pace, _pace_to(sk, dist))    # (a board still rolling away)
-			# speed up from standing, and slow down for the last steps onto the board
-			var goal: float = minf(_walk_pace, sqrt(2.0 * 2.5 * maxf(dist - 0.2, 0.0)) + 0.45) * facing * facing
+			# speed up from standing, slow down for the last steps onto the board; and step off at once, turning
+			# on the way (standing to turn round on the spot first was dead time): slow while facing well off
+			var goal: float = minf(_walk_pace, sqrt(2.0 * 2.5 * maxf(dist - 0.2, 0.0)) + 0.45) * smoothstep(-0.2, 0.9, facing)
+			if facing > 0.0:
+				goal = maxf(goal, minf(0.35, dist * 2.0))
 			_loco_speed = move_toward(_loco_speed, goal, 4.0 * dt)
 			var heading_to: Vector3 = _walk_dir.lerp(want, clampf(1.0 - dist / 0.8, 0.0, 1.0)).normalized()
-			_walk_pos += heading_to * minf(_loco_speed * dt, dist)
-			_walk_pos = _ground_under(_walk_pos + Vector3.UP * 0.5)
+			var step: Vector3 = _clear_step(heading_to * minf(_loco_speed * dt, dist))
+			_walk_pos = _ground_under(_walk_pos + step, 0.4)          # (steps up 40 cm at most: no climbing rails)
+			var going: bool = step.length() > _loco_speed * dt * 0.3 or _loco_speed < 0.3
+			_stuck_t = maxf(0.0, _stuck_t - dt) if going else _stuck_t + dt
 		_gait_update(dt, _loco_speed, turn_rate if _loco_speed < 0.5 else 0.0)
 		_step_on = 1.0 - clampf(dist / 0.6, 0.0, 1.0)
 		# a board that came to rest up on something (a ledge, a car roof) or down in a hole is taken from where
@@ -1254,7 +1277,7 @@ func _walk(sk: Skater, dt: float) -> void:
 		# past the recovery budget (a board that rolled away down a bank, say) the screen blinks and the rider is
 		# on the board where they stand, facing the way they were walking
 		var late: bool = sk.bail_time > sk.tune.recover_max and dist > 1.5
-		if up_there or late or (phys_phase == "walk" and _phase_t > WALK_GIVE_UP):
+		if up_there or late or _stuck_t > 1.0 or (phys_phase == "walk" and _phase_t > WALK_GIVE_UP):
 			var at: Transform3D = loose.stand_transform()
 			at.origin = _walk_pos
 			if dist > 0.1:
@@ -1319,6 +1342,7 @@ func _begin_run(sk: Skater) -> void:
 	_lift_ph = [-1.0, -1.0]
 	_brake = 0.0
 	_prev_v = 0.0
+	_stride_v = _loco_speed
 	phys_phase = "run"
 	_phase_t = 0.0
 
@@ -1413,6 +1437,21 @@ func _getup_poses(prone: bool) -> Array:
 		]
 	# the blend-in key holds the lying pose
 	keys[1][1] = keys[0][1]
+	return keys
+
+
+## How bad the crash was changes the get-up: after a small one the rider pops up quicker, without stopping on
+## hands and knees; after a big one it takes longer (the keys are only retimed: every pose still goes through IK).
+func _getup_variant(keys: Array, prone: bool, sev: float) -> Array:
+	var k: float = 1.0
+	if sev < 0.35:
+		k = 0.72
+		if prone and keys.size() > 6:
+			keys.remove_at(2)                 # (the hands-and-knees key: straight to bringing a knee up)
+	elif sev > 0.75:
+		k = 1.25
+	for key in keys:
+		key[0] = float(key[0]) * k
 	return keys
 
 
@@ -1534,7 +1573,8 @@ func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
 	if dt > 0.0:
 		_brake = lerpf(_brake, clampf((_prev_v - v) / dt / 5.0, 0.0, 1.0), 1.0 - exp(-10.0 * dt))
 	_prev_v = v
-	var step: float = clampf(0.42 + 0.2 * v, 0.45, 1.5) * _body_k * lerpf(1.0, 0.68, _brake)
+	_stride_v = move_toward(_stride_v, v, 1.2 * dt) if v > _stride_v and dt > 0.0 else v
+	var step: float = clampf(0.42 + 0.2 * _stride_v, 0.45, 1.5) * _body_k * lerpf(1.0, 0.68, _brake)
 	var stride: float = 2.0 * step
 	var rate: float = v / stride + absf(turn_rate) * 0.3          # cycles a second
 	_gait = fposmod(_gait + rate * (1.0 + _gait_boost) * dt, 1.0)
@@ -1575,11 +1615,14 @@ func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
 				_plant[i] = [frame * Vector3(reach * (0.42 - sg), 0.0, p.z), heading + deg_to_rad(toe)]
 			var q: Vector3 = inv * (_plant[i][0] as Vector3)
 			var q_yaw: float = rad_to_deg(wrapf(float(_plant[i][1]) - heading, -PI, PI))
-			var q_pitch: float = strike * (1.0 - smoothstep(0.0, 0.2, sg)) - roll * smoothstep(0.6, 1.0, sg)
+			# the heel comes up to push off once the foot trails behind the body (one still under it, setting off from
+			# standing, rolled up onto its toes and folded the knee 45 degrees)
+			var trail: float = clampf(-q.x / maxf(reach * 0.25, 0.04), 0.0, 1.0)
+			var q_pitch: float = strike * (1.0 - smoothstep(0.0, 0.2, sg)) - roll * smoothstep(0.6, 1.0, sg) * trail
 			# how high the pelvis can be over this foot with the knee all but straight (a little softer mid-stance)
 			# walking: a dip just after heel strike (the knee takes the weight), nearly straight mid-stance; a jog is
 			# softest mid-stance
-			var k_walk: float = 0.996 - 0.022 * sin(PI * clampf(sg / 0.4, 0.0, 1.0)) - 0.004 * sin(PI * sg)
+			var k_walk: float = 0.996 - 0.017 * sin(PI * clampf(sg / 0.4, 0.0, 1.0)) - 0.004 * sin(PI * sg)
 			var k: float = lerpf(k_walk, lerpf(0.988, 0.9, sin(PI * sg)), run_k)
 			var ankle: Vector3 = _foot_pose(q, Basis(Vector3.UP, deg_to_rad(q_yaw)), q_pitch)[0]
 			var hj: Vector3 = Vector3(_hip_joint.x, _hip_joint.y, absf(_hip_joint.z) * (1.0 if i == 1 else -1.0))
@@ -1660,8 +1703,8 @@ func _place_walker() -> void:
 	vis_n = Vector3.UP
 
 
-func _ground_under(p: Vector3) -> Vector3:
-	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(p + Vector3.UP * 1.0, p + Vector3.DOWN * 6.0, 1)
+func _ground_under(p: Vector3, above: float = 1.0) -> Vector3:
+	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(p + Vector3.UP * above, p + Vector3.DOWN * 6.0, 1)
 	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
 	return hit["position"] if not hit.is_empty() else Vector3(p.x, 0.0, p.z)
 
@@ -1689,6 +1732,73 @@ func _rest_board_pose() -> void:
 	body_yaw = 0.0
 	board_shift = Vector2.ZERO
 	grind_lift = 0.0
+
+
+## The walker as a body (knees to head) for the walk back: low things (curbs, the board, a step) are under it and
+## stepped onto; anything from the knees up is in the way.
+func _walker_query(at: Vector3, motion: Vector3) -> PhysicsShapeQueryParameters3D:
+	if _walker_shape == null:
+		_walker_shape = CapsuleShape3D.new()
+		_walker_shape.radius = 0.2
+		_walker_shape.height = 1.1
+	var q: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+	q.shape = _walker_shape
+	q.collision_mask = 1
+	q.transform = Transform3D(Basis.IDENTITY, at + Vector3.UP * 0.95)
+	q.motion = motion
+	return q
+
+
+## A step of the walk back, cut short or turned along whatever is in the way (it walked straight through rails,
+## benches and walls). Starting inside something, it walks out.
+func _clear_step(move: Vector3) -> Vector3:
+	if move.length() < 0.0001:
+		return move
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var out: Vector3 = Vector3.ZERO
+	var left: Vector3 = move
+	for i in 2:
+		var q: PhysicsShapeQueryParameters3D = _walker_query(_walk_pos + out, left)
+		var r: PackedFloat32Array = space.cast_motion(q)
+		if r[0] >= 1.0 or r[1] <= 0.0:
+			return out + left
+		out += left * r[0]
+		q.transform.origin += left * r[1]
+		var info: Dictionary = space.get_rest_info(q)
+		if info.is_empty():
+			return out
+		var n: Vector3 = info["normal"]
+		n.y = 0.0
+		if n.length() < 0.1:
+			return out
+		n = n.normalized()
+		left = left * (1.0 - r[0])
+		left -= n * minf(0.0, left.dot(n))                 # slide along it
+	return out
+
+
+## Which way to walk to get to the board: straight at it, or along the rail (bench, wall) in the way toward the
+## board's side of it, round its end.
+func _steer_round(want: Vector3, reach: float) -> Vector3:
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var q: PhysicsShapeQueryParameters3D = _walker_query(_walk_pos, want * reach)
+	var r: PackedFloat32Array = space.cast_motion(q)
+	if r[0] >= 1.0 or r[1] <= 0.0:
+		_round_sign = 0.0
+		return want
+	q.transform.origin += want * reach * r[1]
+	var info: Dictionary = space.get_rest_info(q)
+	if info.is_empty():
+		return want
+	var n: Vector3 = info["normal"]
+	n.y = 0.0
+	if n.length() < 0.1:
+		return want
+	n = n.normalized()
+	var along: Vector3 = n.cross(Vector3.UP).normalized()
+	if _round_sign == 0.0:
+		_round_sign = 1.0 if along.dot(want) >= 0.0 else -1.0
+	return (along * _round_sign + n * 0.15).normalized()
 
 
 func _end_physical() -> void:

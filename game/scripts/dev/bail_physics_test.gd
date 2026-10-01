@@ -321,6 +321,10 @@ func _gait_sample(rig: RiderRig, g: Dictionary) -> void:
 				g["jog_sum"] = float(g["jog_sum"]) + flex
 				g["jog_n"] = int(g["jog_n"]) + 1
 			else:
+				if OS.get_environment("KNEE_DEBUG") != "":       # (bucket these by speed to see where the knee bends)
+					print("[knee] v %.2f flex %.1f hip %.3f foot %s pitch %.0f yaw %.0f other %s ph %.2f" % [rig._loco_speed, flex,
+						float(rig._gait_now["hip"]) / rig._stand_hip, (feet[i][0] as Vector3).snappedf(0.01), float(feet[i][1]),
+						float(feet[i][3]), (feet[1 - i][0] as Vector3).snappedf(0.01), rig._gait])
 				g["flex_sum"] = float(g["flex_sum"]) + flex
 				g["flex_max"] = maxf(float(g["flex_max"]), flex)
 				g["n"] = int(g["n"]) + 1
