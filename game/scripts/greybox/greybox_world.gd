@@ -223,3 +223,7 @@ func _on_sfx(kind: String) -> void:
 	match kind:
 		"ollie", "flip", "trick", "grab", "manual", "grind_start", "bail":
 			Sound.play(kind)
+		"land", "land_hard":
+			# louder and a touch lower the harder it comes down (a vert air rolls in quietly)
+			var k: float = clampf(skater.land_impact / Skater.HARD_LANDING, 0.0, 1.4)
+			Sound.play(kind, lerpf(-9.0, 0.0, minf(k, 1.0)), lerpf(1.08, 0.94, k / 1.4) * randf_range(0.97, 1.03))

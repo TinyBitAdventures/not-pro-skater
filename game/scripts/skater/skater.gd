@@ -28,6 +28,8 @@ const CAPSULE_H: float = 1.35
 const SNAP_EASE: float = 0.045            # seconds: how fast the drawn rider catches up after a snap
 const EDGE_MARGIN: float = 2.0            # this close to the level's edge the skater is warped back inside
 const SAFE_INSET: float = 6.0             # warp-back spots are remembered at least this far inside the edge
+const HARD_LANDING: float = 11.5          # m/s into the floor: a heavy landing (a tapped ollie lands on the flat at
+                                          # about 9, a full pop 11.4, a vert air on the transition about 2)
 ## How quickly each grind tips off balance (x SkateTuning.grind_wobble): a 50-50 sits on both trucks, a nose or
 ## tail slide balances on one end of the board.
 const GRIND_TIP: Dictionary = {"50-50": 0.85, "Lip Slide": 0.9, "Boardslide": 1.0, "Noseslide": 1.3, "Tailslide": 1.3}
@@ -130,6 +132,9 @@ var grind_balance: float = 0.0           # -1..1 across the rail (+ = leaning ri
 var _grind_bal_vel: float = 0.0
 var _grind_time: float = 0.0
 var bail_time: float = 0.0
+var land_impact: float = 0.0             # m/s into the floor at the last touchdown (the visual sinks with it, sounds scale)
+var lands: int = 0                       # touchdowns so far (the visual starts its landing on a change)
+var land_kind: String = ""               # the last landing: "clean", "sketchy", "fakie", "" (a hop under 0.15 s)
 var stats: Dictionary = {"air": 0, "grinds": 0, "bails": 0, "max_air": 0.0, "max_speed": 0.0, "grind_time": 0.0}
 
 var _coyote: float = 0.0
@@ -1022,6 +1027,7 @@ func _air(dt: float) -> void:
 		_wallplant()
 		return
 	if is_on_floor():
+		land_impact = maxf(0.0, -v_before.dot(get_floor_normal()))
 		_land()
 
 
@@ -1138,10 +1144,12 @@ func _land() -> void:
 		_revert_t = tune.revert_window
 	state = State.GROUND
 	floor_snap_length = tune.floor_snap
+	lands += 1
+	land_kind = kind if was_air > 0.15 else ""
 	if was_air > 0.15:
 		stats["air"] += 1
 		stats["max_air"] = maxf(stats["max_air"], was_air)
-		sfx.emit("land")
+		sfx.emit("land_hard" if land_impact > HARD_LANDING or was_air > 1.1 else "land")
 		landed.emit(was_air)
 		landing.emit(kind)
 	crouch = 1.0

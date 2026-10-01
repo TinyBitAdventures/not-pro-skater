@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Landings make a sound:** touching down was silent everywhere (the landing sounds were never routed to the mixer). A normal landing thuds, louder and a touch lower the harder you come down; a drop or a big air lands with the heavy sound; rolling back into a ramp is quiet.
+
 ## v0.2.0 (2026-10-01)
 
 A polish release: steadier skating, better-looking levels, and events that show you what they want. Not Pro Skater is desktop only now (the browser version lagged): download it for macOS, Windows or Linux.
