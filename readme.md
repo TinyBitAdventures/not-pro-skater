@@ -161,6 +161,7 @@ RIDER=dev godot --path . res://scenes/dev_rig.tscn --resolution 960x720     # po
 CHAR=dad godot --path . res://scenes/dev_char.tscn --resolution 1280x720    # character turnaround -> ../shots
 godot --path . res://scenes/dev_perf.tscn --resolution 1600x900             # fps, draw calls, judder (FPS=144 caps; DUMP=1, COST=1)
 godot --headless --path . res://scenes/dev_flow.tscn                        # menus with real input: title, event, pause, quit
+godot --headless --path . res://scenes/dev_update.tscn                      # the update check: versions, GitHub's answer, the title row (NET=1: ask GitHub for real)
 godot --path . res://scenes/dev_ui.tscn --resolution 1600x900               # every UI state -> ../shots/ui_*.png
 FILM=flat,tumble,halfpipe,wall,grind godot --path . res://scenes/dev_bailfilm.tscn --resolution 400x300   # crashes up close -> ../shots/film_* (LIMP=1: no muscles; tools/film_sheet.sh <name>)
 FILM=wall FILM_FROM=getup FILM_EVERY=0.08 FILM_N=18 godot --path . res://scenes/dev_bailfilm.tscn --resolution 400x400   # just the get-up (or walk, run; FILM=runout), side-on
@@ -194,6 +195,8 @@ godot --headless --export-release "macOS" ../build/NotProSkater-macOS.zip       
 godot --headless --export-release "Windows Desktop" ../build/NotProSkater-Windows/NotProSkater.exe
 godot --headless --export-release "Linux" ../build/NotProSkater-Linux/NotProSkater.x86_64
 ```
+
+Desktop builds check for a newer release once a day: they ask GitHub's API for the latest release of `TinyBitAdventures/not-pro-skater` (sending nothing but a `User-Agent: NotProSkater/<version>` header) and, when its tag is newer than `application/config/version`, the title menu gets a NEW VERSION row that opens the release page. Any failure is quiet and the next launch tries again; the answer is kept in the save, so the row shows offline too until the game is updated. To turn it off, set `check=false` under `[update]` in the save file. The web build never checks (it's always the latest), and runs from the editor binary only check with `godot --path . -- --check-updates`. Bump `application/config/version` in `project.godot` (and the export presets) with each release.
 
 Desktop builds carry every level in one package. The macOS app is not notarized: the first time, right-click it and choose Open. Like the web build's `?scene=`, a desktop build opens an event or level straight away with `-- --scene=<id>` (`NotProSkater.x86_64 -- --scene=rushhour`); add `--verbose` to log each level as it loads.
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### New
+- **Update check:** the desktop game asks GitHub once a day whether a newer release is out. If one is, the title menu shows NEW VERSION with its number above Quit, and choosing it opens the release page in your browser. It's quiet when offline, sends nothing but the game's version, and can be turned off in the save file (`[update] check=false`). The web version is always up to date and never checks.
+
 ### Fixes
 - **No more "BPTC_RGBFU not supported" warnings:** the skies were imported as BPTC-compressed HDR, which Macs (and other OpenGL drivers without BPTC) had to convert at load, with a warning each time. They're stored as uncompressed 32-bit HDR (RGBE9995) now; the two in the web build's first download are 768 px wide to keep it under the 80 MB budget (78.7 MB).
 - **The walk back to the board is less stiff:** the arms swing from the shoulder against the legs, worked out from joint angles (the upper arm swings about 26 degrees walking, 40 jogging, more back than forward; the elbow bends as the arm comes forward, near 90 degrees in a jog). Before, walking arms hung all but still and jogging held both forearms up in front like carrying a tray. The pelvis and shoulders turn against each other more with each stride, and the knee takes the weight with a small dip just after the heel lands instead of staying locked.

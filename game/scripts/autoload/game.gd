@@ -41,6 +41,17 @@ var _dl_name: Label
 var _dl_note: Label
 var _dl_fill: ColorRect
 const DL_BAR_W: float = 420.0
+# update check (desktop builds): once a day, ask GitHub for the latest release; a newer one shows on the title menu
+signal update_found(tag: String)
+signal update_checked(ok: bool)              # a check finished (ok: GitHub answered)
+const RELEASES_API: String = "https://api.github.com/repos/TinyBitAdventures/not-pro-skater/releases/latest"
+const UPDATE_EVERY: int = 86400              # seconds between checks
+var check_updates: bool = true               # saved; false: never ask (edit the save, [update] check=false)
+var update_tag: String = ""                  # a newer release than this build ("v0.2.0"), once one is found
+var update_url: String = ""                  # its release page
+var update_checked_at: int = 0               # unix time of the last answer from GitHub
+var last_release: Dictionary = {}            # GitHub's last answer (for the update test)
+var _update_http: HTTPRequest = null
 const UI_BASE: Vector2 = Vector2(1600, 900)   # the UI is laid out for this size and scales with the window...
 const UI_MIN_SCALE: float = 0.75              # ...but no smaller than this: small windows (a web embed) get more room instead
 
@@ -100,6 +111,11 @@ func _ready() -> void:
 			q = a.trim_prefix("--scene=")
 	if typeof(q) == TYPE_STRING and preview_scene(q) != "":
 		go.call_deferred(preview_scene(q))
+	if update_tag != "" and not newer_version(update_tag, version()):
+		update_tag = ""                      # this build is that release (or newer): updated
+		update_url = ""
+	if _may_check_updates() and Time.get_unix_time_from_system() - update_checked_at >= UPDATE_EVERY:
+		check_for_update.call_deferred()
 
 
 ## Below UI_MIN_SCALE the UI's canvas shrinks instead of the text: at 960x540 it's laid out for 1280x720, so text
@@ -112,6 +128,78 @@ func _fit_ui() -> void:
 	var base: Vector2i = Vector2i((UI_BASE * minf(1.0, s / UI_MIN_SCALE)).round())
 	if root.content_scale_size != base:
 		root.content_scale_size = base
+
+
+## This build's version (project.godot application/config/version), e.g. "0.1.0".
+static func version() -> String:
+	return String(ProjectSettings.get_setting("application/config/version", "0.0.0"))
+
+
+## True when release tag `a` ("v0.2.0", "0.2.0", "v1.0.0-beta") is a later version than `b`. Compares the numbers
+## only: a suffix after "-" is ignored.
+static func newer_version(a: String, b: String) -> bool:
+	var pa: PackedStringArray = a.strip_edges().trim_prefix("v").split("-")[0].split(".")
+	var pb: PackedStringArray = b.strip_edges().trim_prefix("v").split("-")[0].split(".")
+	for i in maxi(pa.size(), pb.size()):
+		var x: int = int(pa[i]) if i < pa.size() else 0
+		var y: int = int(pb[i]) if i < pb.size() else 0
+		if x != y:
+			return x > y
+	return false
+
+
+## Exported desktop builds check; the web build is always the latest, and dev and test runs (the editor binary)
+## never go online unless asked to with a user argument: godot --path . -- --check-updates
+func _may_check_updates() -> bool:
+	if not check_updates or OS.has_feature("web") or is_dev_run():
+		return false
+	return OS.has_feature("template") or OS.get_cmdline_user_args().has("--check-updates")
+
+
+## Ask GitHub for the latest release. Quiet on any failure (offline, rate limited): the next launch tries again.
+func check_for_update() -> void:
+	if _update_http != null:
+		return
+	_update_http = HTTPRequest.new()
+	_update_http.timeout = 15.0
+	add_child(_update_http)
+	_update_http.request_completed.connect(_on_release_answer)
+	var err: int = _update_http.request(RELEASES_API, ["User-Agent: NotProSkater/" + version(),
+		"Accept: application/vnd.github+json"])
+	if err != OK:
+		_on_release_answer(HTTPRequest.RESULT_CANT_CONNECT, 0, PackedStringArray(), PackedByteArray())
+
+
+func _on_release_answer(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	if _update_http != null:
+		_update_http.queue_free()
+		_update_http = null
+	var data: Variant = JSON.parse_string(body.get_string_from_utf8()) if result == HTTPRequest.RESULT_SUCCESS and code == 200 else null
+	if typeof(data) != TYPE_DICTIONARY:
+		update_checked.emit(false)
+		return
+	last_release = data as Dictionary
+	apply_release(last_release, version())
+	update_checked_at = int(Time.get_unix_time_from_system())
+	save()
+	update_checked.emit(true)
+
+
+## What GitHub said the latest release is: remember it if it's newer than `current` (and tell the title menu).
+func apply_release(release: Dictionary, current: String) -> void:
+	var tag: String = String(release.get("tag_name", ""))
+	if tag == "" or bool(release.get("draft", false)) or bool(release.get("prerelease", false)) or not newer_version(tag, current):
+		update_tag = ""
+		update_url = ""
+		return
+	var url: String = String(release.get("html_url", ""))
+	if not url.begins_with("https://github.com/"):
+		url = "https://github.com/TinyBitAdventures/not-pro-skater/releases/latest"
+	var was: String = update_tag
+	update_tag = tag
+	update_url = url
+	if tag != was:
+		update_found.emit(tag)
 
 
 ## The scene a web preview link (?scene=...) opens: an event id, a Free Skate level id, or a dev scene.
@@ -236,11 +324,11 @@ func load_save() -> void:
 		return
 	best = cfg.get_value("progress", "best", {})
 	goals = cfg.get_value("progress", "goals", {})
-	var version: int = int(cfg.get_value("settings", "version", 1))
-	if version >= 2:
+	var save_version: int = int(cfg.get_value("settings", "version", 1))
+	if save_version >= 2:
 		steer_mode = cfg.get_value("settings", "steer_mode", "tank")
 		music_choice = cfg.get_value("settings", "music_choice", "cruise")
-	if version >= 3:
+	if save_version >= 3:
 		# v3 reset a jump_mode of "tap" that was saved by accident from the title menu
 		jump_mode = cfg.get_value("settings", "jump_mode", "hold")
 	master_volume = cfg.get_value("settings", "master_volume", 0.8)
@@ -261,6 +349,13 @@ func load_save() -> void:
 	if not Events.LEVELS.any(func(lv: Dictionary) -> bool: return lv["id"] == level_choice):
 		level_choice = "park"
 	master_volume = clampf(float(master_volume), 0.0, 1.0)
+	check_updates = bool(cfg.get_value("update", "check", true))
+	update_checked_at = int(cfg.get_value("update", "checked_at", 0))
+	update_tag = String(cfg.get_value("update", "tag", ""))
+	update_url = String(cfg.get_value("update", "url", ""))
+	if not update_url.begins_with("https://github.com/"):
+		update_tag = ""
+		update_url = ""
 
 
 func save() -> void:
@@ -277,6 +372,10 @@ func save() -> void:
 	cfg.set_value("settings", "rider", rider)
 	cfg.set_value("settings", "event_choice", event_choice)
 	cfg.set_value("settings", "level_choice", level_choice)
+	cfg.set_value("update", "check", check_updates)
+	cfg.set_value("update", "checked_at", update_checked_at)
+	cfg.set_value("update", "tag", update_tag)
+	cfg.set_value("update", "url", update_url)
 	cfg.save(SAVE_PATH)
 
 

@@ -26,6 +26,7 @@ var _hint_root: Control
 var _col: VBoxContainer          # the logo and menu column, tightened in short windows (_fit_layout)
 var _logo: VBoxContainer
 var _logo_gap: Control
+var _gaps: Array[Control] = []    # the spaces between the menu's groups and above the footer (tighter when short)
 var _orbit: float = 0.0             # set in _ready: starts on the sunny side, the rider's front three-quarter
 var _swing_t: float = 0.0           # the camera swings either side of that
 
@@ -42,11 +43,14 @@ func _ready() -> void:
 	_orbit = atan2(sh.x, sh.z) - 0.45
 	_spawn_rider()
 	items = ITEMS.duplicate()
+	if Game.update_tag != "" and not OS.has_feature("web"):
+		items.append("update")
 	if not OS.has_feature("web"):
 		items.append("quit")
 	_build_ui()
 	get_viewport().size_changed.connect(_fit_layout)
 	_fit_layout()
+	Game.update_found.connect(_on_update_found)
 	Sound.play_music("title")
 	Sound.play_ambience("park_ambience", -16.0)
 
@@ -89,6 +93,7 @@ func _process(delta: float) -> void:
 # ------------------------------------------------------------------ UI
 
 func _build_ui() -> void:
+	_gaps.clear()
 	ui = CanvasLayer.new()
 	ui.layer = 10
 	add_child(ui)
@@ -135,10 +140,11 @@ func _build_ui() -> void:
 	_logo_gap = gap
 
 	for i in items.size():
-		if i == PLAY_ITEMS or items[i] == "quit":
+		if i == PLAY_ITEMS or items[i] == "update" or (items[i] == "quit" and not items.has("update")):
 			var g2: Control = Control.new()
 			g2.custom_minimum_size = Vector2(0, 18)
 			col.add_child(g2)
+			_gaps.append(g2)
 		var row: HBoxContainer = HBoxContainer.new()
 		row.custom_minimum_size = Vector2(460, 0)
 		row.add_theme_constant_override("separation", 12)
@@ -158,6 +164,7 @@ func _build_ui() -> void:
 	var gap3: Control = Control.new()
 	gap3.custom_minimum_size = Vector2(0, 22)
 	col.add_child(gap3)
+	_gaps.append(gap3)
 	progress_label = UiKit.label("", 21, UiKit.MUTED, "bold")
 	col.add_child(progress_label)
 
@@ -190,7 +197,8 @@ func _build_ui() -> void:
 
 	_hint_root = root
 	_build_hints()
-	Controls.device_changed.connect(func(_pad: bool) -> void: _build_hints())
+	if not Controls.device_changed.is_connected(_on_device_changed):
+		Controls.device_changed.connect(_on_device_changed)
 
 	controls_layer = ColorRect.new()
 	(controls_layer as ColorRect).color = Color(UiKit.INK, 0.72)
@@ -212,7 +220,7 @@ func _build_ui() -> void:
 
 
 ## A small window lays the UI out on a shorter canvas (Game.UI_MIN_SCALE: 1280x720 at 960x540), where the full
-## logo pushes Quit under the key hints: a smaller logo and less space above it keep the menu clear of them.
+## logo pushes Quit under the key hints: a smaller logo and tighter gaps keep the menu clear of them.
 func _fit_layout() -> void:
 	var short: bool = get_viewport().get_visible_rect().size.y < 860.0
 	_col.position.y = 26.0 if short else 64.0
@@ -220,7 +228,34 @@ func _fit_layout() -> void:
 		(l as Label).add_theme_font_size_override("font_size", 72 if short else 108)
 	_logo.add_theme_constant_override("separation", -23 if short else -34)
 	_logo_gap.custom_minimum_size.y = 12.0 if short else 34.0
+	for i in _gaps.size():
+		_gaps[i].custom_minimum_size.y = (8.0 if short else 18.0) if i < _gaps.size() - 1 else (10.0 if short else 22.0)
 	_col.reset_size()
+
+
+func _on_device_changed(_pad: bool) -> void:
+	_build_hints()
+
+
+## A check that finds a newer release while the title is up: the menu gets its NEW VERSION row (above Quit),
+## the same row staying selected.
+func _on_update_found(_tag: String) -> void:
+	if items.has("update"):
+		_refresh()
+		return
+	var at: int = items.find("quit") if items.has("quit") else items.size()
+	items.insert(at, "update")
+	if selected >= at:
+		selected += 1
+	var showing_controls: bool = controls_layer.visible
+	ui.queue_free()
+	rows.clear()
+	row_labels.clear()
+	row_values.clear()
+	_hint = null
+	_build_ui()
+	_fit_layout()
+	controls_layer.visible = showing_controls
 
 
 func _build_hints() -> void:
@@ -239,7 +274,8 @@ func _refresh() -> void:
 	var ev: Dictionary = Events.get_event(Game.event_choice)
 	var level_name: String = String(_level()["name"])
 	var names: Dictionary = {"event": String(ev["title"]), "free": "Free Skate", "practice": "Practice",
-		"rider": "Rider", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls", "quit": "Quit"}
+		"rider": "Rider", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls",
+		"update": "New version", "quit": "Quit"}
 	var values: Dictionary = {
 		"event": "%d / %d" % [Events.ALL.find(Game.event_choice) + 1, Events.ALL.size()],
 		"free": level_name,
@@ -247,6 +283,7 @@ func _refresh() -> void:
 		"steer": "Skater" if Game.steer_mode == "tank" else "Screen",
 		"jump": "Hold, release" if Game.jump_mode == "hold" else "Tap",
 		"music": {"cruise": "Cruise", "hype": "Hype", "off": "Off"}[Game.music_choice],
+		"update": Game.update_tag,
 	}
 	for i in items.size():
 		var on: bool = i == selected
@@ -254,7 +291,7 @@ func _refresh() -> void:
 		row_labels[i].text = ("›  " if on else "") + String(names[key]).to_upper()
 		row_labels[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.88))
 		var val: String = String(values.get(key, ""))
-		row_values[i].text = ("‹  %s  ›" % val) if (on and val != "") else val
+		row_values[i].text = ("‹  %s  ›" % val) if (on and val != "" and key != "update") else val
 		row_values[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.8))
 	# the chosen event: whose home it is, its goals so far and the best; then every event's goals together
 	var home: String = String(Events.HOME.get(Game.event_choice, ""))
@@ -278,6 +315,9 @@ func _refresh() -> void:
 			lines[0] = "%s    NO CLOCK, NO GOALS: JUST SKATE" % level_name.to_upper()
 		"practice":
 			lines[0] = "THE GREY TEST LEVEL: EVERY RAMP AND RAIL IN ROWS"
+		"update":
+			lines[0] = "%s IS OUT (YOU HAVE V%s): OPENS THE DOWNLOAD PAGE IN YOUR BROWSER" % [Game.update_tag.to_upper(),
+				Game.version()]
 		"rider":
 			var own: String = ""
 			for eid in Events.HOME:
@@ -382,6 +422,8 @@ func _activate(step: int) -> void:
 			Game.go(PRACTICE_SCENE)
 		"controls":
 			controls_layer.visible = true
+		"update":
+			OS.shell_open(Game.update_url)
 		"quit":
 			get_tree().quit()
 		_:
