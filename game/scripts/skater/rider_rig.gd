@@ -46,6 +46,7 @@ const SETTLE_SPEED: float = 0.45
 const RELAXED_TONE: float = 0.35         # ragdoll muscle strength once the body is lying still
 const WALK_TURN: float = 5.0             # rad/s: turning round toward the board before walking to it
 const RUN_BACK_MAX: float = 5.2          # m/s: the fastest run back to the board (faster, the planted feet skate)
+const BOARD_FLIP: float = 0.45           # s: hooking an upside-down board back onto its wheels with a foot
 const WALK_GIVE_UP: float = 10.0         # s into the walk back: the rider is just put back on the board (a stuck walk;
                                          # SkateTuning.recover_max normally ends a long one first)
 const FINGER_CURL: Dictionary = {        # degrees at each knuckle, base to tip: a relaxed hand
@@ -155,6 +156,7 @@ var _sk: Skater = null                   # (who to tell about thuds while the ra
 var _core_v: Dictionary = {}             # ragdoll core bone -> its velocity last physics tick
 var _thud_cd: float = 0.0
 var _thuds: int = 0
+var _board_flip_t: float = 0.0           # seconds left of hooking the board over (the walk stops for it)
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -1214,6 +1216,7 @@ func _begin_getup(sk: Skater) -> void:
 	_stride_v = _loco_speed
 	_stuck_t = 0.0
 	_round_sign = 0.0
+	_board_flip_t = 0.0
 	phys_phase = "getup"
 	_phase_t = 0.0
 
@@ -1277,6 +1280,16 @@ func _walk(sk: Skater, dt: float) -> void:
 		var turn_rate: float = 0.0
 		if dist > 0.02 and _blend_w >= 0.5:          # (steps off as the blend out of the get-up finishes)
 			var want: Vector3 = to / dist
+			# lying upside down or on its side: stop beside it and hook it over with a foot before stepping on (it
+			# used to snap upright under the feet)
+			if _board_flip_t > 0.0:
+				_board_flip_t = maxf(0.0, _board_flip_t - dt)
+			elif phys_phase == "walk" and dist < 0.75 and loose.wheels_up():
+				var nose: Vector3 = -loose.global_transform.basis.z
+				nose.y = 0.0
+				nose = nose.normalized() if nose.length() > 0.3 else want
+				loose.flip_to(Transform3D(Basis.looking_at(nose, Vector3.UP), _ground_under(loose.global_position, 0.5)), BOARD_FLIP)
+				_board_flip_t = BOARD_FLIP
 			# something in the way (a rail, a bench, a wall between the rider and the board): along it instead
 			var steer: Vector3 = _steer_round(want, minf(dist, 0.9))
 			var ang: float = _walk_dir.signed_angle_to(steer, Vector3.UP)
@@ -1293,6 +1306,8 @@ func _walk(sk: Skater, dt: float) -> void:
 			var goal: float = minf(_walk_pace, sqrt(2.0 * 2.5 * maxf(dist - 0.2, 0.0)) + 0.45) * smoothstep(-0.2, 0.9, facing)
 			if facing > 0.0:
 				goal = maxf(goal, minf(0.35, dist * 2.0))
+			if _board_flip_t > 0.0:
+				goal = 0.0
 			_loco_speed = move_toward(_loco_speed, goal, 4.0 * dt)
 			var heading_to: Vector3 = _walk_dir.lerp(want, clampf(1.0 - dist / 0.8, 0.0, 1.0)).normalized()
 			var step: Vector3 = _clear_step(heading_to * minf(_loco_speed * dt, dist))
@@ -1300,6 +1315,7 @@ func _walk(sk: Skater, dt: float) -> void:
 			var going: bool = step.length() > _loco_speed * dt * 0.3 or _loco_speed < 0.3
 			_stuck_t = maxf(0.0, _stuck_t - dt) if going else _stuck_t + dt
 		_gait_update(dt, _loco_speed, turn_rate if _loco_speed < 0.5 else 0.0)
+		_flip_kick()
 		_step_on = 1.0 - clampf(dist / 0.6, 0.0, 1.0)
 		# a board that came to rest up on something (a ledge, a car roof) or down in a hole is taken from where
 		# the rider stands, not stepped up (or down) to; and a walk that goes on too long just ends
@@ -1312,12 +1328,15 @@ func _walk(sk: Skater, dt: float) -> void:
 			at.origin = _walk_pos
 			if dist > 0.1:
 				at.basis = Basis.looking_at(to / dist, Vector3.UP)
+			# the board comes to the rider: if that's a jump (off a ledge, from across a plaza), the screen blinks over
+			# it (it used to blink only for the late one; boxed in or given up, the board just popped)
+			var jump: bool = loose.global_position.distance_to(_walk_pos) > 0.5
 			_end_physical()
 			sk.finish_physical_bail(at)
-			if late:
+			if late or jump:
 				sk.warped.emit()
 			return
-		if dist < 0.06:
+		if dist < 0.06 and _board_flip_t <= 0.0:
 			var stand: Transform3D = loose.stand_transform()
 			stand.origin = _ground_under(stand.origin + Vector3.UP * 0.5)
 			_end_physical()
@@ -1737,6 +1756,21 @@ func _ground_under(p: Vector3, above: float = 1.0) -> Vector3:
 	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(p + Vector3.UP * above, p + Vector3.DOWN * 6.0, 1)
 	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
 	return hit["position"] if not hit.is_empty() else Vector3(p.x, 0.0, p.z)
+
+
+## Hooking the board over: the right foot reaches to its edge and flicks it (drawn over the gait: the gait still
+## has it planted where it was, so it comes back there; marked off the ground meanwhile).
+func _flip_kick() -> void:
+	if _board_flip_t <= 0.0 or _gait_now.is_empty() or loose == null:
+		return
+	var k: float = 1.0 - _board_flip_t / BOARD_FLIP
+	var kick: float = sin(PI * clampf(k * 1.25, 0.0, 1.0))
+	var frame: Transform3D = Transform3D(Basis(_walk_dir, Vector3.UP, _walk_dir.cross(Vector3.UP).normalized()), _walk_pos)
+	var edge: Vector3 = frame.affine_inverse() * loose.global_position
+	var feet: Array = _gait_now["feet"]
+	var fr: Array = feet[1]
+	var p: Vector3 = (fr[0] as Vector3).lerp(Vector3(edge.x - 0.1, 0.0, edge.z), kick * 0.7) + Vector3.UP * 0.12 * kick
+	feet[1] = [p, -12.0 * kick, false, fr[3]]
 
 
 ## On foot: the board pose numbers back to riding flat (the step onto the deck lands on the cruising marks).

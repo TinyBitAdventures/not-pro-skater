@@ -2,7 +2,7 @@ extends Node3D
 ## Films physical bails up close on the greybox, side-on, to judge how the body falls:
 ##   FILM=flat,tumble,halfpipe,wall,grind godot --path . res://scenes/dev_bailfilm.tscn --resolution 480x360
 ## (also slipout, nosecatch: a manual lost over the tail / the nose at 9 m/s; side_l, side_r: off a rail either way;
-## drop: a big crooked drop). Each film prints when the rider lay still, stood and rode again, how the body came to
+## drop: a big crooked drop; FILM_UPSIDE_DOWN=1 turns the board over as the rider gets up). Each film prints when the rider lay still, stood and rode again, how the body came to
 ## rest (prone, supine, side) and where the board went.
 ## Writes ../shots/film_<name>_NN.png every FILM_EVERY seconds (0.1) from the moment of the crash, FILM_N frames (20).
 ## FILM_FROM=walk (or getup, run) starts filming when the rider reaches that phase, side-on to where it walks:
@@ -67,9 +67,14 @@ func _film(label: String) -> void:
 	var from: String = OS.get_environment("FILM_FROM")
 	var walker: RiderRig = sk.visual as RiderRig
 	if from != "":
+		var turned: bool = false
 		for i in 1200:
 			if walker.phys_phase == from or sk.state != Skater.State.BAIL:
 				break
+			if walker.phys_phase == "getup" and not turned and OS.get_environment("FILM_UPSIDE_DOWN") != "" and walker.loose != null:
+				turned = true
+				var lb: Transform3D = walker.loose.global_transform
+				walker.loose.put_at(Transform3D(lb.basis.rotated(lb.basis.z.normalized(), PI), lb.origin + Vector3.UP * 0.14))
 			await get_tree().physics_frame
 		look = walker.global_position + Vector3.UP * 0.4
 	var thuds: Dictionary = {"body": 0, "board": 0, "hardest": 0.0}
@@ -86,6 +91,10 @@ func _film(label: String) -> void:
 		t += get_process_delta_time()
 		if walker.phys_phase != last_phase:
 			last_phase = walker.phys_phase
+			if last_phase == "getup" and OS.get_environment("FILM_UPSIDE_DOWN") != "" and walker.loose != null:
+				# (FILM_UPSIDE_DOWN=1: the board lands upside down, to film it being hooked back over)
+				var lb: Transform3D = walker.loose.global_transform
+				walker.loose.put_at(Transform3D(lb.basis.rotated(lb.basis.z.normalized(), PI), lb.origin + Vector3.UP * 0.14))
 			timeline.append("%s %.2f" % [last_phase if last_phase != "" else "riding", sk.bail_time - t_bail0 if sk.state == Skater.State.BAIL else t])
 		if walker.loose != null:
 			board_far = maxf(board_far, walker.loose.global_position.distance_to(sk.bail_origin))

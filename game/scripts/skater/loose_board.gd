@@ -23,6 +23,7 @@ var wheels_down: bool = false
 var rider_key: String = "dev"           # whose deck graphic
 var _put: Variant = null                # a transform to move to at the next physics step (put_at)
 var _prev_v: Vector3 = Vector3.ZERO
+var _flip: Array = []                   # being flipped over by the rider's foot: [from, to, seconds, seconds done]
 var _knock_cd: float = 0.0
 
 signal knocked(strength: float)         # hit something hard enough to clack (m/s of speed changed in one step)
@@ -73,7 +74,36 @@ func put_at(xf: Transform3D) -> void:
 	_put = xf
 
 
+## Lying upside down or on its side: is it?
+func wheels_up() -> bool:
+	return global_transform.basis.y.y < 0.6
+
+
+## Hooked over by the rider's foot: a little hop and a roll onto its wheels, `to` (on the ground, nose the way it
+## pointed) over `seconds`.
+func flip_to(to: Transform3D, seconds: float) -> void:
+	_flip = [global_transform, to, seconds, 0.0]
+
+
+func flipping() -> bool:
+	return not _flip.is_empty()
+
+
 func _integrate_forces(st: PhysicsDirectBodyState3D) -> void:
+	if not _flip.is_empty():
+		_flip[3] = float(_flip[3]) + st.step
+		var u: float = clampf(float(_flip[3]) / float(_flip[2]), 0.0, 1.0)
+		var e: float = u * u * (3.0 - 2.0 * u)
+		var a: Transform3D = _flip[0]
+		var b: Transform3D = _flip[1]
+		var q: Quaternion = a.basis.orthonormalized().get_rotation_quaternion().slerp(b.basis.orthonormalized().get_rotation_quaternion(), e)
+		st.transform = Transform3D(Basis(q), a.origin.lerp(b.origin, e) + Vector3.UP * 0.16 * sin(PI * u))
+		st.linear_velocity = Vector3.ZERO
+		st.angular_velocity = Vector3.ZERO
+		_prev_v = Vector3.ZERO
+		if u >= 1.0:
+			_flip = []
+		return
 	if _put != null:
 		st.transform = _put
 		st.linear_velocity = Vector3.ZERO
