@@ -162,7 +162,11 @@ def buildings():
     lib.quad(lib.uname("Lobby_glass"), (tx0 - 0.04, 36.0, PLAZA_H + 0.1), (tx0 - 0.04, 46.0, PLAZA_H + 0.1),
              (tx0 - 0.04, 46.0, PLAZA_H + 3.6), (tx0 - 0.04, 36.0, PLAZA_H + 3.6), glass, expect=(-1, 0, 0))
     box(lib.uname("Lobby_canopy"), (3.0, 11.0, 0.25), (tx0 - 1.5, 41.0, PLAZA_H + 4.0), M("Steel"))
-    school.text_mesh("Tower_name", "ONE MARKET PLACE", 0.5, (tx0 - 0.12, 41.0, PLAZA_H + 4.8),
+    # the name on a fascia along the canopy's edge (on the wall above, the canopy hid it from the plaza), tie rods
+    box(lib.uname("Lobby_fascia"), (0.1, 11.0, 0.8), (tx0 - 3.05, 41.0, PLAZA_H + 4.3), mat("Mullion", "#2d3236"))
+    for y in (36.5, 45.5):
+        cyl_between(lib.uname("Lobby_tie"), (tx0 - 2.9, y, PLAZA_H + 4.1), (tx0 - 0.05, y, PLAZA_H + 6.8), 0.035, M("Galv"), seg=8)
+    school.text_mesh("Tower_name", "ONE MARKET PLACE", 0.5, (tx0 - 3.11, 41.0, PLAZA_H + 4.32),
                      (math.pi / 2, 0.0, -math.pi / 2), mat("SignWhite", "#f2f0ea"), depth=0.02)
     # the backdrop: towers beyond the blocks (the city goes on). Glass ones banded by stone floor slabs, stone ones
     # with ribbon windows; some stand on a podium, some step back near the top. A band is one box a little bigger
@@ -322,19 +326,45 @@ def street_spots():
                     mat("Rubber", "#1e1e1e"), seg=6, parent=cam)
     box(lib.uname("Camera"), (0.28, 0.14, 0.16), (0.0, 0.0, 1.4), mat("Rubber", "#1e1e1e"), parent=cam)
     cyl_between(lib.uname("CameraLens"), (0.0, 0.07, 1.4), (0.0, 0.17, 1.4), 0.05, M("Steel"), seg=10, parent=cam)
-    # the subway entrance: a glass kiosk on Second Street's north sidewalk (decoration, a solid obstacle)
+    # the subway entrance: a glass kiosk on Second Street's north sidewalk (decoration, a solid obstacle). Open at its
+    # west end onto a dark stairwell going down (step edges, handrails sloping into it), a green fascia with the name
+    # on both sides, a steel frame; the M sign reads both ways
     kx, ky = -24.0, 27.0
-    box("Wall_Subway-col", (5.0, 3.0, 0.2), (kx, ky, CURB + 2.6), M("Steel"))
+    steel = M("Steel")
+    green = mat("SubwayGreen", "#2f7a4b")
+    white = mat("SignWhite", "#f2f0ea")
+    box("Wall_Subway-col", (5.0, 3.0, 0.2), (kx, ky, CURB + 2.6), steel)
+    box(lib.uname("SubwayFascia"), (5.1, 3.1, 0.45), (kx, ky, CURB + 2.33), green)
+    for s_ in (-1, 1):
+        school.text_mesh("Subway_name", "SUBWAY", 0.34, (kx, ky + s_ * 1.56, CURB + 2.33),
+                         school.FACING_SOUTH if s_ < 0 else (math.pi / 2, 0.0, math.pi), white, depth=0.01)
     glass = houses.glass()
     for dy in (-1.45, 1.45):
         s_ = 1 if dy > 0 else -1
         lib.quad(lib.uname("Subway_glass"), (kx - 2.4, ky + dy, CURB + 0.2), (kx + 2.4, ky + dy, CURB + 0.2),
-                 (kx + 2.4, ky + dy, CURB + 2.5), (kx - 2.4, ky + dy, CURB + 2.5), glass, expect=(0, s_, 0))
+                 (kx + 2.4, ky + dy, CURB + 2.1), (kx - 2.4, ky + dy, CURB + 2.1), glass, expect=(0, s_, 0))
+    lib.quad(lib.uname("Subway_glass"), (kx + 2.45, ky - 1.4, CURB + 0.2), (kx + 2.45, ky + 1.4, CURB + 0.2),
+             (kx + 2.45, ky + 1.4, CURB + 2.1), (kx + 2.45, ky - 1.4, CURB + 2.1), glass, expect=(1, 0, 0))
+    for (x, y) in ((kx - 2.45, ky - 1.45), (kx - 2.45, ky + 1.45), (kx + 2.45, ky - 1.45), (kx + 2.45, ky + 1.45),
+                   (kx, ky - 1.45), (kx, ky + 1.45)):
+        box(lib.uname("SubwayPost"), (0.1, 0.1, 2.3), (x, y, CURB + 1.15), steel)
+    lib.quad(lib.uname("Subway_pit"), (kx - 2.4, ky - 1.35, CURB + 0.012), (kx + 2.4, ky - 1.35, CURB + 0.012),
+             (kx + 2.4, ky + 1.35, CURB + 0.012), (kx - 2.4, ky + 1.35, CURB + 0.012), mat("SubwayPit", "#111214"))
+    for i in range(9):
+        box(lib.uname("SubwayStepEdge"), (0.05, 2.5, 0.006), (kx - 2.1 + i * 0.5, ky, CURB + 0.016),
+            mat("StepEdge", "#8c8a84"))
+    galv = M("Galv")
+    for s_ in (-1, 1):
+        y = ky + s_ * 1.2
+        cyl_between(lib.uname("SubwayRail"), (kx - 2.45, y, CURB + 0.95), (kx - 1.0, y, CURB + 0.95), 0.03, galv, seg=8)
+        cyl_between(lib.uname("SubwayRail"), (kx - 1.0, y, CURB + 0.95), (kx + 2.3, y, CURB + 0.1), 0.03, galv, seg=8)
+        cyl_z(lib.uname("SubwayRailPost"), (kx - 2.45, y, CURB), 0.95, 0.03, galv, seg=8)
     lib.col_box(lib.uname("Subway"), (5.0, 3.0, 2.5), (kx, ky, CURB + 1.25), surface="Wall")
-    cyl_z(lib.uname("SubwayPole"), (kx + 3.2, ky - 1.2, CURB), 2.45, 0.05, M("Steel"), seg=8)
-    box(lib.uname("SubwaySign"), (0.9, 0.9, 0.9), (kx + 3.2, ky - 1.2, CURB + 2.9), mat("SubwayGreen", "#2f7a4b"))
-    school.text_mesh("Subway_sign", "M", 0.6, (kx + 3.2, ky - 1.67, CURB + 2.9), school.FACING_SOUTH,
-                     mat("SignWhite", "#f2f0ea"), depth=0.02)
+    cyl_z(lib.uname("SubwayPole"), (kx + 3.2, ky - 1.2, CURB), 2.45, 0.05, steel, seg=8)
+    box(lib.uname("SubwaySign"), (0.9, 0.9, 0.9), (kx + 3.2, ky - 1.2, CURB + 2.9), green)
+    for s_ in (-1, 1):
+        school.text_mesh("Subway_sign", "M", 0.6, (kx + 3.2, ky - 1.2 + s_ * 0.47, CURB + 2.9),
+                         school.FACING_SOUTH if s_ < 0 else (math.pi / 2, 0.0, math.pi), white, depth=0.02)
 
 
 def market():

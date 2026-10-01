@@ -49,7 +49,7 @@ SETS = {
     "grass_far": ("Grass004", 4.0, (0.8, 0.84, 0.74), 0.0, False),     # past the park's edge: lit live, not baked
     "metal": ("Metal032", 0.6, (1.0, 1.0, 1.0), 1.0, False),
     "paint_red": ("PaintedMetal004", 0.8, (1.0, 1.0, 1.0), 0.0, False),
-    "galvanized": ("Metal032", 0.5, (0.78, 0.8, 0.82), 1.0, False),
+    "galvanized": ("Metal032", 0.5, (0.9, 0.84, 0.76), 1.0, False),         # warm tint: Metal032's colour map is blue-grey
     "court": ("Concrete046", 2.5, (0.26, 0.5, 0.36), 0.0, True),             # a painted green games court
     "side_paint": ("Concrete046", 2.5, (0.27, 0.34, 0.43), 0.0, True),      # painted side sheets: slate over a neutral base
     "steel_plate": ("Concrete044D", 1.0, (0.5, 0.5, 0.52), 0.0, True),       # worn steel at the ramp's foot (baked; Metal032 reads blue)
@@ -63,15 +63,18 @@ SETS = {
     "roof_dark": ("RoofingTiles006", 2.5, (0.36, 0.36, 0.38), 0.0, True),
     "roof_brown": ("RoofingTiles006", 2.5, (0.6, 0.47, 0.38), 0.0, True),
     "brick": ("Bricks101", 1.5, (1.0, 1.0, 1.0), 0.0, True),
-    "paving": ("PavingStones128", 2.0, (1.0, 1.0, 1.0), 0.0, True),
+    "paving": ("PavingStones128", 3.2, (1.0, 1.0, 1.0), 0.0, True),         # big slabs: at 2 m the plazas read as a busy checker
     "dirt": ("Ground037", 3.0, (1.0, 1.0, 1.0), 0.0, True),
-    "packed_dirt": ("Concrete044D", 3.0, (0.86, 0.72, 0.54), 0.0, True),
+    "packed_dirt": ("Concrete044D", 3.0, (0.94, 0.75, 0.52), 0.0, True),    # warm: in shade it read as dark asphalt
     "post_dark": ("Metal032", 0.6, (0.2, 0.2, 0.22), 0.7, False),         # painted lamp posts: live-lit like props
     # the backlot's sets (they were flat, unbaked colours next to PBR concrete: the level read as CG)
     "stucco": ("Concrete046", 3.0, (1.0, 0.94, 0.84), 0.0, True),
     # long perimeter walls get too few lightmap texels (they baked as purple-green camouflage): lit live instead
     "stucco_live": ("Concrete046", 3.0, (1.0, 0.94, 0.84), 0.0, False),
     "brownstone": ("Bricks101", 1.5, (0.66, 0.46, 0.36), 0.0, True),
+    "brick_red": ("Bricks101", 1.5, (0.9, 0.58, 0.48), 0.0, True),         # the Foundry (plain Bricks101 reads pale tan)
+    "corrugated": ("CorrugatedSteel005", 2.5, (0.6, 0.63, 0.66), 0.0, True),  # sheds: the ribs are in the normal map
+    "corrugated_roof": ("CorrugatedSteel005", 2.5, (0.5, 0.52, 0.54), 0.0, True),
     "west_red": ("WoodSiding009", 2.0, (0.68, 0.32, 0.24), 0.0, True),
     "west_green": ("WoodSiding009", 2.0, (0.44, 0.54, 0.36), 0.0, True),
     "west_brown": ("WoodSiding009", 2.0, (0.58, 0.42, 0.28), 0.0, True),
@@ -95,6 +98,7 @@ KIT = {
     "WestPaint-10": "west_red", "WestPaint-11": "west_green", "WestPaint10": "west_brown", "WestPaint11": "west_blue",
     "TrailerWhite": "siding", "GreenScreen": "greenscreen", "StageDeck": "wood_side", "StallWood": "wood", "Sidewalk": "concrete", "Trim": "concrete", "Door": "wood_side",
     "SidingCream": "siding_cream", "SidingGrey": "siding_grey", "RoofDark": "roof_dark", "RoofBrown": "roof_brown",
+    "BrickRed": "brick_red", "Corrugated": "corrugated", "CorrugatedRoof": "corrugated_roof",
     "Pole": "wood_side", "Driveway": "concrete", "FarGrass": "grass_far",
 }
 

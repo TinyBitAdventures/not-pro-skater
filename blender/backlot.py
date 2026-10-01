@@ -76,8 +76,26 @@ def western():
             y0 = -18.0 + k * 18.0
             y1 = y0 + 14.0
             h = 6.5 if k == 0 else 5.2
-            box(f"Wall_WestFront{side}{k}-col", (0.4, y1 - y0, h), (fx + side * 0.2, (y0 + y1) / 2, h / 2),
-                mat(f"WestPaint{side}{k}", colour))
+            paint_ = mat(f"WestPaint{side}{k}", colour)
+            box(f"Wall_WestFront{side}{k}-col", (0.4, y1 - y0, h), (fx + side * 0.2, (y0 + y1) / 2, h / 2), paint_)
+            # a stepped parapet over the false front, trim boards at the top and the corners
+            yc = (y0 + y1) / 2
+            box(lib.uname("WestParapet"), (0.4, (y1 - y0) * 0.55, 0.7), (fx + side * 0.2, yc, h + 0.35), paint_)
+            box(lib.uname("WestParapet"), (0.4, (y1 - y0) * 0.25, 0.5), (fx + side * 0.2, yc, h + 0.95), paint_)
+            trim_ = mat("WestTrim", "#e8dcc0")
+            for (yy, zz, ww, hh) in ((yc, h - 0.12, y1 - y0, 0.24), (yc, h + 0.62, (y1 - y0) * 0.55, 0.16),
+                                     (yc, h + 1.12, (y1 - y0) * 0.25, 0.16)):
+                box(lib.uname("WestCornice"), (0.12, ww + 0.1, hh), (fx - side * 0.04, yy, zz), trim_)
+            for yy in (y0 + 0.08, y1 - 0.08):
+                box(lib.uname("WestCorner"), (0.1, 0.16, h), (fx - side * 0.03, yy, h / 2), trim_)
+            # the porch roof over the boardwalk: planks sloping out from the front on brackets (no posts: the
+            # boardwalk's edge is a ledge to grind); solid, for big airs
+            pr = box(f"Wood_WestPorch{side}{k}-col", (2.3, y1 - y0 - 0.4, 0.1), (0.0, 0.0, 0.0), M("Timber"))
+            pr.location = (fx - side * 1.15, yc, 3.02)
+            pr.rotation_euler = (0.0, -side * math.radians(6.0), 0.0)        # the outer edge lower
+            for yy in (y0 + 1.0, yc, y1 - 1.0):
+                cyl_between(lib.uname("PorchBracket"), (fx - side * 0.05, yy, 2.2), (fx - side * 1.3, yy, 2.95), 0.05,
+                            M("Timber"), seg=6)
             # the bracing behind the false front (it's a set: nothing behind it)
             for yy in (y0 + 1.0, (y0 + y1) / 2, y1 - 1.0):
                 cyl_between(lib.uname("Brace"), (fx + side * 0.4, yy, h - 0.6), (fx + side * 3.4, yy, 0.0), 0.08, wood, seg=6)
@@ -86,8 +104,8 @@ def western():
             school.text_mesh(f"WestSign{side}{k}", label, 0.7, (fx - side * 0.06, (y0 + y1) / 2, h - 1.2),
                              (math.pi / 2, 0.0, -side * math.pi / 2), mat("SignCream", "#efe4c8"), depth=0.03)
             r = empty(lib.uname("WestWindows"), (0, 0, 0), 0.0, None)
-            for yy in (y0 + 3.0, y1 - 3.0):
-                houses._window_side(r, fx, yy, 2.8 if h > 6 else 2.4, 1.4, 1.6, mat("WestTrim", "#e8dcc0"), facing=-side)
+            for yy in (y0 + 3.0, y1 - 3.0):                         # upstairs windows, above the porch roof
+                houses._window_side(r, fx, yy, 3.5 if h > 6 else 3.3, 1.4, 1.5, mat("WestTrim", "#e8dcc0"), facing=-side)
             box(lib.uname("WestDoor"), (0.08, 1.8, 2.4), (fx - side * 0.04, (y0 + y1) / 2, BOARD_H + 1.2),
                 mat("WestDoor", "#3a2a1c"))
             # the boardwalk in front, its street edge a ledge, a hitching rail along the dirt
@@ -123,9 +141,15 @@ def new_york():
             cyl_between(lib.uname("Brace"), (fx + side * 0.5, yy, 9.0), (fx + side * 4.0, yy, 0.0), 0.08, M("Timber"), seg=6)
         lib.col_box(lib.uname("SetBack"), (3.5, 40.0, 9.0), (fx + side * 2.25, 0.0, 4.5))
         r = empty(lib.uname("NYWindows"), (0, 0, 0), 0.0, None)
+        stone = mat("Stone", "#bdb8ad")
         for z in (3.2, 6.6):
             for yy in range(-18, 20, 4):
                 houses._window_side(r, fx, float(yy), z, 1.3, 2.2, trim, facing=-side)
+                box(lib.uname("NYLintel"), (0.14, 1.7, 0.22), (fx - side * 0.07, float(yy), z + 2.42), stone)
+        # a deep cornice along the top, and a stone band between the floors
+        box(lib.uname("NYCornice"), (0.7, 40.4, 0.45), (fx - side * 0.1, 0.0, 10.8), mat("StoneDk", "#77736c"))
+        box(lib.uname("NYCornice"), (0.3, 40.2, 0.2), (fx - side * 0.05, 0.0, 10.45), stone)
+        box(lib.uname("NYBand"), (0.12, 40.0, 0.25), (fx - side * 0.06, 0.0, 6.1), stone)
         for k, yy in enumerate((-12.0, 0.0, 12.0)):                # stoops: five steps up to the doors
             # (the landing spans local y -1.2..0: set the origin out from the wall so it stands in front of it)
             st = empty(lib.uname("Stoop"), (fx - side * 1.25, yy, 0.0), (math.pi / 2) if side > 0 else (-math.pi / 2), None)
@@ -206,6 +230,17 @@ def lot():
             cyl_between(lib.uname("TrailerWheel"), (dx - 0.1, dy, 0.4), (dx + 0.1, dy, 0.4), 0.38, mat("Rubber", "#1e1e1e"),
                         seg=14, parent=tr)
         box(lib.uname("TrailerDoor"), (0.06, 0.9, 1.9), (1.53, 1.5, 1.45), mat("TrailerDoor", "#9c9a96"), parent=tr)
+        glass = houses.glass()
+        for sx in (-1, 1):                                       # windows down both sides, clear of the door
+            for wy in ((-2.4, 3.3) if sx > 0 else (-2.4, 0.6, 3.3)):
+                box(lib.uname("TrailerWindow"), (0.03, 1.1, 0.55), (sx * 1.515, wy, 2.68), glass, parent=tr)
+        box(lib.uname("TrailerAwning"), (0.9, 1.5, 0.04), (1.95, 1.5, 2.55), mat("TrailerAwning", "#b8732c"), parent=tr)
+        box(lib.uname("TrailerAC"), (0.8, 1.0, 0.35), (0.0, -1.5, 3.42), M("Galv"), parent=tr)
+        dark = mat("TruckDark", "#1c1f22")
+        for sx in (-1, 1):                                       # the hitch: an A-frame tongue on a jack
+            cyl_between(lib.uname("TrailerTongue"), (sx * 0.6, -4.0, 0.55), (0.0, -5.3, 0.5), 0.04, dark, seg=6, parent=tr)
+        cyl_z(lib.uname("TrailerJack"), (0.0, -5.15, 0.0), 0.55, 0.04, dark, seg=6, parent=tr)
+        lib.col_box(lib.uname("TrailerHitch"), (1.2, 1.3, 0.6), (0.0, -4.65, 0.3), parent=tr, surface="Metal")
         box(lib.uname("Wood_TrailerSteps") + "-col", (0.7, 1.0, 0.45), (1.9, 1.5, 0.225), M("Steel"), parent=tr)
         school.text_mesh(f"TrailerStar{k}", ["THE ACTOR", "STUNTS", "MAKEUP"][k], 0.22, (-8.46, y - 1.0, 2.7),
                          (math.pi / 2, 0.0, math.pi / 2), mat("SignNavy", "#22304a"), depth=0.01)
@@ -216,10 +251,21 @@ def lot():
     box(lib.uname("TentRoof"), (4.6, 3.6, 0.06), (0.0, 18.0, 2.62), mat("TentWhite", "#eeeae2"))
     props.place("wooden_picnic_table", 0.0, 18.0, 90.0, surface="Wood")
     # the director's chair (a table beside it takes the script) and the video village
+    # a tall canvas director's chair: X-frame legs each side, a seat and a back of canvas, armrests, a footrest
     chair = mat("ChairCanvas", "#1d1f22")
-    box(lib.uname("Wall_DirectorChair") + "-col", (0.6, 0.55, 1.1), (16.0, -18.0, 0.55), chair)
-    box(lib.uname("DirectorChairBack"), (0.6, 0.06, 0.45), (16.0, -17.75, 1.3), chair)
-    school.text_mesh("DirectorChair_text", "DIRECTOR", 0.09, (16.0, -17.71, 1.3), (math.pi / 2, 0.0, math.pi),
+    cw = mat("ChairWood", "#8a6a45")
+    cx_, cy_ = 16.0, -18.0
+    for sx in (-0.28, 0.28):
+        cyl_between(lib.uname("ChairLeg"), (cx_ + sx, cy_ - 0.24, 0.0), (cx_ + sx, cy_ + 0.24, 0.75), 0.022, cw, seg=6)
+        cyl_between(lib.uname("ChairLeg"), (cx_ + sx, cy_ + 0.24, 0.0), (cx_ + sx, cy_ - 0.24, 0.75), 0.022, cw, seg=6)
+        cyl_between(lib.uname("ChairPost"), (cx_ + sx, cy_ + 0.24, 0.75), (cx_ + sx, cy_ + 0.26, 1.45), 0.02, cw, seg=6)
+        cyl_between(lib.uname("ChairArm"), (cx_ + sx, cy_ - 0.24, 1.0), (cx_ + sx, cy_ + 0.26, 1.0), 0.024, cw, seg=6)
+        cyl_between(lib.uname("ChairArmPost"), (cx_ + sx, cy_ - 0.22, 0.75), (cx_ + sx, cy_ - 0.22, 1.0), 0.018, cw, seg=6)
+    cyl_between(lib.uname("ChairFootrest"), (cx_ - 0.28, cy_ - 0.2, 0.32), (cx_ + 0.28, cy_ - 0.2, 0.32), 0.02, cw, seg=6)
+    box(lib.uname("ChairSeat"), (0.54, 0.46, 0.03), (cx_, cy_, 0.77), chair)
+    box(lib.uname("DirectorChairBack"), (0.58, 0.04, 0.3), (cx_, cy_ + 0.26, 1.3), chair)
+    lib.col_box(lib.uname("DirectorChair"), (0.62, 0.56, 1.45), (cx_, cy_, 0.72), surface="Wall")
+    school.text_mesh("DirectorChair_text", "DIRECTOR", 0.09, (cx_, cy_ + 0.285, 1.3), (math.pi / 2, 0.0, math.pi),
                      mat("SignWhite", "#f2f0ea"), depth=0.005)
     props.place("round_wooden_table_02", 17.4, -18.0, 0.0, surface="Wood")
     top = props.bounds("round_wooden_table_02")[1].z             # the monitor stands on the table (it floated above)

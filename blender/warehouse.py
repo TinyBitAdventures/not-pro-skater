@@ -83,9 +83,14 @@ def foundry():
     x0, x1, y0, y1 = FOUNDRY
     w, d = x1 - x0, y1 - y0
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-    brick = mat("Brick", "#9c4e3d")
+    brick = mat("BrickRed", "#9c4e3d")
     trim = mat("SteelFrame", "#2b2f33")
     box("Wall_Foundry-col", (w, d, FOUNDRY_H), (cx, cy, FOUNDRY_H / 2), brick)
+    # a concrete base course round the walls, where the grime of a century gathers
+    box(lib.uname("Foundry_base"), (w + 0.08, d + 0.08, 0.7), (cx, cy, 0.35), mat("StoneDk", "#6e6a64"))
+    # the old firm's name, painted across the top of the front and faded (it was a machine shop before the venue)
+    school.text_mesh("Foundry_ghostsign", "RIVERSIDE MACHINE WORKS", 0.7, (cx, y0 - 0.03, 8.35), school.FACING_SOUTH,
+                     mat("GhostPaint", "#e6dcc2"), depth=0.01)
     box(lib.uname("Foundry_parapet"), (w + 0.3, d + 0.3, 0.45), (cx, cy, FOUNDRY_H + 0.2), mat("StoneDk", "#6e6a64"))
     box(lib.uname("Foundry_roof"), (w - 0.4, d - 0.4, 0.06), (cx, cy, FOUNDRY_H + 0.04), mat("Stone", "#7a7a78"))
     r = empty(lib.uname("FoundryWindows"), (0, 0, 0), 0.0, None)
@@ -93,13 +98,18 @@ def foundry():
     for i in range(n):
         x = x0 + w * (i + 0.5) / n
         houses._window(r, x, y0, 5.2, 3.2, 2.6, trim, facing=-1)       # upper row all along
+        _mullions(x, y0, 5.2, 3.2, 2.6, trim, -1)
         if not (DOCK[0] - 1.0 < x < DOCK[1] + 1.0):
             houses._window(r, x, y0, 1.6, 3.2, 2.4, trim, facing=-1)
+            _mullions(x, y0, 1.6, 3.2, 2.4, trim, -1)
         houses._window(r, x, y1, 3.5, 3.2, 2.6, trim, facing=1)
+        _mullions(x, y1, 3.5, 3.2, 2.6, trim, 1)
     for yy in (y0 + 6.0, cy, y1 - 6.0):
         for z in (1.6, 5.2):
             houses._window_side(r, x0, yy, z, 3.2, 2.4, trim)
             houses._window_side(r, x1, yy, z, 3.2, 2.4, trim)
+            _mullions(x0, yy, z, 3.2, 2.4, trim, -1, side=True)
+            _mullions(x1, yy, z, 3.2, 2.4, trim, 1, side=True)
     # roll-up doors onto the dock, the marquee over the main door (west end, at street level)
     for x in (-30.0, -18.0):
         box(lib.uname("Foundry_rolldoor"), (3.6, 0.08, 3.4), (x, y0 - 0.04, DOCK_H + 1.7), mat("Galv", "#9ea4a8"))
@@ -109,13 +119,60 @@ def foundry():
                      mat("MarqueeLights", "#f4d27a"), depth=0.02)
     school.text_mesh("Marquee_sub", "RECORD RELEASE TONIGHT", 0.17, (-41.0, y0 - 1.84, 3.15), school.FACING_SOUTH,
                      mat("SignWhite", "#f2f0ea"), depth=0.01)
-    # the fire escape on the east wall (decoration: landings and stairs up the brick)
-    steel = M("Steel")
-    for k, z in enumerate((3.4, 6.6)):
-        box(lib.uname("FireEscape_landing"), (1.2, 4.0, 0.08), (x1 + 0.6, 30.0, z), steel)
-        cyl_between(lib.uname("FireEscape_rail"), (x1 + 1.2, 28.0, z + 0.9), (x1 + 1.2, 32.0, z + 0.9), 0.02, steel, seg=6)
-        cyl_between(lib.uname("FireEscape_stair"), (x1 + 0.6, 28.0 if k == 0 else 32.0, z),
-                    (x1 + 0.6, 32.0 if k == 0 else 28.0, z + 3.2), 0.05, steel, seg=6)
+    fire_escape(x1)
+
+
+def _mullions(x, y, z, ww, wh, m, facing, side=False):
+    """Steel glazing bars over a window (houses._window / _window_side at the same x, y, z): two uprights and a
+    transom, the grid of an old factory window."""
+    off = 0.075 * facing
+    for t in (-1.0 / 3.0, 1.0 / 3.0):
+        if side:
+            box(lib.uname("Mullion"), (0.04, 0.04, wh), (x + off, y + t * ww, z + wh / 2), m)
+        else:
+            box(lib.uname("Mullion"), (0.04, 0.04, wh), (x + t * ww, y + off, z + wh / 2), m)
+    if side:
+        box(lib.uname("Mullion"), (0.04, ww, 0.04), (x + off, y, z + wh * 0.55), m)
+    else:
+        box(lib.uname("Mullion"), (ww, 0.04, 0.04), (x, y + off, z + wh * 0.55), m)
+
+
+def fire_escape(wx):
+    """The fire escape on the Foundry's east wall (at x = wx, over the alley): two railed landings on braces, a
+    steep stair between them, a drop ladder under the lower one and a ladder up to the roof. Painted black steel,
+    lit live; out of reach from the ground (the drop ladder ends 1.6 m up), so no colliders."""
+    blk = mat("FireEscape", "#24272a")
+    ya, yb = 27.6, 32.4
+    fx = wx + 0.65
+    for z in (3.4, 6.6):
+        box(lib.uname("FireEscape_landing"), (1.2, yb - ya, 0.06), (fx, (ya + yb) / 2, z), blk)
+        for zz in (z + 0.5, z + 0.95):                     # railing: the outer side and both ends
+            box(lib.uname("FireEscape_rail"), (0.04, yb - ya, 0.04), (wx + 1.24, (ya + yb) / 2, zz), blk)
+            for yy in (ya, yb):
+                box(lib.uname("FireEscape_rail"), (1.2, 0.04, 0.04), (fx, yy, zz), blk)
+        k = 0
+        while ya + 1.2 * k <= yb + 0.01:
+            box(lib.uname("FireEscape_post"), (0.04, 0.04, 0.95), (wx + 1.24, ya + 1.2 * k, z + 0.475), blk)
+            k += 1
+        for yy in (ya + 0.3, yb - 0.3):                    # braces back to the wall
+            cyl_between(lib.uname("FireEscape_brace"), (wx + 0.02, yy, z - 0.9), (wx + 1.15, yy, z - 0.02), 0.025, blk, seg=6)
+    # the stair: two stringers and treads from the lower landing up to the upper one
+    s0, s1 = (ya + 0.4, 3.4), (yb - 0.4, 6.6)
+    for sx in (wx + 0.3, wx + 1.0):
+        cyl_between(lib.uname("FireEscape_stringer"), (sx, s0[0], s0[1]), (sx, s1[0], s1[1]), 0.03, blk, seg=6)
+    steps = 16
+    for i in range(1, steps):
+        t = i / steps
+        box(lib.uname("FireEscape_tread"), (0.7, 0.2, 0.03), (wx + 0.65, s0[0] + (s1[0] - s0[0]) * t, s0[1] + (s1[1] - s0[1]) * t),
+            blk)
+    # ladders: down from the lower landing (stopping short of the ground) and up from the upper one to the roof
+    for (y, za, zb) in ((ya + 0.35, 1.6, 3.4), (yb - 0.35, 6.6, FOUNDRY_H + 0.9)):
+        for lx in (wx + 0.45, wx + 0.85):
+            cyl_between(lib.uname("FireEscape_ladder"), (lx, y, za), (lx, y, zb), 0.02, blk, seg=6)
+        z = za + 0.15
+        while z < zb - 0.05:
+            cyl_between(lib.uname("FireEscape_rung"), (wx + 0.45, y, z), (wx + 0.85, y, z), 0.014, blk, seg=5)
+            z += 0.3
 
 
 def foundry_dock():
@@ -141,33 +198,57 @@ def foundry_dock():
 
 
 def tour_van():
-    """The band's van, parked below the dock with its back doors open: the merch comes out of here."""
+    """The band's van, parked below the dock with its back doors open: the merch comes out of here. A box body on a
+    dark chassis over the wheels, a short nose with grille, lights and bumpers, cab windows and mirrors."""
     tx, ty = -24.0, 1.3
     van = empty(lib.uname("TourVan"), (tx, ty, 0.0), 0.0, None)
     van["bake_group"] = "world"
     paint_ = mat("VanWhite", "#e9e6df")
-    box(lib.uname("Wall_VanBody") + "-col", (5.2, 2.0, 2.0), (0.0, 0.0, 1.3), paint_, parent=van)
-    box(lib.uname("Wall_VanNose") + "-col", (1.0, 1.9, 1.2), (3.05, 0.0, 0.95), paint_, parent=van)
-    box(lib.uname("VanWindshield"), (0.05, 1.7, 0.7), (2.6, 0.0, 1.85), houses.glass(), parent=van)
-    for (x, y) in ((-1.8, -0.9), (-1.8, 0.9), (2.2, -0.9), (2.2, 0.9)):
-        cyl_between(lib.uname("VanWheel"), (x, y - 0.12, 0.38), (x, y + 0.12, 0.38), 0.38, mat("Rubber", "#1e1e1e"),
-                    seg=16, parent=van)
-    box(lib.uname("VanStripe"), (5.2, 2.02, 0.25), (0.0, 0.0, 1.55), mat("VanStripe", "#c8452e"), parent=van)
-    for s in (-1, 1):                                            # back doors, swung open
-        box(lib.uname("Wall_VanDoor") + "-col", (0.06, 0.9, 1.7), (-2.65, s * 1.4, 1.2), paint_, parent=van)
-    box(lib.uname("VanCargo"), (0.02, 1.8, 1.6), (-2.58, 0.0, 1.25), mat("VanDark", "#1a1c1e"), parent=van)
+    dark = mat("VanDark", "#1a1c1e")
+    rubber = mat("Rubber", "#1e1e1e")
+    glass = houses.glass()
+    box(lib.uname("Wall_VanBody") + "-col", (5.2, 2.0, 2.0), (0.0, 0.0, 1.5), paint_, parent=van)       # z 0.5..2.5
+    box(lib.uname("Wall_VanNose") + "-col", (1.0, 1.9, 1.0), (3.1, 0.0, 1.0), paint_, parent=van)       # z 0.5..1.5
+    box(lib.uname("VanChassis"), (5.6, 1.7, 0.3), (0.3, 0.0, 0.48), dark, parent=van)
+    for (x, y) in ((-1.7, -0.9), (-1.7, 0.9), (2.4, -0.9), (2.4, 0.9)):
+        cyl_between(lib.uname("VanWheel"), (x, y - 0.13, 0.36), (x, y + 0.13, 0.36), 0.36, rubber, seg=16, parent=van)
+        for s_ in (-1, 1):                                       # the arch over each wheel
+            if s_ * y > 0:
+                box(lib.uname("VanArch"), (0.95, 0.03, 0.3), (x, s_ * 1.005, 0.62), dark, parent=van)
+    box(lib.uname("VanWindshield"), (0.05, 1.7, 0.7), (2.62, 0.0, 1.95), glass, parent=van)
+    for s_ in (-1, 1):
+        box(lib.uname("VanSideWindow"), (0.9, 0.03, 0.6), (2.05, s_ * 1.005, 1.95), glass, parent=van)
+        box(lib.uname("VanMirror"), (0.1, 0.22, 0.18), (2.5, s_ * 1.15, 1.85), dark, parent=van)
+        box(lib.uname("VanHeadlight"), (0.03, 0.32, 0.18), (3.61, s_ * 0.66, 1.18), mat("Headlight", "#f2efe2"), parent=van)
+        box(lib.uname("VanTaillight"), (0.03, 0.18, 0.42), (-2.61, s_ * 0.86, 1.55), mat("TailRed", "#9c1e1e"), parent=van)
+    box(lib.uname("VanGrille"), (0.03, 0.9, 0.3), (3.61, 0.0, 1.0), dark, parent=van)
+    box(lib.uname("VanBumper"), (0.16, 2.0, 0.2), (3.66, 0.0, 0.62), dark, parent=van)
+    box(lib.uname("VanBumper"), (0.16, 2.0, 0.2), (-2.68, 0.0, 0.62), dark, parent=van)
+    box(lib.uname("VanStripe"), (5.2, 2.02, 0.25), (0.0, 0.0, 1.65), mat("VanStripe", "#c8452e"), parent=van)
+    # the back doors, swung open past square (hinged at the rear corners); the hold dark inside
+    for s_ in (-1, 1):
+        dx, dy = -math.cos(math.radians(10.0)), s_ * math.sin(math.radians(10.0))   # back, and 10 degrees out
+        door = box(lib.uname("Wall_VanDoor") + "-col", (0.95, 0.05, 1.8), (0.0, 0.0, 0.0), paint_, parent=van)
+        door.location = (-2.6 + dx * 0.475, s_ * 1.0 + dy * 0.475, 1.5)
+        door.rotation_euler = (0.0, 0.0, math.atan2(dy, dx))
+    box(lib.uname("VanCargo"), (0.02, 1.8, 1.7), (-2.58, 0.0, 1.45), dark, parent=van)
 
 
 def sheds():
     """Warehouse B: corrugated sheds with their own dock, a long ramp up to it with a handrail."""
     x0, x1, y0, y1 = SHEDS
     w, d = x1 - x0, y1 - y0
-    siding = mat("SidingGrey", "#8f9396")
+    siding = mat("Corrugated", "#8f9396")
     box("Wall_Sheds-col", (w, d, 7.0), ((x0 + x1) / 2, (y0 + y1) / 2, 3.5), siding)
-    for k in range(4):                                           # saw-tooth roof
-        xs = x0 + w * k / 4
-        prism(lib.uname("ShedRoof"), [(y0, 7.0), (y1, 7.0), (y1, 9.2)], xs, xs + w / 4, [mat("RoofDark", "#3a3c3e")] * 3,
-              [0, 0, 0], [False] * 3, cap_mat=0)
+    # the saw-tooth roof: four bays across the depth, each a long slope up to a steep glazed face toward the north
+    roof = mat("CorrugatedRoof", "#3a3c3e")
+    glaze = houses.glass()
+    for k in range(4):
+        ya, yb = y0 + d * k / 4, y0 + d * (k + 1) / 4
+        prism(lib.uname("ShedRoof"), [(ya, 7.0), (yb, 7.0), (yb, 8.9)], x0, x1, [roof] * 3, [0, 0, 0], [False] * 3,
+              cap_mat=0)
+        lib.quad(lib.uname("ShedGlazing"), (x0 + 0.4, yb + 0.03, 7.12), (x1 - 0.4, yb + 0.03, 7.12),
+                 (x1 - 0.4, yb + 0.03, 8.72), (x0 + 0.4, yb + 0.03, 8.72), glaze, expect=(0, 1, 0))
     for x in (18.0, 30.0, 42.0):
         box(lib.uname("Shed_rolldoor"), (4.0, 0.08, 3.6), (x, y0 - 0.04, DOCK_H + 1.8), mat("Galv", "#9ea4a8"))
     # graffiti down the alley wall: pieces and tags (tools/make_graffiti.py), the two over the bank up high
@@ -326,10 +407,19 @@ def stage():
     box(lib.uname("StageBanner"), (0.05, 8.0, 1.2), (sx0 + 0.35, (sy0 + sy1) / 2, sh + 4.6), mat("BannerBlack", "#15171a"))
     school.text_mesh("StageBanner_text", "RECORD RELEASE", 0.55, (sx0 + 0.29, (sy0 + sy1) / 2, sh + 4.6),
                      (math.pi / 2, 0.0, -math.pi / 2), mat("MarqueeLights", "#f4d27a"), depth=0.02)
+    cone = mat("SpeakerCone", "#38393b")
     for y in (sy0 + 1.0, sy1 - 1.0):
         box(lib.uname("Wall_SpeakerStack") + "-col", (1.0, 1.2, 2.4), (sx0 - 0.9, y, 1.2), mat("Rubber", "#1e1e1e"))
+        fx = sx0 - 1.4                                       # the front, facing the crowd: two cabinets
+        box(lib.uname("SpeakerSeam"), (0.02, 1.22, 0.04), (fx - 0.005, y, 1.2), mat("Seam", "#55575a"))
+        for zc in (0.45, 1.65):
+            for dy in (-0.27, 0.27):
+                cyl_between(lib.uname("SpeakerWoofer"), (fx + 0.01, y + dy, zc), (fx - 0.03, y + dy, zc), 0.21, cone, seg=16)
+            box(lib.uname("SpeakerHorn"), (0.03, 0.8, 0.26), (fx - 0.01, y, zc + 0.48), cone)
     for y in ((sy0 + sy1) / 2 - 2.0, (sy0 + sy1) / 2 + 2.0):
         box(lib.uname("Wall_Amp") + "-col", (0.7, 1.0, 0.8), (sx1 - 2.0, y, sh + 0.4), mat("Rubber", "#1e1e1e"))
+        box(lib.uname("AmpGrille"), (0.02, 0.9, 0.48), (sx1 - 2.36, y, sh + 0.33), mat("AmpGrille", "#3a332c"))
+        box(lib.uname("AmpPanel"), (0.02, 0.9, 0.12), (sx1 - 2.36, y, sh + 0.7), mat("AmpPanel", "#c0b9a8"))
     box(lib.uname("Wood_DrumRiser") + "-col", (2.4, 2.4, 0.4), (sx1 - 2.6, (sy0 + sy1) / 2, sh + 0.2), deck)
     # stairs up the back (riders do come round the back: they collide, a step at a time)
     for k in range(5):

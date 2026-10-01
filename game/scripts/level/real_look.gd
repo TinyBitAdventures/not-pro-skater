@@ -68,6 +68,15 @@ static func apply(root: Node, lightmaps: Dictionary, info: Dictionary) -> void:
 					cache["litter"] = tm
 				mesh.surface_set_material(s, cache["litter"])
 				continue
+			if src.resource_name == "PBR_grass_far":         # past the edge (live): no sheen toward a low sun
+				if not cache.has("far_grass"):
+					var fg: StandardMaterial3D = (src as StandardMaterial3D).duplicate() as StandardMaterial3D
+					fg.roughness_texture = null
+					fg.roughness = 1.0
+					fg.metallic_specular = 0.15
+					cache["far_grass"] = fg
+				mesh.surface_set_material(s, cache["far_grass"])
+				continue
 			if src.resource_name == "TreeLeaves":
 				if not cache.has("leaves"):
 					var lm: ShaderMaterial = ShaderMaterial.new()

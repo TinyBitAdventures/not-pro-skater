@@ -53,7 +53,11 @@ STAGE = (38.0, -17.0)                      # the amphitheatre's centre
 DECK = (34.0, 54.0, 14.0, 34.0)            # x0, x1, y0, y1
 DECK_H = 1.6
 
+LOADING = (6.0, 14.0)                      # the loading bay at the back of the office (x0, x1)
+SERVICE_X = -30.0                          # the service door at the back
+
 HARD = [
+    (LOADING[0] - 1.5, LOADING[1] + 4.5, BUILDING[3], BUILDING[3] + 7.0),   # the loading apron
     (PLAZA[0], PLAZA[1], PLAZA[2], PLAZA[3]),
     (TERRACE[0] - 0.5, TERRACE[1] + 0.5, STEPS_Y0 - 0.5, TERRACE[3]),
     (BUILDING[0] - 1.0, BUILDING[1] + 1.0, BUILDING[2] - 1.0, BUILDING[3] + 1.0),
@@ -136,6 +140,8 @@ def building():
             if z < 4.0 and -13.0 < x < -1.0:
                 continue                                  # the atrium
             houses._window(r, x, y0, z, 2.9, 3.0, mull, facing=-1)
+            if z < 4.0 and (LOADING[0] - 1.0 < x < LOADING[1] + 1.0 or abs(x - SERVICE_X) < 2.0):
+                continue                                  # the loading bay and the service door at the back
             houses._window(r, x, y1, z, 2.9, 3.0, mull, facing=1)
         for yy in (y0 + 4.0, cy, y1 - 4.0):
             houses._window_side(r, x0, yy, z, 3.0, 3.0, mull)
@@ -150,8 +156,35 @@ def building():
     for dx in (-0.8, 0.8):
         box(lib.uname("Atrium_door"), (1.4, 0.06, 2.4), (-7.0 + dx, y0 - 0.16, TERRACE_H + 1.2), glass)   # clear of the atrium glass
     box(lib.uname("Atrium_canopy"), (13.0, 3.2, 0.25), (-7.0, y0 - 1.6, TERRACE_H + 7.4), M("Steel"))
-    school.text_mesh("Office_name", "HILLTOP", 1.1, (-7.0, y0 - 0.2, TERRACE_H + 8.6), school.FACING_SOUTH,
+    # the name on a fascia along the canopy's front edge (on the wall above, the canopy hid it from the terrace, the
+    # steps and most of the plaza), and tie rods holding the canopy to the wall
+    zc = TERRACE_H + 7.4
+    box(lib.uname("Atrium_fascia"), (13.0, 0.1, 1.0), (-7.0, y0 - 3.15, zc + 0.37), mat("Mullion", "#2d3236"))
+    for x in (-12.5, -1.5):
+        cyl_between(lib.uname("Atrium_tie"), (x, y0 - 3.0, zc + 0.1), (x, y0 - 0.05, zc + 3.0), 0.035, M("Galv"), seg=8)
+    school.text_mesh("Office_name", "HILLTOP", 0.95, (-7.0, y0 - 3.21, zc + 0.39), school.FACING_SOUTH,
                      mat("SignWhite", "#f2f0ea"), depth=0.08)
+
+
+def office_back():
+    """The back of the office (a shaded wall onto the north lawn): a loading bay with a roll-up door, a concrete apron,
+    a dumpster and bollards, and a service door under a little canopy with a lamp."""
+    y1 = BUILDING[3]
+    lx0, lx1 = LOADING
+    conc = mat("Concrete", "#b5b3ad")
+    box("Concrete_LoadingApron-col", (lx1 - lx0 + 5.0, 6.0, 0.12), ((lx0 + lx1) / 2 + 1.5, y1 + 3.0, 0.0), conc)
+    box(lib.uname("Office_rolldoor"), (4.4, 0.08, 3.6), ((lx0 + lx1) / 2, y1 + 0.04, 1.8), M("Galv"))
+    box(lib.uname("Office_doorframe"), (5.0, 0.12, 0.3), ((lx0 + lx1) / 2, y1 + 0.06, 3.75), mat("StoneDk", "#8d8c88"))
+    for x in (lx0 - 0.4, lx1 + 0.4):                     # bollards either side of the door
+        cyl_z(lib.uname("Bollard"), (x, y1 + 1.0, 0.06), 1.0, 0.11, mat("BollardYellow", "#d9a62e"), seg=12)
+        lib.col_box(lib.uname("Bollard"), (0.24, 0.24, 1.0), (x, y1 + 1.0, 0.56), surface="Metal")
+    box(lib.uname("Wall_Dumpster") + "-col", (1.9, 1.3, 1.3), (lx1 + 2.6, y1 + 1.2, 0.71), mat("DumpsterGreen", "#2f4a36"))
+    box(lib.uname("DumpsterLid"), (1.95, 1.35, 0.06), (lx1 + 2.6, y1 + 1.2, 1.39), mat("Rubber", "#1e1e1e"))
+    # the service door: a step, a door, a canopy and a lamp
+    box("Concrete_ServiceStep-col", (2.0, 1.2, 0.22), (SERVICE_X, y1 + 0.6, 0.07), conc)
+    box(lib.uname("Office_servicedoor"), (1.0, 0.08, 2.2), (SERVICE_X, y1 + 0.04, 1.28), mat("DoorGrey", "#5b6166"))
+    box(lib.uname("Office_servicecanopy"), (1.8, 1.0, 0.08), (SERVICE_X, y1 + 0.5, 2.75), M("Steel"))
+    box(lib.uname("Office_servicelamp"), (0.25, 0.12, 0.18), (SERVICE_X, y1 + 0.08, 2.55), mat("LampGlow", "#f3e3b4"))
 
 
 def terrace():
@@ -161,6 +194,8 @@ def terrace():
     stone = mat("StoneDk", "#8d8c88")
     box("Plaza_Terrace-col", (tx1 - tx0, ty1 - ty0, TERRACE_H), ((tx0 + tx1) / 2, (ty0 + ty1) / 2, TERRACE_H / 2),
         mat("Paving", "#a09c94"))
+    for x in (tx0 - 0.03, tx1 + 0.03):                    # stone on its open ends (paving there read as pixelated blocks)
+        box(lib.uname("TerraceSkirt"), (0.06, ty1 - ty0, TERRACE_H - 0.04), (x, (ty0 + ty1) / 2, (TERRACE_H - 0.04) / 2), stone)
     for (a, b) in ((tx0, STEPS_X[0] - 1.2), (STEPS_X[1] + 1.2, tx1)):   # planter walls either side of the steps
         box(lib.uname("Wall_TerraceFront") + "-col", (b - a, ty0 - STEPS_Y0, TERRACE_H),
             ((a + b) / 2, (ty0 + STEPS_Y0) / 2, TERRACE_H / 2), stone)
@@ -400,17 +435,30 @@ def picnic():
     truck = empty(lib.uname("FoodTruck"), (tx, ty, 0.0), 0.0, None)
     truck["bake_group"] = "world"
     body = mat("TruckTeal", "#2b8a88")
-    box(lib.uname("Wall_TruckBody") + "-col", (2.3, 5.6, 2.3), (0.0, 0.0, 1.55), body, parent=truck)
-    box(lib.uname("Wall_TruckCab") + "-col", (2.2, 1.6, 1.5), (0.0, -3.4, 1.15), body, parent=truck)
-    box(lib.uname("TruckWindshield"), (2.0, 0.05, 0.7), (0.0, -4.21, 1.55), houses.glass(), parent=truck)
-    box(lib.uname("TruckRoof"), (2.35, 5.65, 0.08), (0.0, 0.0, 2.72), M("Steel"), parent=truck)
-    for (x, y) in ((-1.0, -3.4), (1.0, -3.4), (-1.0, 1.9), (1.0, 1.9)):
-        lib.cyl_between(lib.uname("TruckWheel"), (x - 0.12, y, 0.42), (x + 0.12, y, 0.42), 0.42, mat("Rubber", "#1e1e1e"),
-                        seg=16, parent=truck)
-    box(lib.uname("TruckWindow"), (0.05, 3.0, 1.0), (1.16, 0.2, 1.95), mat("TruckDark", "#1c1f22"), parent=truck)
-    box(lib.uname("TruckCounter"), (0.5, 3.2, 0.06), (1.4, 0.2, 1.22), M("Steel"), parent=truck)
+    dark = mat("TruckDark", "#1c1f22")
+    rubber = mat("Rubber", "#1e1e1e")
+    glass = houses.glass()
+    # the box body and the cab ride on a dark chassis above the wheels (they used to sit inside the body)
+    box(lib.uname("Wall_TruckBody") + "-col", (2.3, 5.6, 2.1), (0.0, 0.0, 1.85), body, parent=truck)      # z 0.8..2.9
+    box(lib.uname("Wall_TruckCab") + "-col", (2.2, 1.6, 1.4), (0.0, -3.4, 1.45), body, parent=truck)     # z 0.75..2.15
+    box(lib.uname("TruckChassis"), (2.0, 7.2, 0.35), (0.0, -0.8, 0.6), dark, parent=truck)
+    box(lib.uname("TruckWindshield"), (2.0, 0.05, 0.6), (0.0, -4.21, 1.75), glass, parent=truck)
+    box(lib.uname("TruckRoof"), (2.35, 5.65, 0.08), (0.0, 0.0, 2.94), M("Steel"), parent=truck)
+    for (x, y) in ((-1.02, -3.4), (1.02, -3.4), (-1.02, 1.9), (1.02, 1.9)):
+        lib.cyl_between(lib.uname("TruckWheel"), (x - 0.12, y, 0.42), (x + 0.12, y, 0.42), 0.42, rubber, seg=16, parent=truck)
+    for sx in (-1, 1):
+        box(lib.uname("TruckArch"), (0.03, 1.0, 0.16), (sx * 1.16, 1.9, 0.88), dark, parent=truck)
+        box(lib.uname("TruckCabWindow"), (0.03, 0.8, 0.5), (sx * 1.105, -3.5, 1.78), glass, parent=truck)
+        box(lib.uname("TruckMirror"), (0.22, 0.1, 0.18), (sx * 1.25, -4.0, 1.75), dark, parent=truck)
+        box(lib.uname("TruckHeadlight"), (0.32, 0.03, 0.18), (sx * 0.7, -4.215, 1.08), mat("Headlight", "#f2efe2"), parent=truck)
+        box(lib.uname("TruckTaillight"), (0.18, 0.03, 0.35), (sx * 0.9, 2.815, 1.35), mat("TailRed", "#9c1e1e"), parent=truck)
+    box(lib.uname("TruckGrille"), (0.9, 0.03, 0.3), (0.0, -4.215, 1.0), dark, parent=truck)
+    for y in (-4.28, 2.88):
+        box(lib.uname("TruckBumper"), (2.3, 0.16, 0.22), (0.0, y, 0.7), dark, parent=truck)
+    box(lib.uname("TruckWindow"), (0.05, 3.0, 1.0), (1.16, 0.2, 1.95), dark, parent=truck)
+    box(lib.uname("TruckCounter"), (0.5, 3.2, 0.06), (1.4, 0.2, 1.42), M("Steel"), parent=truck)
     box(lib.uname("TruckAwning"), (1.3, 3.4, 0.05), (1.8, 0.2, 2.6), mat("AwningStripe", "#e8b03a"), parent=truck)
-    school.text_mesh("Truck_sign", "HILLTOP PIZZA", 0.32, (tx + 1.18, ty + 0.2, 2.35), (math.pi / 2, 0.0, math.pi / 2),
+    school.text_mesh("Truck_sign", "HILLTOP PIZZA", 0.32, (tx + 1.18, ty + 0.2, 2.76), (math.pi / 2, 0.0, math.pi / 2),
                      mat("SignWhite", "#f2f0ea"), depth=0.02)
     for x, y, rot in ((-43.0, -2.0, 90.0), (-43.0, -8.0, 90.0), (-43.0, -14.0, 90.0), (-39.0, -20.0, 0.0)):
         props.place("wooden_picnic_table", x, y, rot, surface="Wood")
@@ -496,6 +544,7 @@ def build(out, bake=True, samples=128):
     ground()
     building()
     terrace()
+    office_back()
     plaza()
     amphitheatre()
     parking_deck()

@@ -24,6 +24,7 @@ MANIFEST = {
     "textures": [
         "Concrete046", "Concrete044D", "Asphalt031", "Wood094", "Metal032", "PaintedMetal004", "Grass004",
         "Bark012", "Leaf001", "WoodSiding009", "RoofingTiles006", "Bricks101", "PavingStones128", "Ground037",
+        "CorrugatedSteel005",
     ],
     "models": [
         "wooden_picnic_table", "painted_wooden_bench", "metal_trash_can", "street_lamp_02", "planter_box_01",

@@ -22,6 +22,7 @@ Source files live in `art/` (Blender reads them when it builds a level); the God
 | WoodSiding009 | house siding, the backlot's false fronts | https://ambientcg.com/view?id=WoodSiding009 |
 | RoofingTiles006 | roofs | https://ambientcg.com/view?id=RoofingTiles006 |
 | Bricks101 | the school, the foundry, brownstones and downtown buildings | https://ambientcg.com/view?id=Bricks101 |
+| CorrugatedSteel005 | the warehouse district's sheds (walls and saw-tooth roof) | https://ambientcg.com/view?id=CorrugatedSteel005 |
 | PavingStones128 | paved plazas and sidewalks | https://ambientcg.com/view?id=PavingStones128 |
 | Ground037 | dirt and verges | https://ambientcg.com/view?id=Ground037 |
 
