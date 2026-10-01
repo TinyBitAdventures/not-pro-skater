@@ -8,7 +8,8 @@ extends CharacterBody3D
 ## AIR     spins, flips, grabs. Off a steep face the air is locked to the wall's plane and turns 180 on its own
 ##         (vert), so it comes back down the same ramp. Landings within assist_angle line up; a bit more is
 ##         sketchy; more than bail_angle bails; backwards lands fakie.
-## GRIND   locks onto a GrindLine and slides along it.
+## GRIND   locks onto a GrindLine and slides along it; or stalls on a coping (a lip trick); or rides a wall (a
+##         wallride: grind pressed in the air, meeting a wall at an angle).
 ## BAIL    a physical crash: the rider ragdolls, the board rolls away, then the rider gets up and walks back.
 ## The skater origin is the bottom of the wheels; RiderRig draws the rider.
 
@@ -126,6 +127,12 @@ var flip_kind: String = ""
 var flip_t: float = 0.0
 var grab_kind: String = ""
 var grind_kind: String = ""
+var wallriding: bool = false             # GRIND along a wall: the board's wheels on it (lip_kind's sibling)
+var wall_n: Vector3 = Vector3.ZERO       # that wall's normal, level, out of it
+var _wall_arm: float = 0.0               # grind pressed in the air: a wall met within this rides it
+var _wallride_t: float = 0.0
+var _wallride_along: Vector3 = Vector3.ZERO
+var _wallride_speed: float = 0.0
 var lip_kind: String = ""                # a lip stall in progress (Rock to Fakie, Axle Stall, ...): GRIND on a coping, standing still
 var lip_balance: float = 0.0             # -1..1: past either end the stall is lost (HUD meter, like a manual)
 var _lip_time: float = 0.0
@@ -250,6 +257,8 @@ func place_at(xf: Transform3D) -> void:
 	_end_manual()
 	lip_kind = ""
 	lip_balance = 0.0
+	wallriding = false
+	_wall_arm = 0.0
 	grind_line = null
 	grind_kind = ""
 	grind_balance = 0.0
@@ -409,6 +418,7 @@ func _step(delta: float) -> void:
 	charge_mode = force_charge or (not scripted and Game.jump_mode == "hold")
 	_grind_buf = maxf(0.0, _grind_buf - delta)
 	_lip_arm = maxf(0.0, _lip_arm - delta)
+	_wall_arm = maxf(0.0, _wall_arm - delta)
 	_flip_buf = maxf(0.0, _flip_buf - delta)
 	_grind_cd = maxf(0.0, _grind_cd - delta)
 	_coyote = maxf(0.0, _coyote - delta)
@@ -454,6 +464,8 @@ func _step(delta: float) -> void:
 		_land_jump = tune.land_jump_buffer
 	if inp.grind_pressed:
 		_grind_buf = tune.buffer
+		if state == State.AIR:
+			_wall_arm = tune.wallride_arm
 	if inp.flip_pressed:
 		_flip_buf = tune.buffer
 	match state:
@@ -1031,6 +1043,8 @@ func _air(dt: float) -> void:
 			_wall_t = tune.wallplant_window
 			_wall_n = Vector3(wn.x, 0.0, wn.z).normalized()
 			_plant_v = v_before
+	if _wall_arm > 0.0 and not vert_air and _grind_cd <= 0.0 and _try_wallride(v_before):
+		return
 	# a wall takes the part of the air speed that runs into it: move_and_slide() leaves it in the velocity, where
 	# air control kept adding to it, and pressed along a wall the rider was flung round its end at 11-14 m/s. Not
 	# on a ramp's face (a vert air comes back down it) and not once on the floor (_land takes over)
@@ -1407,6 +1421,9 @@ func _grind(dt: float) -> void:
 	if lip_kind != "":
 		_lip(dt)
 		return
+	if wallriding:
+		_wallride(dt)
+		return
 	var d: Vector3 = grind_line.dir_at(grind_dist) * grind_dir
 	grind_speed += -d.y * tune.gravity * tune.grind_slope_gravity * dt
 	grind_speed *= exp(-tune.grind_friction * dt)
@@ -1615,6 +1632,144 @@ func _end_lip(pop: bool) -> void:
 
 
 ## The HUD's balance meter: a manual, a lip stall or a grind.
+# ------------------------------------------------------------------ wallrides
+
+## In the air with grind pressed (Tony Hawk's wallride): a wall met at an angle, tall enough to ride (at the board
+## and at the hips), not a ramp's face, off the ground, going along it fast enough. Head on it's a wall plant or a
+## glance instead.
+func _try_wallride(v_before: Vector3) -> bool:
+	for i in get_slide_collision_count():
+		var c: KinematicCollision3D = get_slide_collision(i)
+		var n: Vector3 = c.get_normal()
+		if absf(n.y) > 0.3:
+			continue
+		var body: Object = c.get_collider()
+		if body != null and bool(body.get_meta("vert", false)):
+			continue
+		n = Vector3(n.x, 0.0, n.z).normalized()
+		var h: Vector3 = Vector3(v_before.x, 0.0, v_before.z)
+		var along: Vector3 = h - n * h.dot(n)
+		if along.length() < tune.wallride_min_speed:
+			return false
+		if not _wall_at(n, 0.3) or not _wall_at(n, 0.95):
+			return false
+		if not _ray(global_position + Vector3.UP * 0.1, global_position + Vector3.DOWN * 0.25).is_empty():
+			return false
+		_start_wallride(n, along, v_before.y)
+		return true
+	return false
+
+
+## A wall right beside the capsule, `h` above the board, facing out along `n`.
+func _wall_at(n: Vector3, h: float) -> bool:
+	var from: Vector3 = global_position + Vector3.UP * h
+	var hit: Dictionary = _ray(from, from - n * (CAPSULE_R + 0.3))
+	return not hit.is_empty() and absf((hit["normal"] as Vector3).y) < 0.3
+
+
+func _start_wallride(n: Vector3, along: Vector3, vy: float) -> void:
+	state = State.GRIND
+	wallriding = true
+	wall_n = n
+	_wallride_along = along.normalized()
+	_wallride_speed = along.length()
+	_wallride_t = 0.0
+	grind_kind = "Wallride"
+	grind_line = null
+	lip_kind = ""
+	vert_air = false
+	_magnet_t = 0.0
+	_wall_arm = 0.0
+	_wall_t = 0.0
+	_grind_buf = 0.0
+	_ollie_buf = 0.0
+	_release_buf = 0.0
+	_glance_dir = Vector3.ZERO
+	flip_kind = ""
+	grab_kind = ""
+	manual_on = false
+	hdg = _wallride_along
+	var f: Vector3 = facing()
+	yaw = atan2(-f.x, -f.z)
+	velocity = _wallride_along * _wallride_speed + Vector3.UP * clampf(vy, -0.5, 2.5)      # (the wall checks a fall)
+	if score != null:
+		score.release_hold("grab")
+		score.add_trick("Wallride", 200)
+	sfx.emit("wallride")
+
+
+## Along the wall: gravity eased off, a little friction, following the wall round curves; it drops off when the
+## wall ends, the time runs out or the speed is gone. Jump: a wallie, off the wall and up.
+func _wallride(dt: float) -> void:
+	_wallride_t += dt
+	_wallride_speed = maxf(0.0, _wallride_speed - tune.wallride_friction * dt)
+	var vy: float = velocity.y - tune.gravity * tune.wallride_gravity * dt
+	if score != null:
+		score.hold("wallride", dt, Tricks.WALLRIDE_HOLD_RATE)
+	if _pop_asked():
+		_end_wallride(true)
+		return
+	var from: Vector3 = global_position + Vector3.UP * 0.3
+	var hit: Dictionary = _ray(from, from - wall_n * (CAPSULE_R + 0.35))
+	if hit.is_empty() or absf((hit["normal"] as Vector3).y) > 0.3 or _wallride_t > tune.wallride_max_time \
+			or _wallride_speed < tune.wallride_min_speed * 0.5:
+		_end_wallride(false)
+		return
+	var n: Vector3 = hit["normal"]
+	wall_n = Vector3(n.x, 0.0, n.z).normalized()
+	_wallride_along = (_wallride_along - wall_n * _wallride_along.dot(wall_n)).normalized()
+	hdg = _wallride_along
+	var f: Vector3 = facing()
+	yaw = atan2(-f.x, -f.z)
+	# against the wall: the capsule's side on it
+	var at: Vector3 = (hit["position"] as Vector3) + wall_n * (CAPSULE_R + 0.005)
+	global_position.x = at.x
+	global_position.z = at.z
+	velocity = _wallride_along * _wallride_speed + Vector3.UP * vy - wall_n * 0.3
+	floor_snap_length = 0.0
+	move_and_slide()
+	velocity.y = vy
+	if is_on_floor():
+		# down onto the ground: a landing
+		wallriding = false
+		grind_kind = ""
+		if score != null:
+			score.release_hold("wallride")
+		state = State.AIR
+		velocity = _wallride_along * _wallride_speed + Vector3.UP * minf(vy, 0.0)
+		air_time = 0.3
+		_land()
+
+
+func _end_wallride(pop: bool) -> void:
+	wallriding = false
+	grind_kind = ""
+	if score != null:
+		score.release_hold("wallride")
+	var v: Vector3 = _wallride_along * _wallride_speed + Vector3.UP * velocity.y + wall_n * 1.0
+	if pop:
+		v = _wallride_along * _wallride_speed + wall_n * tune.wallie_push + Vector3.UP * (maxf(velocity.y, 0.0) + tune.wallie_pop)
+		if score != null:
+			score.add_trick("Wallie", 250)
+		sfx.emit("ollie")
+	state = State.AIR
+	floor_snap_length = 0.0
+	_reset_air()
+	_air_ref = hdg
+	air_up = Vector3.UP
+	air_fwd = heading_h()
+	velocity = v
+	_grind_cd = 0.35
+	_wall_arm = 0.0
+	_ollie_buf = 0.0
+	_release_buf = 0.0
+	global_position += wall_n * 0.04
+	if pop:
+		_air_popped = true
+		pop_at = 0.0
+
+
+## The HUD's balance meter: a manual, a lip stall or a grind (a wallride has none).
 func balance_value() -> float:
 	if lip_kind != "":
 		return lip_balance
@@ -1622,7 +1777,7 @@ func balance_value() -> float:
 
 
 func balancing() -> bool:
-	return manual_on or state == State.GRIND
+	return manual_on or (state == State.GRIND and not wallriding)
 
 
 # ------------------------------------------------------------------ bail
@@ -1695,6 +1850,7 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 		bail_duration += clampf(roll / tune.walk_speed, 0.25, 1.4)
 	_plant_hold = 0.0
 	_end_manual()
+	wallriding = false
 	state = State.BAIL
 	bail_time = 0.0
 	bail_hurried = false

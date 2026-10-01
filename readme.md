@@ -44,6 +44,8 @@ Steering, jump style (hold-release or instant tap) and music are in the title me
 
 **Wall plants:** jump at a wall and press Space as you hit it.
 
+**Wallrides:** jump toward a wall at an angle (not straight at it) and press L: the board goes up onto the wall and you ride along it for about a second, sinking as you slow. Press Space on the wall to jump off it (a wallie), or ride it out and drop back down. Rails come first: L near a rail still grinds it.
+
 **Grinds:** press L in the air when you are heading for a rail; the air path bends onto rails up to about 1.2 m to the side. Keep the BALANCE meter in the middle with left / right: the stick is your weight, so push against the lean. Nose and tail slides tip faster than a 50-50, and the longer the grind the harder it gets; past either end you fall off.
 
 **Lip tricks:** at the top of a quarter or half pipe, press L as you reach the coping (in the air, or on the way up the wall: it waits for the coping) to stall on it. The stick picks the trick: none Rock to Fakie, up Nose Stall, down Blunt to Fakie, left Axle Stall, right Disaster. Keep the BALANCE meter centred with left / right (push against the lean, like a grind) and press Space to drop back in (the "to Fakie" ones come back in backwards). Ride along the coping and L is a coping grind instead.
@@ -148,12 +150,13 @@ FEEL=all godot --headless --path . --fixed-fps 120 res://scenes/dev_feel.tscn   
 
 Physical crashes (ragdoll + loose board, needs the skinned rider): `BAIL=halfpipe|flat|wall|runout|runout_trip|edge|edge_board|far_board|roll|all godot --headless --path . --fixed-fps 120 res://scenes/dev_bailphys.tscn`. It also checks the walk back to the board: planted feet stay put (under 3 cm of slip) and the standing knee stays nearly straight. `roll` bails riding straight at 6 and 10 m/s (four random seeds each) and checks the rider is riding again within the recovery budget (`recover_max`); `far_board` moves the board 25 m off mid-crash and checks the rider runs for it and blinks onto it at the budget.
 
-The feel tests cover coasting momentum, tile seams, rolling over a curb, being stopped by a step, quarter pipe air time, the vert lock, the transfer, grinding a curved and a kinked rail, rail magnetism, grind balance (held, dropped, leaning with the stick), warping back before the level's edge, and landings at 0 / 20 / 34 / 45 / 65 / 180 degrees, manuals, wall plants, bails, and the camera near walls.
+The feel tests cover coasting momentum, tile seams, rolling over a curb, being stopped by a step, quarter pipe air time, the vert lock, the transfer, grinding a curved and a kinked rail, rail magnetism, grind balance (held, dropped, leaning with the stick), warping back before the level's edge, and landings at 0 / 20 / 34 / 45 / 65 / 180 degrees, manuals, wall plants, wallrides (riding one, a wallie off it, none head on), bails, and the camera near walls.
 
 ```bash
 EVENT=skateathon godot --headless --path . --fixed-fps 120 res://scenes/dev_event.tscn   # drives every goal of an event (default birthday)
 EVENT=skateathon godot --headless --path . --fixed-fps 120 res://scenes/dev_lapride.tscn # rides the route with real physics: laps, the one-take run (rushhour), the marks (betweentakes)
 LEVEL=school godot --headless --path . --fixed-fps 120 res://scenes/dev_railaudit.tscn    # grinds every rail, ledge and curb in a level (park, school, campus, warehouse, downtown, backlot)
+LEVEL=downtown godot --headless --path . --fixed-fps 120 res://scenes/dev_wallprobe.tscn  # throws the skater at a dozen of a level's walls with grind pressed: are they rideable (exit code = walls not ridden)
 LEVEL=school godot --headless --path . --fixed-fps 120 res://scenes/dev_sweep.tscn       # rides the whole level from a grid (48 skaters at once): stuck spots, falls, snaps, roll-overs, rides through drawn geometry, the camera in walls, by collider (STEP, HEADINGS, OUT=file.json; TRACE="x,z,deg" replays one ride tick by tick)
 godot --headless --path . --fixed-fps 120 res://scenes/dev_jumptap.tscn    # quick taps always jump
 godot --headless --path . --fixed-fps 60 res://scenes/dev_jumphold.tscn    # a held Space never jumps until it is let go
@@ -229,7 +232,7 @@ audio/     build_sfx.py build_music.py (numpy placeholders), build_ambience.py (
 
 ## Roadmap
 
-See [`docs/rebuild_plan.md`](docs/rebuild_plan.md). Next: each rider's combos driving their own music stems, a soundtrack per event, a gamepad feel pass, wallrides, board customisation, replays.
+See [`docs/rebuild_plan.md`](docs/rebuild_plan.md). Next: each rider's combos driving their own music stems, a soundtrack per event, a gamepad feel pass, board customisation, replays.
 
 ## Licence
 

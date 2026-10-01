@@ -112,6 +112,15 @@ static var _shared: SkateTuning = null
 @export_range(0.5, 12.0, 0.1) var runout_brake: float = 4.5      ## how hard the feet slow the body (m/s per second)
 @export_range(0.5, 10.0, 0.1) var trip_impact: float = 2.5       ## running into a wall faster than this trips the rider
 
+@export_group("Wallride")
+@export_range(0.0, 1.0, 0.05) var wallride_arm: float = 0.4        ## grind pressed in the air: a wall met within this many seconds is ridden
+@export_range(1.0, 10.0, 0.1) var wallride_min_speed: float = 3.5  ## speed along the wall needed to ride it (slower is a plant or a glance)
+@export_range(0.0, 1.0, 0.01) var wallride_gravity: float = 0.18   ## share of gravity on the wall: it rides, then sinks
+@export_range(0.0, 8.0, 0.1) var wallride_friction: float = 1.5   ## m/s lost each second along the wall
+@export_range(0.2, 3.0, 0.05) var wallride_max_time: float = 1.1  ## longest ride before dropping off
+@export_range(0.0, 12.0, 0.1) var wallie_pop: float = 6.5         ## jumping off a wallride (a wallie): speed up
+@export_range(0.0, 8.0, 0.1) var wallie_push: float = 3.0         ## ...and away from the wall
+
 @export_group("Grinding")
 @export_range(0.2, 2.5, 0.05) var grind_snap_h: float = 0.9    ## horizontal reach to a rail
 @export_range(-1.5, 0.0, 0.05) var grind_min_dy: float = -0.45

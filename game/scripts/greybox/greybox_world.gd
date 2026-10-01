@@ -155,13 +155,13 @@ func _process(delta: float) -> void:
 	hud.set_combo(score.mult, score.names, score.pending, score.live)
 	# a crashed board rolling away on its own wheels still sounds like rolling
 	var roll_v: float = skater.velocity.length()
-	var rolling: bool = skater.state == Skater.State.GROUND
+	var rolling: bool = skater.state == Skater.State.GROUND or skater.wallriding
 	var rg: RiderRig = skater.visual
 	if skater.state == Skater.State.BAIL and rg != null and rg.loose != null and is_instance_valid(rg.loose):
 		roll_v = rg.loose.linear_velocity.length()
 		rolling = rg.loose.wheels_down
 	Sound.set_rolling(roll_v, skater.surface, rolling, delta)
-	Sound.set_grinding(skater.state == Skater.State.GRIND, skater.grind_speed, delta)
+	Sound.set_grinding(skater.state == Skater.State.GRIND and not skater.wallriding, skater.grind_speed, delta)
 	if _shot_t >= 0.0:
 		if skater.scripted:
 			skater.inp.move = Vector2(0, -1)
@@ -235,6 +235,8 @@ func _on_sfx(kind: String) -> void:
 			Sound.play(kind)
 		"bail":
 			Sound.play(kind, 0.0, randf_range(0.92, 1.08))
+		"wallride":
+			Sound.play("grind_start", -5.0, 0.8)           # the wheels hitting the wall
 		"land", "land_hard":
 			# louder and a touch lower the harder it comes down (a vert air rolls in quietly)
 			var k: float = clampf(skater.land_impact / Skater.HARD_LANDING, 0.0, 1.4)

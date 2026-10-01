@@ -130,6 +130,7 @@ const CONTROLS: Array = [
 	["W / S", "STICK", "in a manual: keep the balance meter centred"],
 	["M", "RT", "at a ramp lip: transfer; after a ramp landing: revert"],
 	["SPACE", "A", "as you hit a wall: wall plant"],
+	["L", "Y", "in the air, into a wall at an angle: wallride (SPACE on it: wallie)"],
 	["SHIFT", "LT", "brake"],
 	["R", "BACK", "reset to the start"],
 	["ESC", "START", "pause"],

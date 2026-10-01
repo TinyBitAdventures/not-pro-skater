@@ -338,6 +338,19 @@ func _clips() -> Dictionary:
 			"begin": func() -> bool: return ticks > 2},
 		"push_side": {"v0": 1.5, "every": 0.1, "n": 16, "cam": "side", "dist": 2.6, "drive": _push,
 			"begin": func() -> bool: return ticks > 2},
+		"wallride": {"start": "wall", "v0": 8.0, "offset": Vector3(-6.0, 0.0, -5.5), "turn": -60.0, "every": 0.06, "n": 18,
+			"cam": "near", "dist": 3.2,
+			"drive": func() -> void:
+				if sk.state == Skater.State.GROUND and d["phase"] == 0:
+					_push()
+					if sk.global_position.z < -36.4:
+						sk.inp.ollie_pressed = true
+						d["phase"] = 1
+				elif sk.state == Skater.State.AIR and d["phase"] == 1:
+					_coast()
+					sk.inp.grind_pressed = true
+					d["phase"] = 2,
+			"begin": func() -> bool: return sk.state == Skater.State.AIR},
 		"idle": {"v0": 0.0, "every": 0.4, "n": 32, "drive": _coast, "begin": func() -> bool: return ticks > 1},
 		"cheer": {"v0": 5.0, "every": 0.1, "n": 10,
 			"drive": func() -> void:

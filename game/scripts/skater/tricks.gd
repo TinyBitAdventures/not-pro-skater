@@ -19,6 +19,7 @@ const LIPS: Dictionary = {
 const LIP_HOLD_RATE: float = 180.0
 const GRIND_HOLD_RATE: float = 220.0
 const GRAB_HOLD_RATE: float = 140.0
+const WALLRIDE_HOLD_RATE: float = 200.0
 const MANUAL_HOLD_RATE: float = 110.0
 
 

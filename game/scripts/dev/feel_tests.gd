@@ -9,7 +9,7 @@ const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert"
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
 	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
 	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate", "lip_stall", "lip_arm",
-	"grind_hold", "grind_drop", "grind_lean", "edge_warp"]
+	"grind_hold", "grind_drop", "grind_lean", "edge_warp", "wallride", "wallie", "wallride_headon"]
 
 var level: Level
 var sk: Skater
@@ -518,6 +518,68 @@ func _t_wallplant() -> void:
 		if planted and sk.state == Skater.State.GROUND:
 			break
 	_result("wallplant", planted and away > 2.0 and bails.is_empty(), "jump at the wall, pop on contact: wallplant=%s, off the wall at %.1f m/s, bails=%s" % [planted, away, bails])
+
+
+# ------------------------------------------------------------------ wallrides
+
+## Riding at the greybox wall 30 degrees off it, pop and press grind: rides along the wall, drops off at its end
+## (or with `jump_at`, jumps off: a wallie), lands without a bail. Returns [rode seconds, landed, the trick names].
+func _wallride_run(test_name: String, jump_at: float, turn: float = -60.0, offset: Vector3 = Vector3(-6.0, 0.0, -5.5)) -> Array:
+	await _spawn("wall", 8.0, offset, turn)
+	var rode: float = 0.0
+	var popped: bool = false
+	var pressed: bool = false
+	var landed: bool = false
+	var was_wall: bool = false
+	var off_wall_v: Vector3 = Vector3.ZERO
+	for i in 600:
+		if sk.state == Skater.State.GROUND and not popped:
+			_push()
+			# the wall's face is at z -38: pop about 1.6 m before it
+			if sk.global_position.z < -36.4:
+				sk.inp.ollie_pressed = true
+				popped = true
+		elif sk.state == Skater.State.AIR and popped and not pressed:
+			_coast()
+			sk.inp.grind_pressed = true
+			pressed = true
+		if sk.wallriding and jump_at >= 0.0 and rode >= jump_at:
+			sk.inp.ollie_pressed = true
+		var was: int = sk.state
+		await _tick()
+		if sk.wallriding:
+			rode += DT
+			was_wall = true
+		elif was_wall and off_wall_v == Vector3.ZERO:
+			off_wall_v = sk.velocity
+		if rode > 0.0 and was != Skater.State.GROUND and sk.state == Skater.State.GROUND:     # (off the wall or down it)
+			landed = true
+			break
+		if not bails.is_empty():
+			break
+	return [rode, landed, off_wall_v]
+
+
+func _t_wallride() -> void:
+	var r: Array = await _wallride_run("wallride", -1.0)
+	var ok: bool = float(r[0]) > 0.3 and bool(r[1]) and bails.is_empty() and tricks.has("Wallride")
+	_result("wallride", ok, "pop + grind at a wall 30 degrees off: rode it %.2f s (want > 0.3), landed %s, tricks %s, bails %s" % [
+		r[0], r[1], tricks, bails])
+
+
+func _t_wallie() -> void:
+	var r: Array = await _wallride_run("wallie", 0.2)
+	var away: float = (r[2] as Vector3).z                     # the wall faces +z
+	var ok: bool = float(r[0]) > 0.15 and bool(r[1]) and bails.is_empty() and tricks.has("Wallie") and away > 1.5 \
+		and (r[2] as Vector3).y > 3.0
+	_result("wallie", ok, "jump on the wall: tricks %s, off it at (%.1f, %.1f, %.1f) (want up and away), landed %s, bails %s" % [
+		tricks, (r[2] as Vector3).x, (r[2] as Vector3).y, (r[2] as Vector3).z, r[1], bails])
+
+
+## Straight at the wall with grind pressed: not a wallride (that's for a wall met at an angle).
+func _t_wallride_headon() -> void:
+	var r: Array = await _wallride_run("wallride_headon", -1.0, 0.0, Vector3.ZERO)
+	_result("wallride_headon", float(r[0]) == 0.0, "pop + grind straight at the wall: rode it %.2f s (want 0), tricks %s" % [r[0], tricks])
 
 
 # ------------------------------------------------------------------ bails and camera

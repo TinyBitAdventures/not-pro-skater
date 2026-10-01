@@ -37,6 +37,8 @@ const MANUAL_PITCH: float = 9.0          # nose up in a manual (rocking with the
 const ON_RAIL: float = 0.152             # the line above the rider's frame (-GRIND_ORIGIN_DY - CAPSULE_TO_CONTACT)
 const DECK_BOTTOM: float = 0.098
 const HANGER_BOTTOM: float = 0.027
+const WALL_TILT: float = 70.0            # degrees: a wallride's deck turned from flat toward facing out of the wall
+const WALL_UPRIGHT: float = 0.55         # ...and how much of that the body leans back toward upright
 const ABSORB_W: float = 14.0             # rad/s: the legs' spring taking a landing (damped 0.7: one small rebound)
 const ABSORB_PER: float = 0.012          # hip drop (pose units, ~1.15 m each) per m/s into the floor: a flat ollie ~11 cm
 const SKETCHY_TIME: float = 0.55
@@ -368,7 +370,11 @@ func _sync_riding(sk: Skater, dt: float) -> void:
 		Skater.State.AIR:
 			n = sk.air_up                  # vert airs: side-on to the wall, turning in the wall's plane
 			fwd = sk.air_fwd
-	var blended: Vector3 = vis_n.lerp(n.normalized(), 1.0 - exp(-16.0 * dt))
+		Skater.State.GRIND:
+			if sk.wallriding:              # the wheels on the wall: the deck faces out of it
+				n = (Vector3.UP * cos(deg_to_rad(WALL_TILT)) + sk.wall_n * sin(deg_to_rad(WALL_TILT))).normalized()
+	# (a big turn, onto or off a wall, goes quicker: a tilted frame over flat ground drew the board into it)
+	var blended: Vector3 = vis_n.lerp(n.normalized(), 1.0 - exp(-(16.0 if vis_n.angle_to(n) < 0.5 else 34.0) * dt))
 	vis_n = blended.normalized() if blended.length() > 0.2 else Vector3.UP
 	fwd = (fwd - vis_n * fwd.dot(vis_n)).normalized()
 	if fwd.length() < 0.5:
@@ -683,6 +689,21 @@ func _pose(sk: Skater, dt: float) -> void:
 						lean_t = 4.0
 						pitch_t = 0.0
 						glift_t = ON_RAIL - HANGER_BOTTOM      # both trucks on the coping
+	if st == Skater.State.GRIND and sk.wallriding:
+		# riding a wall: the board stands on it (the frame tilts: _sync_riding), the body leans back toward
+		# upright off it, knees bent, arms out, looking along the wall
+		var up_m: Vector3 = global_transform.basis.inverse() * Vector3.UP
+		sway_t = -rad_to_deg(atan2(-up_m.x, up_m.y)) * WALL_UPRIGHT
+		hip_t = 0.62
+		lean_t = 12.0
+		arms_t = 1.0
+		roll_t = 0.0
+		yaw_t = 0.0
+		pitch_t = 0.0
+		glift_t = 0.0
+		exact = false
+		ff_t = FEET_CRUISE[0]
+		fb_t = FEET_CRUISE[1]
 	if sk.wallplant_t > 0.12:
 		pitch_t = -70.0              # tail up, wheels on the wall
 		hip_t = 0.62
