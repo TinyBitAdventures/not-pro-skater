@@ -318,6 +318,13 @@ func _clips() -> Dictionary:
 	var c: Dictionary = {
 		"cruise": {"v0": 5.0, "every": 0.25, "n": 4, "drive": _coast, "begin": func() -> bool: return ticks > 30},
 		"push": {"v0": 0.0, "every": 0.1, "n": 16, "drive": _push, "begin": func() -> bool: return ticks > 1},
+		"idle": {"v0": 0.0, "every": 0.4, "n": 32, "drive": _coast, "begin": func() -> bool: return ticks > 1},
+		"cheer": {"v0": 5.0, "every": 0.1, "n": 10,
+			"drive": func() -> void:
+				_coast()
+				if ticks == 30:
+					(sk.visual as RiderRig)._on_banked(4000, 5),
+			"begin": func() -> bool: return ticks >= 30},
 		"carve": {"v0": 7.0, "every": 0.1, "n": 20, "cam": "chase", "dist": 2.8,
 			"drive": func() -> void:
 				var s: float = 1.0 if int(floor(ticks / 72.0)) % 2 == 0 else -1.0

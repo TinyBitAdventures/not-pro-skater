@@ -157,6 +157,15 @@ var _core_v: Dictionary = {}             # ragdoll core bone -> its velocity las
 var _thud_cd: float = 0.0
 var _thuds: int = 0
 var _board_flip_t: float = 0.0           # seconds left of hooking the board over (the walk stops for it)
+var _flail: float = 0.0                  # 0..1: the first steps of a run-out, arms thrown up and out for balance
+const CHEER_TIME: float = 0.9
+var _cheer: float = 0.0                  # seconds left of a fist pump after banking a big combo
+var _score_hooked: ScoreKeeper = null
+var _idle_t: float = 0.0                 # seconds stood still on the board
+var _fidget: String = ""                 # a fidget in progress ("tail" tap, "look" over the shoulder), how far in, and when
+var _fidget_t: float = 0.0               # the next one comes
+var _fidget_next: float = 4.5
+var _look_back: float = 0.0
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -430,6 +439,7 @@ func _pose(sk: Skater, dt: float) -> void:
 	var exact: bool = false              # the board's angles follow their curves exactly (flips, the pop, rails)
 	var look_t: float = 0.0
 	var lead_t: float = 0.0
+	var look_t2: float = 0.0             # the head turned back over the shoulder (an idle glance)
 	var speed: float = sk.velocity.length()
 	var fakie: bool = sk.stance == "fakie"
 	_flip_feet = []
@@ -502,6 +512,31 @@ func _pose(sk: Skater, dt: float) -> void:
 				sway_t += sin(_t * 0.23 + 1.3) * 3.0 * still
 				twist_t += sin(_t * 0.31) * 7.0 * still
 				arms_t -= 0.12 * still
+			# stood still a while: now and then a fidget (a tail tap, a look back over the shoulder)
+			var idle: bool = speed < 0.3 and not sk.manual_on and not sk.pushing and sk.charge_frac() <= 0.0
+			_idle_t = _idle_t + dt if idle else 0.0
+			if not idle:
+				_fidget = ""
+			elif _fidget == "" and _idle_t > _fidget_next:
+				_fidget = "tail" if randf() < 0.5 else "look"
+				_fidget_t = 0.0
+				_fidget_next = _idle_t + randf_range(5.0, 8.0)
+			if _fidget != "":
+				_fidget_t += dt
+				var dur: float = 0.7 if _fidget == "tail" else 1.6
+				var u: float = clampf(_fidget_t / dur, 0.0, 1.0)
+				if _fidget == "tail":
+					# the back foot presses the tail: the nose comes up and drops back with a clack
+					fb_t = FEET_POP[1]
+					piv_t = AXLE
+					pitch_t = 12.0 * sin(PI * smoothstep(0.1, 0.9, u))
+					if u >= 1.0 and _sk != null:
+						_sk.thud.emit("board", global_transform.origin, 2.0)
+				else:
+					look_t2 = -55.0 * sin(PI * u)
+					twist_t -= 12.0 * sin(PI * u)
+				if u >= 1.0:
+					_fidget = ""
 		Skater.State.AIR:
 			# an ollie: the tail snaps the nose up while the body is already rising (the board leaves the ground a
 			# moment after it), the front foot drags up the grip and levels it, the knees bring it up; near the
@@ -673,6 +708,8 @@ func _pose(sk: Skater, dt: float) -> void:
 	grind_lift = _approach(grind_lift, glift_t, 30.0, dt)
 	_look_down = _approach(_look_down, look_t, 10.0, dt)
 	_lead = _approach(_lead, lead_t * 0.6, 8.0, dt)
+	_look_back = _approach(_look_back, look_t2, 6.0, dt)
+	_cheer = maxf(0.0, _cheer - dt)
 	free_feet = free_t
 	if exact:
 		board_roll = roll_t
@@ -850,7 +887,7 @@ func _apply_rig(sk: Skater) -> void:
 	var stride: Array = []
 	var push_amt: float = 0.0              # 0..1 through a stride: the body turns to face the nose to push
 	if sk.push_anim >= 0.0 and sk.state == Skater.State.GROUND and not sk.manual_on:
-		stride = _push_stride(sk.push_anim)
+		stride = _push_stride(sk.push_anim, bt)
 		hip_y -= float(stride[2])            # the standing leg bends as the other reaches the ground
 		push_amt = clampf(1.0 - absf(sk.push_anim - 0.42) / 0.42, 0.0, 1.0)
 		push_amt = push_amt * push_amt * (3.0 - 2.0 * push_amt)
@@ -873,7 +910,7 @@ func _apply_rig(sk: Skater) -> void:
 		var part: Basis = Basis(Quaternion.IDENTITY.slerp(q_torso.get_rotation_quaternion(), 1.0 / spine.size()))
 		_pose_bone(i, _rotated(i, part))
 	# head: look along the board toward the nose (and down at it in the air)
-	var look: float = (HEAD_LOOK if sk.stance != "fakie" else -HEAD_LOOK) - twist + _lead - body_yaw * 0.8
+	var look: float = (HEAD_LOOK if sk.stance != "fakie" else -HEAD_LOOK) - twist + _lead - body_yaw * 0.8 + _look_back
 	if _walk_mode:
 		look = 0.0                             # walking: looking where it goes
 	var nod: float = (10.0 if sk.state == Skater.State.AIR else 4.0) + _look_down
@@ -963,8 +1000,8 @@ func _apply_rig(sk: Skater) -> void:
 			var sh: Vector3 = sh_l if side == 0 else sh_r
 			var out: float = (-1.0 if side == 0 else 1.0) * lerpf(0.07, 0.04, run_k) * (1.0 - 0.5 * maxf(0.0, sin(th)))
 			hands.append(sh + Vector3(sin(th) * up_l + sin(th + bend) * lo_l, -cos(th) * up_l - cos(th + bend) * lo_l, out))
-		free_l = free_l.lerp(hands[0], off_k)
-		free_r = free_r.lerp(hands[1], off_k)
+		free_l = free_l.lerp(hands[0], off_k * (1.0 - _flail))
+		free_r = free_r.lerp(hands[1], off_k * (1.0 - _flail))
 		elbow_out = lerpf(0.3, 0.1, off_k)
 	var hand_l: Vector3 = free_l
 	var hand_r: Vector3 = free_r
@@ -978,6 +1015,10 @@ func _apply_rig(sk: Skater) -> void:
 		var gp: Array = _grab_targets(sk.grab_kind, bt)
 		hand_l = free_l.lerp(gp[0], grab_amt * float(gp[2]))
 		hand_r = free_r.lerp(gp[1], grab_amt * float(gp[3]))
+	if _cheer > 0.0 and not walking and carry_item == null and grab_amt < 0.1:
+		# a fist pump: the front arm goes up and comes back down
+		var w: float = smoothstep(0.0, 0.15, CHEER_TIME - _cheer) * smoothstep(0.0, 0.3, _cheer)
+		hand_l = hand_l.lerp(sh_l + Vector3(0.1, 0.6, -0.1), w)
 	var elbow_back: Vector3 = Vector3(-0.6, -0.3, 0.0)
 	_limb("upperarm_l", "lowerarm_l", "hand_l", hand_l, elbow_back + Vector3(0, 0, -elbow_out), _rest_pole_arm("l"))
 	_limb("upperarm_r", "lowerarm_r", "hand_r", hand_r, elbow_back + Vector3(0, 0, elbow_out), _rest_pole_arm("r"))
@@ -1009,6 +1050,9 @@ func physical_bail() -> bool:
 
 func sync_from(sk: Skater, dt: float) -> void:
 	_sk = sk
+	if sk.score != null and _score_hooked != sk.score:
+		_score_hooked = sk.score
+		sk.score.banked.connect(_on_banked)
 	if sk.state == Skater.State.BAIL and sk.bail_mode == "physical":
 		_physical(sk, dt)
 		return
@@ -1411,7 +1455,9 @@ func _run(sk: Skater, dt: float) -> void:
 	lean = 10.0 - spd * 1.5                    # leaning back against the speed
 	twist = 0.0
 	sway = 0.0
-	arms_out = 0.55
+	# stepping off a mistake: the arms fly up and out for balance, then settle into the run's swing
+	_flail = 1.0 - smoothstep(0.25, 0.75, _phase_t)
+	arms_out = lerpf(0.55, 1.15, _flail)
 	_rest_board_pose()
 	_apply_rig(sk)
 
@@ -1758,6 +1804,12 @@ func _ground_under(p: Vector3, above: float = 1.0) -> Vector3:
 	return hit["position"] if not hit.is_empty() else Vector3(p.x, 0.0, p.z)
 
 
+## A big combo banked (on landing): a fist pump with the front arm, which doesn't get in the way of riding.
+func _on_banked(points: int, n: int) -> void:
+	if points >= 3000 or n >= 4:
+		_cheer = CHEER_TIME
+
+
 ## Hooking the board over: the right foot reaches to its edge and flicks it (drawn over the gait: the gait still
 ## has it planted where it was, so it comes back there; marked off the ground meanwhile).
 func _flip_kick() -> void:
@@ -1793,6 +1845,11 @@ func _rest_board_pose() -> void:
 	pelvis_x = 0.0
 	_look_down = 0.0
 	_lead = 0.0
+	_flail = 0.0 if phys_phase != "run" else _flail
+	_cheer = 0.0
+	_fidget = ""
+	_idle_t = 0.0
+	_look_back = 0.0
 	body_yaw = 0.0
 	board_shift = Vector2.ZERO
 	grind_lift = 0.0
@@ -1881,8 +1938,8 @@ func _end_physical() -> void:
 ## The back foot through one push: up off its mark, out past the deck's edge and down beside the board ahead of the
 ## back truck, push back along the ground, then up, back in over the deck and onto it. Returns [foot, angle, hip
 ## drop]. (Straight lines from the deck to the ground cut the foot through the deck's edge.)
-func _push_stride(ph: float) -> Array:
-	var deck: Vector3 = Vector3(foot_b.x, deck_y(foot_b.y), foot_b.y)
+func _push_stride(ph: float, bt: Transform3D = Transform3D.IDENTITY) -> Array:
+	var deck: Vector3 = bt * Vector3(foot_b.x, deck_y(foot_b.y), foot_b.y)      # (the board as drawn: tilted to the ground)
 	var plant: Vector3 = Vector3(0.22, 0.0, -0.02)
 	var reach: Vector3 = Vector3(0.22, 0.0, 0.55)
 	var foot: Vector3
