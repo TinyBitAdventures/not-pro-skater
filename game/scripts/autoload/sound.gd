@@ -221,11 +221,17 @@ func play_jingle(jingle_name: String, vol_db: float = 0.0, slot: int = 0) -> voi
 
 
 ## Gameplay track for the current music choice.
-func gameplay_track() -> String:
-	return "hype" if Game.music_choice == "hype" else "cruise"
+## What to play while skating: the place's own theme (`theme`, an event's soundtrack) if it has one, else cruise;
+## hype everywhere when that's the choice.
+func gameplay_track(theme: String = "") -> String:
+	if Game.music_choice == "hype":
+		return "hype"
+	if theme != "" and ResourceLoader.exists("res://assets/audio/music/%s.ogg" % theme):
+		return theme
+	return "cruise"
 
 
-## cruise -> hype -> off -> cruise. Returns the new choice.
+## cruise (each place's theme) -> hype -> off -> cruise. Returns the new choice.
 func cycle_music_choice() -> String:
 	match Game.music_choice:
 		"cruise":

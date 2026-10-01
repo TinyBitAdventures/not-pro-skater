@@ -48,7 +48,7 @@ func _ready() -> void:
 	hud.set_timer(time_left, false)
 	hud.set_hints([["W", "roll to start the clock", "STICK"], ["P", "rider"], ["R", "reset", "BACK"], ["ESC", "pause", "START"]])
 	hud.announce(ev["title"], Hud.PAPER, 4.2, String(ev["blurb"]))
-	Sound.play_music(Sound.gameplay_track())
+	Sound.play_music(Sound.gameplay_track(String(ev.get("music", ""))))
 	_refresh_goals()
 
 

@@ -227,7 +227,7 @@ Release checklist for v0.1.0:
 Later (after v0.1.0):
 - [x] Wallrides (2026-10-01): grind into a wall at an angle in the air, a wallie off it; wallride goals in some events
 - [x] Motion and crashes (Phase 10, 2026-10-01)
-- [ ] A soundtrack per event (in progress 2026-10-01: Launch Day lo-fi / synthwave, Record Release hip-hop / funk, Rush Hour upbeat electronic, Between Takes orchestral hybrid; Birthday and the Skate-a-thon keep cruise / hype)
+- [x] A soundtrack per event (2026-10-01): Launch Day lo-fi synthwave, Record Release hip-hop / funk, Rush Hour house, Between Takes orchestral hybrid (Wavelength, `docs/audio_credits_music.md`); Birthday and the Skate-a-thon keep cruise; the menu's Themes / Hype / Off
 - [ ] Each character's combos drive their own stems (the "city is the song" idea: grinds add bass, flips add drums, grabs add the lead)
 - [ ] Gamepad feel pass
 - [ ] Board customisation

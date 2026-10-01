@@ -69,7 +69,7 @@ func _ready() -> void:
 		(cam as ChaseCamera).snap_behind()
 		hud.blink())
 	Sound.play_ambience("park_ambience" if look == "real" else "")
-	Sound.play_music(Sound.gameplay_track())
+	Sound.play_music(Sound.gameplay_track(Events.music_for_level(level_path)))
 
 	var first: String = OS.get_environment("SHOT_START")
 	warp(start_names.find(first) if first != "" and start_names.has(first) else 0)

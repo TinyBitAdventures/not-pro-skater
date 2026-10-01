@@ -24,6 +24,8 @@ extends RefCounted
 ## and goal texts show dollars.
 ## trick_on takes `rail` (one id) or `rails` (any of them); `trick` "" means any grind.
 ##
+## "music" (optional): the event's own soundtrack, assets/audio/music/<music>.ogg (it plays in Free Skate on the event's
+## level too); without one, the cruise theme.
 ## "dressing" decorates the level for the event (Godot coordinates): balloon bunches tied to anchors, a banner on
 ## two poles, presents, and party hats for the kids.
 
@@ -60,6 +62,15 @@ static func level_of_scene(path: String) -> String:
 	for lv in LEVELS:
 		if lv["scene"] == path:
 			return String(lv["level"])
+	return ""
+
+
+## The soundtrack of the event held on a level (Free Skate there plays it too), "" for none.
+static func music_for_level(gltf: String) -> String:
+	for id in ALL:
+		var e: Dictionary = get_event(id)
+		if String(e["level"]) == gltf:
+			return String(e.get("music", ""))
 	return ""
 
 
@@ -145,6 +156,7 @@ static func get_event(id: String) -> Dictionary:
 			return {
 				"id": "launchday",
 				"title": "LAUNCH DAY",
+				"music": "launchday",
 				"blurb": "The app ships today. The team is out on the lawn, and the whole campus is yours.",
 				"level": "res://assets/levels/campus.gltf",
 				"session": 150.0,
@@ -173,6 +185,7 @@ static func get_event(id: String) -> Dictionary:
 			return {
 				"id": "recordrelease",
 				"title": "RECORD RELEASE",
+				"music": "recordrelease",
 				"blurb": "The band's new record comes out tonight at the Foundry. Warm up the crowd.",
 				"level": "res://assets/levels/warehouse.gltf",
 				"session": 150.0,
@@ -202,6 +215,7 @@ static func get_event(id: String) -> Dictionary:
 			return {
 				"id": "rushhour",
 				"title": "RUSH HOUR",
+				"music": "rushhour",
 				"blurb": "One take, no bails. Film the city before the morning market packs up.",
 				"level": "res://assets/levels/downtown.gltf",
 				"session": 150.0,
@@ -235,6 +249,7 @@ static func get_event(id: String) -> Dictionary:
 			return {
 				"id": "betweentakes",
 				"title": "BETWEEN TAKES",
+				"music": "betweentakes",
 				"blurb": "Forty minutes while they relight the next scene. The whole backlot is a skatepark.",
 				"level": "res://assets/levels/backlot.gltf",
 				"session": 150.0,

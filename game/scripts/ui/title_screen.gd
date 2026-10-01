@@ -282,7 +282,7 @@ func _refresh() -> void:
 		"rider": Game.rider_name(Game.rider),
 		"steer": "Skater" if Game.steer_mode == "tank" else "Screen",
 		"jump": "Hold, release" if Game.jump_mode == "hold" else "Tap",
-		"music": {"cruise": "Cruise", "hype": "Hype", "off": "Off"}[Game.music_choice],
+		"music": {"cruise": "Themes", "hype": "Hype", "off": "Off"}[Game.music_choice],
 		"update": Game.update_tag,
 	}
 	for i in items.size():

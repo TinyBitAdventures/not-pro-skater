@@ -34,7 +34,7 @@ Two steering styles (pick one in the title menu; saved):
 | R | Reset to the start |
 | Esc | Pause (resume, restart, controls, quit to title) |
 
-Steering, jump style (hold-release or instant tap) and music are in the title menu.
+Steering, jump style (hold-release or instant tap) and music are in the title menu. Music **Themes** plays each place's own soundtrack (Launch Day's lo-fi synthwave, Record Release's hip-hop funk, Rush Hour's upbeat electronic, Between Takes' orchestral score; the cruise theme in the park and at the school), **Hype** plays the harder track everywhere, **Off** is off.
 
 **Riding a half pipe:** roll into the ramp with W held, keep Space held as you climb the face (the POP meter fills), release at the lip for a big air, spin with A / D, add J or K for tricks, then land back on the transition and pump again. Bigger ramps need more speed: keep pumping.
 
@@ -234,7 +234,7 @@ audio/     build_sfx.py build_music.py (numpy placeholders), build_ambience.py (
 
 ## Roadmap
 
-See [`docs/rebuild_plan.md`](docs/rebuild_plan.md). Done lately: wallrides, a motion and crash pass. Next: a soundtrack per event (under way), each rider's combos driving their own music stems, a gamepad feel pass, board customisation, replays.
+See [`docs/rebuild_plan.md`](docs/rebuild_plan.md). Done lately: wallrides (and wallride goals), a motion and crash pass, a soundtrack per event. Next: each rider's combos driving their own music stems, a gamepad feel pass, board customisation, replays.
 
 ## Licence
 

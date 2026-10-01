@@ -22,15 +22,17 @@ GAME = os.path.join(ROOT, "game")
 CFG = os.path.join(GAME, "export_presets.cfg")
 
 BASE_LEVELS = ["neighborhood", "school"]          # in index.pck: the title and the first two events
-PACKS = {                                         # level -> the event's own characters, items and sky
+PACKS = {                                         # level -> the event's own characters, items, sky and music
     "campus": {"characters": ["coworker_ana", "coworker_raj", "coworker_june"], "models": ["pizza"],
-               "sky": "kloofendal_48d_partly_cloudy_puresky_1k.hdr"},
+               "sky": "kloofendal_48d_partly_cloudy_puresky_1k.hdr", "music": "launchday"},
     "warehouse": {"characters": ["fan_zoe", "fan_mo", "fan_ike"], "models": ["merch"],
-                  "sky": "kloofendal_38d_partly_cloudy_puresky_1k.hdr"},
-    "downtown": {"characters": [], "models": ["coffee"], "sky": "qwantani_mid_morning_puresky_1k.hdr"},
+                  "sky": "kloofendal_38d_partly_cloudy_puresky_1k.hdr", "music": "recordrelease"},
+    "downtown": {"characters": [], "models": ["coffee"], "sky": "qwantani_mid_morning_puresky_1k.hdr",
+                 "music": "rushhour"},
     "backlot": {"characters": ["director_lou", "crew_rita", "crew_ray"], "models": ["script"],
-                "sky": "qwantani_late_afternoon_puresky_1k.hdr"},
+                "sky": "qwantani_late_afternoon_puresky_1k.hdr", "music": "betweentakes"},
 }
+BASE_MUSIC = ["title", "cruise", "hype"]          # in index.pck: the menus, Birthday and the Skate-a-thon
 BASE_SKIES = ["qwantani_late_afternoon_puresky_1k.hdr", "qwantani_mid_morning_puresky_1k.hdr"]
 
 
@@ -56,6 +58,8 @@ def pack_files(level, spec, base_images):
         files.append(f"assets/models/{m}.glb")
     if spec.get("sky") and spec["sky"] not in BASE_SKIES:
         files.append("assets/sky/" + spec["sky"])
+    if spec.get("music"):
+        files.append(f"assets/audio/music/{spec['music']}.ogg")
     return files
 
 
@@ -69,6 +73,8 @@ def pack_globs(level, spec, base_images):
         g += [f"assets/models/{m}.glb", f"assets/models/{m}_*"]
     if spec.get("sky") and spec["sky"] not in BASE_SKIES:
         g.append("assets/sky/" + spec["sky"])
+    if spec.get("music"):
+        g.append(f"assets/audio/music/{spec['music']}.ogg")
     return g
 
 
@@ -107,7 +113,8 @@ def main():
             "export_files=PackedStringArray(" + ", ".join(f'"res://{p}"' for p in files) + ")",
             f'include_filter="assets/levels/{level}.*.json"',
             # the level's scripts, shaders and shared textures are already in index.pck
-            'exclude_filter="scripts/*, shaders/*, scenes/*, assets/audio/*, assets/fonts/*, assets/brand/*, '
+            'exclude_filter="scripts/*, shaders/*, scenes/*, assets/audio/sfx/*, assets/audio/ambience/*, '
+            'assets/audio/jingles/*, ' + ", ".join(f"assets/audio/music/{m}.ogg" for m in BASE_MUSIC) + ', assets/fonts/*, assets/brand/*, '
             + ", ".join(sorted("assets/textures/" + i for i in base_images)) + '"',
             f'export_path="../build/web/levels/{level}.pck"', "patches=PackedStringArray()",
             'encryption_include_filters=""', 'encryption_exclude_filters=""', "seed=0", "encrypt_pck=false",
