@@ -141,6 +141,10 @@ func _aim() -> void:
 			from = cam_side * dist + Vector3.UP * 0.25
 		"behind":
 			from = -fwd * dist + Vector3.UP * 0.6
+		"chase":                                  # behind the way it's going now (carves)
+			var h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
+			var back: Vector3 = -h.normalized() if h.length() > 0.5 else -fwd
+			from = back * dist + Vector3.UP * 0.5
 		_:
 			from = (cam_side * 0.85 + fwd * 0.4 + Vector3.UP * 0.05).normalized() * dist
 	cam.global_transform = Transform3D(Basis.looking_at(-from, Vector3.UP), cam_look + from)
@@ -152,6 +156,11 @@ func _shot() -> void:
 	var m: Dictionary = metrics(sk)
 	var st: String = ["GROUND", "AIR", "GRIND", "BAIL"][sk.state]
 	var line: String = "[ride] %s %02d t=%.2f %-6s" % [clip["name"], shots, t, st]
+	if OS.get_environment("LEAN_DBG") != "":
+		var rgd: RiderRig = sk.visual as RiderRig
+		var spine: Vector3 = rgd.global_transform * rgd._glob[rgd._b["head"]].origin - rgd.global_transform * rgd._glob[rgd._b["pelvis"]].origin
+		var v_h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z).normalized()
+		line += " lean %+.2f spine->left %+.3f" % [sk.lean, spine.normalized().dot(Vector3.UP.cross(v_h))]
 	if m.has("soles"):
 		var s: Array = m["soles"]
 		line += " soles %+.3f%s %+.3f%s" % [s[0][0], "" if s[0][1] else "(off)", s[1][0], "" if s[1][1] else "(off)"]
@@ -301,7 +310,7 @@ func _clips() -> Dictionary:
 	var c: Dictionary = {
 		"cruise": {"v0": 5.0, "every": 0.25, "n": 4, "drive": _coast, "begin": func() -> bool: return ticks > 30},
 		"push": {"v0": 0.0, "every": 0.1, "n": 16, "drive": _push, "begin": func() -> bool: return ticks > 1},
-		"carve": {"v0": 7.0, "every": 0.1, "n": 20, "cam": "behind", "dist": 3.2,
+		"carve": {"v0": 7.0, "every": 0.1, "n": 20, "cam": "chase", "dist": 2.8,
 			"drive": func() -> void:
 				var s: float = 1.0 if int(floor(ticks / 72.0)) % 2 == 0 else -1.0
 				sk.inp.world_dir = sk.hdg.rotated(Vector3.UP, s * 1.0)
