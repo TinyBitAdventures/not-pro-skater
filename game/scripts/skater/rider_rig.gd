@@ -151,6 +151,10 @@ var _round_sign: float = 0.0             # which way round an obstacle the walk 
 var _getup_dir0: Vector3 = Vector3.FORWARD   # the way the body faced lying, and how far the get-up turns toward the board
 var _getup_turn: float = 0.0
 var _walker_shape: CapsuleShape3D = null
+var _sk: Skater = null                   # (who to tell about thuds while the ragdoll falls)
+var _core_v: Dictionary = {}             # ragdoll core bone -> its velocity last physics tick
+var _thud_cd: float = 0.0
+var _thuds: int = 0
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -1002,6 +1006,7 @@ func physical_bail() -> bool:
 
 
 func sync_from(sk: Skater, dt: float) -> void:
+	_sk = sk
 	if sk.state == Skater.State.BAIL and sk.bail_mode == "physical":
 		_physical(sk, dt)
 		return
@@ -1013,6 +1018,25 @@ func sync_from(sk: Skater, dt: float) -> void:
 func _physics_process(dt: float) -> void:
 	if phys_phase == "fall" and ragdoll != null:
 		ragdoll.drive(dt)
+		_body_thuds(dt)
+
+
+## The body hitting the ground: a core part (hips, chest, head) losing more than 1.5 m/s in one tick is a thud
+## where it hit (dust and sound, a few per crash at most).
+func _body_thuds(dt: float) -> void:
+	_thud_cd = maxf(0.0, _thud_cd - dt)
+	for bone in ["pelvis", "spine_02", "head"]:
+		var pb: PhysicalBone3D = ragdoll.bones.get(bone)
+		if pb == null:
+			continue
+		var v: Vector3 = pb.linear_velocity
+		if _core_v.has(bone):
+			var lost: float = ((_core_v[bone] as Vector3) - v).length()
+			if lost > 1.5 and _thud_cd <= 0.0 and _thuds < 6 and _sk != null:
+				_thud_cd = 0.15
+				_thuds += 1
+				_sk.thud.emit("body", pb.global_position, lost)
+		_core_v[bone] = v
 
 
 func _physical(sk: Skater, dt: float) -> void:
@@ -1098,6 +1122,10 @@ func _spawn_loose(sk: Skater) -> void:
 			# off to the side: it flips over sideways as it goes
 			spin += along.normalized() * randf_range(4.0, 7.0) * signf(right.dot(dir) + 0.001)
 	loose.setup(from, sk.bail_velocity * 1.05 + kick, spin)
+	var board_ref: LooseBoard = loose
+	loose.knocked.connect(func(strength: float) -> void:
+		if is_instance_valid(board_ref) and _sk != null:
+			_sk.thud.emit("board", board_ref.global_position, strength))
 	ragdoll.sim.physical_bones_add_collision_exception(loose.get_rid())
 	_apart_t = 0.35
 	board.visible = false
@@ -1127,6 +1155,8 @@ func _start_ragdoll(sk: Skater) -> void:
 		w += d * (4.0 + 3.0 * sev) * (1.0 if randf() < 0.5 else -1.0)   # a roll, over the shoulder
 	ragdoll.fall_dir = d
 	ragdoll.start(v, w)
+	_core_v.clear()
+	_thuds = 0
 
 
 func _begin_getup(sk: Skater) -> void:

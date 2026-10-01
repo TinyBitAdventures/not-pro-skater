@@ -18,6 +18,7 @@ signal landed(air_time: float)
 signal landing(kind: String)         # "clean", "sketchy", "fakie", "revert"
 signal warped()                      # put back inside the level (it neared the edge or fell out)
 signal reset_by_player()             # R, or the edge warp: an event treats it like a bail (drop the item, ruin the take)
+signal thud(kind: String, at: Vector3, strength: float)   # in a crash: "body" hits the ground (m/s lost), "board" clatters
 
 enum State { GROUND, AIR, GRIND, BAIL }
 
@@ -194,6 +195,9 @@ func _ready() -> void:
 		add_child(fx)
 		landed.connect(fx.landed)
 		bailed.connect(func(_r: String) -> void: fx.bailed())
+		thud.connect(func(kind: String, at: Vector3, strength: float) -> void:
+			if kind == "body":
+				fx.body_hit(at, strength))
 
 
 func _make_visual() -> void:

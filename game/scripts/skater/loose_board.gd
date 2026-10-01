@@ -22,6 +22,10 @@ var side_grip: float = 14.0          # how fast sideways slip dies while the whe
 var wheels_down: bool = false
 var rider_key: String = "dev"           # whose deck graphic
 var _put: Variant = null                # a transform to move to at the next physics step (put_at)
+var _prev_v: Vector3 = Vector3.ZERO
+var _knock_cd: float = 0.0
+
+signal knocked(strength: float)         # hit something hard enough to clack (m/s of speed changed in one step)
 
 
 func setup(xf: Transform3D, vel: Vector3, spin: Vector3) -> void:
@@ -76,6 +80,12 @@ func _integrate_forces(st: PhysicsDirectBodyState3D) -> void:
 		st.angular_velocity = Vector3.ZERO
 		_put = null
 		return
+	# a hit: the speed jumps in one step (gravity and rolling drag change it far less)
+	_knock_cd = maxf(0.0, _knock_cd - st.step)
+	var jolt: float = (st.linear_velocity - _prev_v).length()
+	if jolt > 1.1 and _knock_cd <= 0.0 and st.get_contact_count() > 0:
+		_knock_cd = 0.08
+		knocked.emit(jolt)
 	var b: Basis = st.transform.basis
 	var up: Vector3 = b.y
 	var ground_n: Vector3 = Vector3.ZERO
@@ -100,6 +110,7 @@ func _integrate_forces(st: PhysicsDirectBodyState3D) -> void:
 		else:
 			v *= exp(-scrape_drag * dt)
 	st.linear_velocity = v
+	_prev_v = v
 
 
 ## Where to stand to step on: the board's position on the ground and its forward (nose) direction, flattened.

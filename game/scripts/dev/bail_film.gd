@@ -72,6 +72,10 @@ func _film(label: String) -> void:
 				break
 			await get_tree().physics_frame
 		look = walker.global_position + Vector3.UP * 0.4
+	var thuds: Dictionary = {"body": 0, "board": 0, "hardest": 0.0}
+	sk.thud.connect(func(kind: String, _at: Vector3, strength: float) -> void:
+		thuds[kind] += 1
+		thuds["hardest"] = maxf(thuds["hardest"], strength))
 	var timeline: Array[String] = []
 	var last_phase: String = ""
 	var t_bail0: float = sk.bail_time
@@ -106,8 +110,10 @@ func _film(label: String) -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(dir.path_join("film_%s_%02d.png" % [label, k]))
 			k += 1
-	print("[film] %s: %s, came to rest %s, the board went %.1f m (%s)" % [label, ", ".join(timeline), walker.rest_facing,
-		board_far, "wheels down" if board_up > 0.5 else ("upside down" if board_up < -0.5 else "on its side")])
+	print("[film] %s: %s, came to rest %s, the board went %.1f m (%s), %d body thuds (hardest %.1f m/s), %d board clacks" % [
+		label, ", ".join(timeline), walker.rest_facing, board_far,
+		"wheels down" if board_up > 0.5 else ("upside down" if board_up < -0.5 else "on its side"), thuds["body"],
+		thuds["hardest"], thuds["board"]])
 
 
 func _aim(p: Vector3, _snap: bool) -> void:

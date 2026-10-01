@@ -63,6 +63,8 @@ func _ready() -> void:
 		hud.combo_lost()
 		Sound.play("combo_lost"))
 	skater.sfx.connect(_on_sfx)
+	skater.thud.connect(_on_thud)
+	skater.bailed.connect(func(_r: String) -> void: _cracked = false)
 	skater.warped.connect(func() -> void:
 		(cam as ChaseCamera).snap_behind()
 		hud.blink())
@@ -151,7 +153,14 @@ func _process(delta: float) -> void:
 	hud.set_charge(skater.charge_frac())
 	hud.set_balance(skater.balance_value(), skater.balancing())
 	hud.set_combo(score.mult, score.names, score.pending, score.live)
-	Sound.set_rolling(skater.velocity.length(), skater.surface, skater.state == Skater.State.GROUND, delta)
+	# a crashed board rolling away on its own wheels still sounds like rolling
+	var roll_v: float = skater.velocity.length()
+	var rolling: bool = skater.state == Skater.State.GROUND
+	var rg: RiderRig = skater.visual
+	if skater.state == Skater.State.BAIL and rg != null and rg.loose != null and is_instance_valid(rg.loose):
+		roll_v = rg.loose.linear_velocity.length()
+		rolling = rg.loose.wheels_down
+	Sound.set_rolling(roll_v, skater.surface, rolling, delta)
 	Sound.set_grinding(skater.state == Skater.State.GRIND, skater.grind_speed, delta)
 	if _shot_t >= 0.0:
 		if skater.scripted:
@@ -195,6 +204,7 @@ func _process(delta: float) -> void:
 
 
 var _seq_n: int = 0
+var _cracked: bool = false          # (one crack per crash)
 var _lip_t: float = 0.0
 
 
@@ -221,9 +231,24 @@ func _take_shot() -> void:
 
 func _on_sfx(kind: String) -> void:
 	match kind:
-		"ollie", "flip", "trick", "grab", "manual", "grind_start", "bail":
+		"ollie", "flip", "trick", "grab", "manual", "grind_start":
 			Sound.play(kind)
+		"bail":
+			Sound.play(kind, 0.0, randf_range(0.92, 1.08))
 		"land", "land_hard":
 			# louder and a touch lower the harder it comes down (a vert air rolls in quietly)
 			var k: float = clampf(skater.land_impact / Skater.HARD_LANDING, 0.0, 1.4)
 			Sound.play(kind, lerpf(-9.0, 0.0, minf(k, 1.0)), lerpf(1.08, 0.94, k / 1.4) * randf_range(0.97, 1.03))
+
+
+## A crash: the body thumping into the ground (a crack on the first big hit of a bad one), the loose board
+## clattering off things.
+func _on_thud(kind: String, _at: Vector3, strength: float) -> void:
+	var k: float = clampf(strength / 8.0, 0.0, 1.0)
+	if kind == "body":
+		Sound.play("land_hard", lerpf(-12.0, -2.0, k), randf_range(0.8, 0.95))
+		if strength > 5.0 and skater.bail_severity > 0.7 and not _cracked:
+			_cracked = true
+			Sound.play("crack", -4.0, randf_range(0.9, 1.05))
+	else:
+		Sound.play("crack", lerpf(-16.0, -6.0, k), randf_range(1.3, 1.6))

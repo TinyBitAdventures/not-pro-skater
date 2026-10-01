@@ -5,6 +5,9 @@ extends Node3D
 
 var skater: Skater
 var _dust_land: CPUParticles3D
+var _dust_hits: Array[CPUParticles3D] = []   # puffs where a crashing body hits (a few can be up at once)
+var _hit_i: int = 0
+var _dust_slide: CPUParticles3D
 var _dust_push: CPUParticles3D
 var _sparks: CPUParticles3D
 var _grit: CPUParticles3D
@@ -30,6 +33,11 @@ func _ready() -> void:
 	_dust_push.one_shot = false
 	_dust_push.explosiveness = 0.0
 	_dust_push.emitting = false
+	for i in 3:
+		_dust_hits.append(_make_dust(12, 0.55, 2.2, 0.5))
+	_dust_slide = _make_dust(10, 0.5, 0.8, 0.45)
+	_dust_slide.one_shot = false
+	_dust_slide.explosiveness = 0.0
 	_make_sparks()
 	_make_contact()
 
@@ -180,6 +188,17 @@ func tick(_dt: float) -> void:
 		and s.surface != "grass"
 	var braking: bool = s.state == Skater.State.GROUND and s.braking and s.velocity.length() > 3.0
 	_dust_push.emitting = kicking or braking
+	# a crashed body sliding along the ground kicks up a trail
+	var rg: RiderRig = s.visual
+	var sliding: bool = false
+	if rg != null and rg.phys_phase == "fall" and rg.ragdoll != null and rg.ragdoll.simulating():
+		var pb: PhysicalBone3D = rg.ragdoll.bones.get("pelvis")
+		if pb != null:
+			sliding = pb.linear_velocity.length() > 1.5 and pb.global_position.y - s.global_position.y < 0.35
+			if sliding:
+				body_slide(pb.global_position, true)
+	if not sliding and _dust_slide.emitting:
+		_dust_slide.emitting = false
 
 
 func landed(air: float) -> void:
@@ -190,6 +209,22 @@ func landed(air: float) -> void:
 	_dust_land.amount = 8 + mini(int(air * 12.0), 18)
 	_dust_land.restart()
 	_dust_land.emitting = true
+
+
+## A crashing body hit the ground at `at` (Skater.thud "body"): a puff of dust there, bigger the harder.
+func body_hit(at: Vector3, strength: float) -> void:
+	var p: CPUParticles3D = _dust_hits[_hit_i]
+	_hit_i = (_hit_i + 1) % _dust_hits.size()
+	p.global_position = at + Vector3.DOWN * 0.1
+	p.amount = 6 + mini(int(strength * 2.0), 16)
+	p.restart()
+	p.emitting = true
+
+
+## Dust off a body sliding along the ground (the rig's ragdoll hips, low and moving).
+func body_slide(at: Vector3, on: bool) -> void:
+	_dust_slide.global_position = at + Vector3.DOWN * 0.12
+	_dust_slide.emitting = on
 
 
 func bailed() -> void:
