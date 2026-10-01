@@ -1,5 +1,6 @@
 extends Node3D
-## Pose tour for the skinned rider: freezes a Skater in each state and photographs it close up.
+## Pose tour for the skinned rider: freezes a Skater in each state and photographs it close up (a pose's target:
+## motion is filmed by ride_film.gd, crashes by bail_film.gd).
 ##   RIDER=dev godot --path . res://scenes/dev_rig.tscn --resolution 960x720     (-> ../shots/rig_<pose>.png)
 
 const SPOT: Vector3 = Vector3(-14.0, 0.0, 18.0)   # open plaza in Neighborhood Park
@@ -64,7 +65,6 @@ func _tour() -> void:
 		["fakie", Skater.State.GROUND, {"stance": "fakie"}],
 		["nosemanual", Skater.State.GROUND, {"manual_on": true, "manual_kind": "nose"}],
 		["wallplant", Skater.State.AIR, {"wallplant_t": 0.28, "global_position": SPOT + Vector3.UP * 0.8}],
-		["walkback", Skater.State.BAIL, {"bail_kind": "slam", "bail_time": 1.6, "bail_duration": 2.2, "bail_getup": 1.3, "bail_origin": Vector3(0, 0, -2.5)}],
 		["idle", Skater.State.GROUND, {}],
 		["push", Skater.State.GROUND, {"pushing": true, "push_phase": 0.25, "velocity": Vector3(0, 0, -3)}],
 		["crouch", Skater.State.GROUND, {"crouch": 1.0}],
@@ -75,8 +75,6 @@ func _tour() -> void:
 		["grab_method", Skater.State.AIR, {"grab_kind": "back", "global_position": SPOT + Vector3.UP * 0.8}],
 		["kickflip", Skater.State.AIR, {"flip_kind": "none", "flip_t": 0.45, "global_position": SPOT + Vector3.UP * 0.8}],
 		["manual", Skater.State.GROUND, {"manual_on": true}],
-		["runout", Skater.State.BAIL, {"bail_kind": "runout", "bail_time": 0.35, "bail_duration": 0.85}],
-		["slam", Skater.State.BAIL, {"bail_kind": "slam", "bail_time": 0.6, "bail_duration": 1.3}],
 		["carry", Skater.State.GROUND, {"velocity": Vector3(0, 0, -3)}],
 		["lip_rock", Skater.State.GRIND, {"lip_kind": "Rock to Fakie", "velocity": Vector3.ZERO}],
 		["lip_nose", Skater.State.GRIND, {"lip_kind": "Nose Stall", "velocity": Vector3.ZERO}],
@@ -93,8 +91,6 @@ func _tour() -> void:
 		sk.visual.carry_item = cake if p[0] == "carry" else null
 		cake.visible = p[0] == "carry"
 		for i in 40:                      # let the smoothed pose settle
-			if sk.state == Skater.State.BAIL:
-				sk.bail_time = float(p[2]["bail_time"])
 			if p[2].has("push_anim"):
 				sk.push_anim = float(p[2]["push_anim"])
 			if p[2].has("wallplant_t"):

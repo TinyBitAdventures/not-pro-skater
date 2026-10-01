@@ -163,6 +163,7 @@ godot --path . res://scenes/dev_perf.tscn --resolution 1600x900             # fp
 godot --headless --path . res://scenes/dev_flow.tscn                        # menus with real input: title, event, pause, quit
 godot --headless --path . res://scenes/dev_update.tscn                      # the update check: versions, GitHub's answer, the title row (NET=1: ask GitHub for real)
 godot --path . res://scenes/dev_ui.tscn --resolution 1600x900               # every UI state -> ../shots/ui_*.png
+CLIP=ollie,kickflip godot --path . res://scenes/dev_ridefilm.tscn --fixed-fps 60 --resolution 480x400   # riding moves filmed with real physics -> ../shots/ride_* (CLIP=all; headless: the metrics only, exit code = frames over the limits)
 FILM=flat,tumble,halfpipe,wall,grind godot --path . res://scenes/dev_bailfilm.tscn --resolution 400x300   # crashes up close -> ../shots/film_* (LIMP=1: no muscles; tools/film_sheet.sh <name>)
 FILM=wall FILM_FROM=getup FILM_EVERY=0.08 FILM_N=18 godot --path . res://scenes/dev_bailfilm.tscn --resolution 400x400   # just the get-up (or walk, run; FILM=runout), side-on
 VIEWS="x,y,z>x,y,z;..." STEP=0.0003 godot --path . res://scenes/dev_flicker.tscn --resolution 1280x720   # flicker hunt -> ../shots/probe_*
