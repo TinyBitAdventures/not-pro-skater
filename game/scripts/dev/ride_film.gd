@@ -13,8 +13,6 @@ extends Node3D
 ##   CLIP=all godot --headless --path . --fixed-fps 120 res://scenes/dev_ridefilm.tscn
 
 const DT: float = 1.0 / 120.0
-const KICK: float = 0.085                 # board.py: the kicktails rise this much at the very ends
-const FLAT_Z: float = 0.235               # board.py: flat between the trucks (+ 2 cm)
 const HALF_L: float = 0.4
 const HALF_W: float = 0.1025
 
@@ -188,14 +186,6 @@ func _shot() -> void:
 
 # ------------------------------------------------------------------ metrics
 
-## The grip's height at `z` along the deck (board space): flat between the trucks, rising into the kicktails.
-static func deck_top(z: float) -> float:
-	var a: float = absf(z)
-	if a <= FLAT_Z:
-		return RiderRig.DECK
-	return RiderRig.DECK + KICK * pow(clampf((a - FLAT_Z) / (HALF_L - FLAT_Z), 0.0, 1.0), 1.6)
-
-
 ## Soles against the grip, wheels against the ground, legs against the deck, from the rig as it is drawn now.
 static func metrics(s: Skater) -> Dictionary:
 	var rg: RiderRig = s.visual
@@ -212,7 +202,9 @@ static func metrics(s: Skater) -> Dictionary:
 		var turn: Basis = f.basis * rg._rest_model[fi].basis.inverse()
 		var sole: Vector3 = inv * (f.origin - turn * rg._ankle_off)
 		var over: bool = absf(sole.x) < HALF_W + 0.03 and absf(sole.z) < HALF_L
-		soles.append([sole.y - deck_top(sole.z), over])
+		if side == "r" and s.push_anim >= 0.0 and s.state == Skater.State.GROUND:
+			over = false                      # the pushing foot leaves the deck on purpose
+		soles.append([sole.y - RiderRig.deck_y(sole.z), over])
 		# the shin and foot (knee -> ankle -> ball) must stay out of the deck
 		var knee: Vector3 = inv * rg._glob[rg._b["calf_" + side]].origin
 		var ankle: Vector3 = inv * f.origin
@@ -220,15 +212,17 @@ static func metrics(s: Skater) -> Dictionary:
 		for k in 9:
 			var u: float = k / 8.0
 			var p: Vector3 = knee.lerp(ankle, u * 1.6) if u < 0.625 else ankle.lerp(ball, (u - 0.625) / 0.375)
-			var r: float = 0.045
-			if absf(p.x) < HALF_W + r * 0.5 and absf(p.z) < HALF_L - 0.02 and p.y < deck_top(p.z) - 0.012 + r * 0.3 \
-					and p.y > deck_top(p.z) - 0.012 - 0.02:
+			# inside the deck's slab, or a shin's thickness under it (a joint at the grip is a shoe standing on it)
+			if absf(p.x) < HALF_W + 0.01 and absf(p.z) < HALF_L - 0.02 and p.y < RiderRig.deck_y(p.z) - 0.004 \
+					and p.y > RiderRig.deck_y(p.z) - 0.012 - 0.025:
 				cut += 1
+				if OS.get_environment("CUT_DBG") != "":
+					print("    cut: %s point %d at (%.3f, %.3f, %.3f), grip %.3f" % [side, k, p.x, p.y, p.z, RiderRig.deck_y(p.z)])
 	out["soles"] = soles
 	out["cut"] = cut
 	out["pitch"] = rg.board_pitch
 	out["on_deck"] = s.state == Skater.State.GROUND or s.state == Skater.State.GRIND or (s.state == Skater.State.AIR \
-		and s.flip_kind == "" and s.grab_kind == "")
+		and rg.free_feet < 0.01)
 	if s.state == Skater.State.GROUND:
 		var lo: float = INF
 		var hi: float = -INF
@@ -322,7 +316,7 @@ func _clips() -> Dictionary:
 		"indy": {"v0": 6.0, "every": 0.05, "n": 14, "drive": _ollie_drive("grab", "none"), "begin": in_air},
 		"spin": {"v0": 6.0, "every": 0.05, "n": 16, "drive": _ollie_drive("spin", ""), "begin": in_air},
 		"land_big": {"v0": 6.0, "offset": Vector3(0, 2.2, 0), "air": 1.0, "every": 0.05, "n": 20, "drive": _coast,
-			"begin": func() -> bool: return sk.global_position.y < 0.6},
+			"begin": func() -> bool: return sk.global_position.y < 1.6},
 		"sketchy": {"v0": 7.0, "offset": Vector3(0, 1.2, 0), "air": 1.0, "yaw_off": 46.0, "every": 0.05, "n": 20,
 			"drive": _coast, "begin": func() -> bool: return sk.global_position.y < 0.5},
 		"pump": {"start": "mini", "v0": 3.0, "every": 0.1, "n": 30, "cam": "side", "dist": 6.0, "drive": _push,
@@ -335,7 +329,8 @@ func _clips() -> Dictionary:
 				if ticks == 20:
 					sk._start_manual(k)
 				if sk.manual_on:
-					sk.inp.move = Vector2(0, clampf(sk.manual_balance * 3.0 + sk._balance_vel * 0.6, -1.0, 1.0))
+					var u: float = clampf(sk.manual_balance * 3.0 + sk._balance_vel * 0.6, -1.0, 1.0)
+					sk.inp.move = Vector2(0, u if k == "manual" else -u)
 				else:
 					_coast(),
 			"begin": func() -> bool: return sk.manual_on}

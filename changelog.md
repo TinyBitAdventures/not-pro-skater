@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **A real ollie:** the tail snaps the nose up (the board leaves the ground a moment after the body), the front foot drags up the grip and levels it, the knees bring the board up with the feet still on it, and the legs reach down to meet the ground before landing. Before, the board stayed flat the whole air and the feet hovered 3 to 8 cm above it, so the rider looked to jump off the board.
+- **Flips go round under the knees:** the front foot flicks off the board's edge (the heel side for a kickflip, the toe side for a heelflip), both knees come up and apart, the board turns in the gap below and the feet come back down onto it. A shove-it spins flat just under the feet, a hardflip goes up between the legs, an impossible goes end over end round the back foot. Before, the board spun through the shoes and shins.
+- **Feet move on the deck:** crouching for a jump puts the back foot on the tail and the front foot back up the board; a manual stands over the back truck with the front foot light, a nose manual on the nose. They used to stay on the same two marks for everything.
+- **Manuals balance on two wheels:** a manual tips the board up about its back axle (9 degrees, rocking with the balance) with the hips over the back wheels, a nose manual about the front one. It used to tip 24 degrees about the deck's middle, sinking the back wheels 8 cm into the ground and floating the front ones.
+- The pushing foot steps out past the deck's edge before it comes down (it cut through the edge on the way), and the front foot's toes stay off the nose's kick as it turns to point up the board.
+- Grabs keep the feet on the board (it rides a little higher, up to the hand).
 - **Landings make a sound:** touching down was silent everywhere (the landing sounds were never routed to the mixer). A normal landing thuds, louder and a touch lower the harder you come down; a drop or a big air lands with the heavy sound; rolling back into a ramp is quiet.
 
 ## v0.2.0 (2026-10-01)

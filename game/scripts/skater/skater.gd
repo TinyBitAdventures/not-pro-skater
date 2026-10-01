@@ -112,6 +112,8 @@ var manual_on: bool = false
 var spin_vel: float = 0.0
 var spin_total: float = 0.0
 var air_time: float = 0.0
+var pop_at: float = -1.0                 # air_time when this air was popped (an ollie, a late pop off a lip, a pop off a
+                                         # rail), -1 rolled off: the visual snaps the tail from it
 var flip_kind: String = ""
 var flip_t: float = 0.0
 var grab_kind: String = ""
@@ -790,6 +792,7 @@ func _ollie(n: Vector3, speed: float) -> void:
 	_enter_air()
 	_maybe_vert(true)
 	_air_popped = true
+	pop_at = 0.0
 	_end_manual()
 
 
@@ -876,6 +879,7 @@ func _enter_ground() -> void:
 func _reset_air() -> void:
 	_glance_dir = Vector3.ZERO
 	air_time = 0.0
+	pop_at = -1.0
 	spin_vel = 0.0
 	spin_total = 0.0
 	flip_kind = ""
@@ -943,6 +947,7 @@ func _air(dt: float) -> void:
 			_release_buf = 0.0
 			velocity.y += pop_speed() * tune.lip_pop_mult * (tune.vert_pop_mult if vert_air else 1.0)
 			_air_popped = true
+			pop_at = air_time
 			charge = 0.0
 			_coyote = 0.0
 			sfx.emit("ollie")
@@ -950,6 +955,7 @@ func _air(dt: float) -> void:
 		_ollie_buf = 0.0
 		velocity.y = maxf(velocity.y, tune.ollie_speed * 0.85)
 		_coyote = 0.0
+		pop_at = air_time
 		sfx.emit("ollie")
 
 	if _flip_buf > 0.0 and flip_kind == "" and air_time > 0.03:
@@ -1460,6 +1466,7 @@ func _end_grind(pop: bool) -> void:
 	spin_vel = 0.0
 	spin_total = 0.0
 	flip_kind = ""
+	pop_at = 0.0 if pop else -1.0
 	if pop:
 		sfx.emit("ollie")
 
@@ -1581,6 +1588,7 @@ func _end_lip(pop: bool) -> void:
 	air_up = Vector3.UP
 	air_fwd = heading_h()
 	if pop:
+		pop_at = 0.0
 		sfx.emit("ollie")
 
 
