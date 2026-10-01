@@ -318,6 +318,18 @@ func _clips() -> Dictionary:
 	var c: Dictionary = {
 		"cruise": {"v0": 5.0, "every": 0.25, "n": 4, "drive": _coast, "begin": func() -> bool: return ticks > 30},
 		"push": {"v0": 0.0, "every": 0.1, "n": 16, "drive": _push, "begin": func() -> bool: return ticks > 1},
+		"wallplant": {"start": "wall", "v0": 7.0, "every": 0.04, "n": 16, "cam": "side", "dist": 3.0,
+			"drive": func() -> void:
+				if sk.state == Skater.State.GROUND and d["phase"] == 0:
+					_push()
+				else:
+					_coast()
+				if d["phase"] == 0 and sk.global_position.z < -34.6:
+					sk.inp.ollie_pressed = true
+					d["phase"] = 1
+				if d["phase"] == 1 and sk.state == Skater.State.AIR and sk._wall_t > 0.0:
+					sk.inp.ollie_pressed = true,
+			"begin": func() -> bool: return sk.wallplant_t > 0.0},
 		"idle": {"v0": 0.0, "every": 0.4, "n": 32, "drive": _coast, "begin": func() -> bool: return ticks > 1},
 		"cheer": {"v0": 5.0, "every": 0.1, "n": 10,
 			"drive": func() -> void:
