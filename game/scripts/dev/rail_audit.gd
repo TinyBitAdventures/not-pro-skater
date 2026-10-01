@@ -20,7 +20,10 @@ func _run() -> void:
 	var lv_name: String = OS.get_environment("LEVEL") if OS.get_environment("LEVEL") != "" else "school"
 	level = Level.new()
 	add_child(level)
-	level.load_glb("res://assets/levels/%s.gltf" % lv_name, "grey")
+	var path: String = "res://assets/levels/%s.gltf" % lv_name
+	if not ResourceLoader.exists(path):
+		path = "res://assets/levels/%s.glb" % lv_name           # the greybox (Practice) is a .glb
+	level.load_glb(path, "grey")
 	await _ticks(2)
 	var fails: int = 0
 	for line in level.grind_lines:
