@@ -9,6 +9,9 @@ extends Camera3D
 ## - Looks a little ahead along the velocity; the field of view opens up with speed and kicks on a pop.
 ## - Landings press it down on a spring (bigger air, deeper dip) and it settles back with a small rebound.
 ## - A ray from the skater pulls it in front of any wall behind.
+## - A crash presses it down and shakes it as hard as the crash was, then it swings round behind the rider toward the
+##   loose board so both stay in the shot, and behind the board's nose for the last steps (riding goes on with the
+##   camera already behind).
 
 const WORLD_MASK: int = 1
 
@@ -39,6 +42,9 @@ const VERT_LOOK_RIDER: float = 0.95  # how far from the lip toward the rider the
 const AIR_ZOOM: float = 12.0       # degrees of field of view taken off at the top of a big air
 var min_distance: float = 1.7      # closer than this to the rider (a wall behind), rise over instead
 var _swing_boost: float = 0.0      # extra swing speed just after a vert landing
+var _shake: float = 0.0            # a crash's shake: metres now (dying away) and the clock it wobbles to
+var _shake_t: float = 0.0
+var _bail_k: float = 0.0           # 0..1: in a crash (the shot pulls out a little)
 var _was_state: int = -1
 
 
@@ -61,7 +67,8 @@ func attach(sk: Skater) -> void:
 		if air > 0.35:
 			_dip_v -= clampf(air * 0.9, 0.25, 1.6))
 	sk.bailed.connect(func(_r: String) -> void:
-		_dip_v -= 0.8)
+		_dip_v -= lerpf(0.4, 1.6, sk.bail_severity)
+		_shake = lerpf(0.03, 0.09, sk.bail_severity) if sk.bail_kind != "runout" else 0.0)
 	snap_behind()
 
 
@@ -97,7 +104,7 @@ func _desired() -> Dictionary:
 	var ahead: Vector3 = (v_h * 0.22).limit_length(2.6)
 	var back: Vector3 = Vector3(sin(_yaw), 0.0, cos(_yaw))
 	var look: Vector3 = _collide(focus + Vector3.UP * look_height, focus + Vector3.UP * look_height + ahead)
-	var pos: Vector3 = focus + back * distance + Vector3.UP * height
+	var pos: Vector3 = focus + back * distance * (1.0 + 0.15 * _bail_k) + Vector3.UP * height
 	if _vert_hold:
 		# the air is the show: the shot rises with the rider, slides along the coping with any drift, and
 		# keeps the rider (not the lip) at the centre of the frame
@@ -111,6 +118,21 @@ func _desired() -> Dictionary:
 	# rise tests look for the rider's chest, so a lift over a ramp's deck never hides the rider behind the lip
 	var chest: Vector3 = focus + Vector3.UP * 1.0
 	return {"pos": _clear_of_rider(focus, look, _collide_rise(chest, pos)), "look": look}
+
+
+## A yaw near `want` with a clear view of the rider from where the camera would sit (behind a rider down against a
+## wall is inside the wall: the shot rose and looked straight down): `want`, then either side of it.
+func _clear_yaw(focus: Vector3, want: float) -> float:
+	if not is_inside_tree():
+		return want
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var chest: Vector3 = focus + Vector3.UP * 1.0
+	for off in [0.0, 0.8, -0.8, 1.5, -1.5]:
+		var y: float = want + off
+		var p: Vector3 = focus + Vector3(sin(y), 0.0, cos(y)) * distance + Vector3.UP * height
+		if space.intersect_ray(PhysicsRayQueryParameters3D.create(chest, p, WORLD_MASK)).is_empty():
+			return y
+	return want
 
 
 ## After a vert air the shot stays out in front while the rider comes back down the wall, and lets go (to
@@ -195,6 +217,22 @@ func _process(dt: float) -> void:
 			_yaw = lerp_angle(_yaw, atan2(-v_h.x, -v_h.z), 1.0 - exp(-1.5 * dt))
 	elif st == Skater.State.BAIL:
 		_ground_y = lerpf(_ground_y, sk.render_position().y, 1.0 - exp(-4.0 * dt))
+		# behind the rider looking toward the loose board (both in the shot, not the rider walking at the lens with
+		# the board behind it); for the last steps, behind the board's nose
+		var rg: RiderRig = sk.visual
+		if rg != null and rg.loose != null and is_instance_valid(rg.loose):
+			var to_board: Vector3 = rg.loose.global_position - sk.rider_position()
+			to_board.y = 0.0
+			var on_foot: bool = rg.phys_phase == "walk" or rg.phys_phase == "getup"
+			var want: float = _yaw
+			if on_foot and to_board.length() < 1.6:
+				var f: Vector3 = -rg.loose.stand_transform().basis.z
+				want = atan2(-f.x, -f.z)
+			elif to_board.length() > 1.0:
+				want = atan2(-to_board.x, -to_board.z)
+			want = _clear_yaw(sk.rider_position(), want)
+			_yaw = lerp_angle(_yaw, want, 1.0 - exp(-(1.8 if on_foot else 0.8) * dt))
+	_bail_k = move_toward(_bail_k, 1.0 if st == Skater.State.BAIL else 0.0, dt * 1.5)
 
 	if sk.vert_air and not _vert_hold:
 		_vert_hold = true
@@ -234,6 +272,8 @@ func _process(dt: float) -> void:
 	var k: float = 90.0
 	_dip_v += (-k * _dip - 2.0 * sqrt(k) * 0.75 * _dip_v) * dt
 	_dip += _dip_v * dt
+	_shake_t += dt
+	_shake = maxf(0.0, _shake - dt * 0.4)          # (about 0.2 s)
 	_apply()
 
 
@@ -243,4 +283,7 @@ func _apply() -> void:
 		return
 	var up: Vector3 = Vector3.UP if absf(dir.normalized().y) < 0.98 else Vector3.FORWARD
 	var dip: Vector3 = Vector3.UP * _dip
-	global_transform = Transform3D(Basis.looking_at(dir - dip * 0.4, up), _pos + dip)
+	var shake: Vector3 = Vector3.ZERO
+	if _shake > 0.001:
+		shake = Vector3(sin(_shake_t * 61.0), sin(_shake_t * 53.0 + 1.3), sin(_shake_t * 47.0 + 2.1)) * _shake
+	global_transform = Transform3D(Basis.looking_at(dir - dip * 0.4, up), _pos + dip + shake)
