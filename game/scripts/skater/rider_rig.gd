@@ -32,6 +32,9 @@ const POP_PITCH: float = 26.0            # degrees nose up at the snap of an oll
 const TAIL_Z: float = 0.33               # the tail's tip on the ground: the snap tips the board about it
 const OLLIE_TUCK: float = 0.15           # how high the knees bring the board at the top of an ollie
 const MANUAL_PITCH: float = 9.0          # nose up in a manual (rocking with the balance)
+const ABSORB_W: float = 14.0             # rad/s: the legs' spring taking a landing (damped 0.7: one small rebound)
+const ABSORB_PER: float = 0.012          # hip drop (pose units, ~1.15 m each) per m/s into the floor: a flat ollie ~11 cm
+const SKETCHY_TIME: float = 0.55
 const HEAD_LOOK: float = 70.0            # head turned from the chest toward the nose, degrees
 const CAPSULE_TO_CONTACT: float = 0.02
 const SETTLE_SPEED: float = 0.45
@@ -84,6 +87,11 @@ var free_feet: float = 0.0               # 0 the feet stand on the deck .. 1 the
 var _flip_feet: Array = []               # in a flip: where each sole is (model space), off the deck
 var _pop_y: float = 0.0                  # the board's height when it popped (the board leaves the ground after the body)
 var _pop_seen: float = -1.0
+var _absorb: float = 0.0                 # how far the hips are sunk by a landing now (pose units), and how fast
+var _absorb_v: float = 0.0
+var _lands: int = 0                      # Skater.lands last seen (a change = a touchdown)
+var _since_land: float = 9.0
+var _sketchy: float = 0.0                # seconds of arm-waving left after a sketchy landing
 var _fit: Vector3 = Vector3.ZERO         # (pitch, roll degrees, lift): sets all four wheels on the ground (_ground_fit)
 var vis_n: Vector3 = Vector3.UP
 var _t: float = 0.0
@@ -395,10 +403,14 @@ func _pose(sk: Skater, dt: float) -> void:
 	_flip_feet = []
 	if st != Skater.State.AIR:
 		_pop_seen = -1.0
+	_land_spring(sk, dt)
 	match st:
 		Skater.State.GROUND:
-			hip_t = 0.72 - 0.17 * sk.crouch
-			lean_t = 8.0 + 22.0 * sk.crouch + clampf(speed * 0.4, 0.0, 6.0)
+			# (a landing sets the skater's crouch to full: the legs' spring below takes a landing instead, as deep
+			# as it came down hard)
+			var cr: float = sk.crouch if _since_land > 0.4 else maxf(sk.charge_frac(), 0.25 if sk.floor_n.y < 0.9 else 0.0)
+			hip_t = 0.72 - 0.17 * cr
+			lean_t = 8.0 + 22.0 * cr + clampf(speed * 0.4, 0.0, 6.0)
 			sway_t = sk.lean * 14.0
 			arms_t = 0.5 + absf(sk.lean) * 0.4
 			# crouching for a jump (hold to jump): the back foot moves onto the tail, the front one back up the board
@@ -425,6 +437,13 @@ func _pose(sk: Skater, dt: float) -> void:
 					fb_t = FEET_MANUAL[1]
 					pz_t = 0.07
 					lean_t = -8.0 - sk.manual_balance * 6.0
+			if _sketchy > 0.0:
+				# a sketchy landing: arms wheel, the body sways and the board wobbles under it, dying away
+				var w: float = _sketchy / SKETCHY_TIME
+				sway_t += sin(_t * 13.0) * 11.0 * w
+				arms_t = maxf(arms_t, 0.9 + 0.3 * w)
+				yaw_t = sin(_t * 10.0) * 6.0 * w
+				lean_t += 6.0 * w
 			if sk.pumping:
 				# pumping a ramp: low through the flat, the legs driving the board into the curve as it rises, tall
 				# near the top; sinking again on the way back down
@@ -586,6 +605,23 @@ func _pose(sk: Skater, dt: float) -> void:
 		board_pitch = _approach(wrapf(board_pitch, -180.0, 180.0), pitch_t, 14.0, dt)
 
 
+## A touchdown kicks the legs' spring by how hard it came down (rolling back into a ramp barely sinks; a drop
+## sinks deep), the hips sink and come back up with a small rebound. A sketchy one starts the arms wheeling.
+func _land_spring(sk: Skater, dt: float) -> void:
+	_since_land += dt
+	_sketchy = maxf(0.0, _sketchy - dt)
+	if sk.lands != _lands:
+		_lands = sk.lands
+		_since_land = 0.0
+		if sk.land_kind != "":
+			var peak: float = clampf(sk.land_impact * ABSORB_PER, 0.0, 0.17)
+			_absorb_v += peak * ABSORB_W / 0.46          # (a spring damped 0.7 peaks at 0.46 v / w)
+		if sk.land_kind == "sketchy":
+			_sketchy = SKETCHY_TIME
+	_absorb_v += (-ABSORB_W * ABSORB_W * _absorb - 2.0 * 0.7 * ABSORB_W * _absorb_v) * dt
+	_absorb += _absorb_v * dt
+
+
 ## The grip's height at `z` along the deck (board space): flat between the trucks, curving up into the kicktails.
 static func deck_y(z: float) -> float:
 	var a: float = absf(z)
@@ -720,7 +756,7 @@ func _apply_rig(sk: Skater) -> void:
 	board.transform = bt                       # (hidden while the loose board is out in the world)
 
 	# hips: hip_h is a pose number (0.72 riding tall .. 0.55 deep crouch) mapped onto a share of this leg
-	var frac: float = clampf((hip_h - 0.145) / 0.665, 0.45, 1.05)
+	var frac: float = clampf((hip_h - _absorb - 0.145) / 0.665, 0.42, 1.05)
 	var hip_y: float = DECK + frac * LEG_FRAC * (_leg_len - _ankle_off.y) + _ankle_off.y * 0.2
 	var walking: bool = _walk_mode and not _gait_now.is_empty()
 	var off_k: float = 1.0 - _step_on if walking else 0.0      # 1 on foot .. 0 stepping onto the deck
@@ -743,7 +779,8 @@ func _apply_rig(sk: Skater) -> void:
 	_pose_bone(pelvis, pg)
 
 	# spine: lean toward the chest and twist toward the nose, spread over three bones
-	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7 + 25.0 * push_amt - walk_yaw * 1.4)) * Basis(Vector3(0, 0, 1), deg_to_rad(-lean))
+	var q_torso: Basis = Basis(Vector3.UP, deg_to_rad(twist * 0.7 + 25.0 * push_amt - walk_yaw * 1.4)) \
+		* Basis(Vector3(0, 0, 1), deg_to_rad(-lean - _absorb * 110.0))
 	var spine: Array[String] = ["spine_01", "spine_02", "spine_03"]
 	for k in spine.size():
 		var i: int = _b[spine[k]]
@@ -811,6 +848,13 @@ func _apply_rig(sk: Skater) -> void:
 	# balance arms: out and a little forward, elbows soft, never a stiff T
 	var free_l: Vector3 = sh_l + Vector3(0.12 + 0.1 * spread, -0.52 + 0.4 * spread, -0.18 - 0.24 * spread)
 	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
+	# a landing drops the arms a little with the hips; a sketchy one wheels them, out of step with each other
+	free_l.y -= _absorb * 0.8
+	free_r.y -= _absorb * 0.8
+	if _sketchy > 0.0 and not walking:
+		var wv: float = 0.22 * _sketchy / SKETCHY_TIME
+		free_l += Vector3(0.0, sin(_t * 12.0), cos(_t * 12.0) * 0.6) * wv
+		free_r += Vector3(0.0, sin(_t * 12.0 + PI), -cos(_t * 12.0 + PI) * 0.6) * wv
 	var elbow_out: float = 0.3
 	if walking:
 		# arms swing from the shoulder against the legs (walking is chest first, +X), worked out from joint angles:
@@ -1522,6 +1566,9 @@ func _rest_board_pose() -> void:
 	pelvis_z = 0.0
 	free_feet = 0.0
 	_flip_feet = []
+	_absorb = 0.0
+	_absorb_v = 0.0
+	_sketchy = 0.0
 
 
 func _end_physical() -> void:

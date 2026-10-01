@@ -9,6 +9,7 @@
 - The pushing foot steps out past the deck's edge before it comes down (it cut through the edge on the way), and the front foot's toes stay off the nose's kick as it turns to point up the board.
 - Grabs keep the feet on the board (it rides a little higher, up to the hand).
 - **Pumping a ramp looks like pumping:** holding push on a transition (and across the flat between two) no longer plays the push stride, which kicked a foot at the ramp. The rider sinks low through the flat, drives the legs out as the board rises up the curve, stands tall near the top and sinks again on the way down.
+- **Landings have weight:** the legs take a landing like a spring, as deep as you came down (rolling back into a ramp barely dips, a flat ollie sinks about 11 cm, a drop sinks deep), the chest tips forward and the arms drop with it, then a small rebound. Every landing used to give the same short dip. A sketchy landing wheels the arms, sways the body and wobbles the board for half a second (it looked clean before).
 - **The board sits on its wheels through transitions:** the body follows a smoothed tilt that lags behind a curve, and the board's ends dug up to 8 cm into the ramp. The board now sets all four wheels on what's under them (the feet ride it).
 - **Landings make a sound:** touching down was silent everywhere (the landing sounds were never routed to the mixer). A normal landing thuds, louder and a touch lower the harder you come down; a drop or a big air lands with the heavy sound; rolling back into a ramp is quiet.
 
