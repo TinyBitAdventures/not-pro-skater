@@ -121,6 +121,7 @@ var carry_item: Node3D = null            # something held in both hands in front
 # goofy (right foot forward): the rig works out a regular rider as always and _flush() draws it mirrored across
 # the board's long axis, left and right swapped (on foot: across the body, so it still walks forward)
 var goofy: bool = false
+var push_style: String = "regular"       # "mongo": the front foot pushes, the back one stays on the board
 var board_logic: Transform3D = Transform3D.IDENTITY   # the board as worked out (board.transform is it drawn)
 var _twin: PackedInt32Array = PackedInt32Array()     # each bone's other-side twin (itself down the middle)
 var _mir_s: Array[Basis] = []                         # per bone: maps its twin's mirrored frame onto its own
@@ -187,8 +188,7 @@ var _look_back: float = 0.0
 
 
 func setup(_look: Dictionary = {}) -> void:
-	var stance: String = OS.get_environment("STANCE") if OS.get_environment("STANCE") != "" else Game.stance
-	goofy = stance == "goofy"
+	goofy = OS.get_environment("STANCE") == "goofy"      # (Skater sets it from the rider and the stance setting)
 	model = Node3D.new()
 	model.name = "Rider"
 	add_child(model)
@@ -1021,7 +1021,7 @@ func _apply_rig(sk: Skater) -> void:
 		push_amt = push_hold * push_hold * (3.0 - 2.0 * push_hold)
 	var push_feet: bool = push_amt > 0.001 and sk.state == Skater.State.GROUND and not sk.manual_on and not walking
 	if sk.push_anim >= 0.0 and sk.state == Skater.State.GROUND and not sk.manual_on:
-		stride = _push_stride(sk.push_anim, bt, sk.stance == "fakie")
+		stride = _push_stride(sk.push_anim, bt, sk.stance == "fakie", push_style == "mongo")
 		hip_y -= float(stride[2])            # the standing leg bends as the other reaches the ground
 	for i in [_b["Root"]]:
 		_rest_follow(i)
@@ -1070,17 +1070,18 @@ func _apply_rig(sk: Skater) -> void:
 			back.y = maxf(back.y, on_b.y)
 		turn_f = _slerp_basis(turn_f, Basis(Vector3.UP, deg_to_rad(float(_flip_feet[1]))), free_feet)
 		turn_b = _slerp_basis(turn_b, Basis(Vector3.UP, deg_to_rad(float(_flip_feet[3]))), free_feet)
-	if push_feet and push_way > 0.0:
-		# the front foot swivels to point up the board, its heel a little back so the toes stay off the nose's kick
-		# (and stays turned through a run of strides)
-		turn_f = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_f.z, 65.0, push_amt)))
+	# which foot pushes: the trailing one (rolling fakie that's the front foot), or for a mongo push the leading one
+	var push_front: bool = (sk.stance == "fakie") != (push_style == "mongo")
+	if push_feet and not push_front:
+		# the front foot stays on and swivels to point the way it's going, its heel a little in so the toes stay off
+		# the nose's kick (and stays turned through a run of strides)
+		turn_f = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_f.z, 65.0 * push_way, push_amt)))
 		front = bt * Vector3(foot_f.x, deck_y(foot_f.y + 0.05 * push_amt), foot_f.y + 0.05 * push_amt)
 	elif push_feet:
-		# rolling fakie the nose end trails: the front foot pushes, and the back foot swivels to point the way it's
-		# going, toward the tail (the regular stride pushed with the leading foot, toward the way it was going)
-		turn_b = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_b.z, -65.0, push_amt)))
+		# the back foot stays on: rolling fakie it leads, toward the tail; a mongo push stands on it pointing at the nose
+		turn_b = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_b.z, 65.0 * push_way, push_amt)))
 		back = bt * Vector3(foot_b.x, deck_y(foot_b.y - 0.05 * push_amt), foot_b.y - 0.05 * push_amt)
-	if not stride.is_empty() and push_way > 0.0:
+	if not stride.is_empty() and not push_front:
 		back = stride[0]
 		turn_b = Basis(Vector3.UP, deg_to_rad(float(stride[1])))
 	elif not stride.is_empty():
@@ -2108,13 +2109,17 @@ func _end_physical() -> void:
 ## Strides in a row (the push held, _chain_out): the foot swings forward beside the board, still in the air, and
 ## comes down for the next push, the way a rider pushes up to speed; only the last one goes back onto the deck. A
 ## stride starts from wherever the foot was last drawn, so the change between the two never jumps.
-func _push_stride(ph: float, bt: Transform3D = Transform3D.IDENTITY, fakie: bool = false) -> Array:
-	var mark: Vector3 = foot_f if fakie else foot_b
+func _push_stride(ph: float, bt: Transform3D = Transform3D.IDENTITY, fakie: bool = false, mongo: bool = false) -> Array:
+	# a mongo push uses the leading foot instead, which steps down on the heel side (the toes face away from it),
+	# a little further forward, beside the front of the board
+	var mark: Vector3 = foot_f if fakie != mongo else foot_b
 	var way: float = -1.0 if fakie else 1.0       # + toward the tail: behind, riding regular
+	var side: float = -1.0 if mongo else 1.0      # + the toe edge's side
+	var fwd: float = 0.06 if mongo else 0.0
 	var deck: Vector3 = bt * Vector3(mark.x, deck_y(mark.y), mark.y)      # (the board as drawn: tilted to the ground)
-	var plant: Vector3 = Vector3(0.22, 0.0, -0.02 * way)
-	var reach: Vector3 = Vector3(0.22, 0.0, 0.55 * way)
-	var ahead: Vector3 = Vector3(0.22, 0.06, -0.16 * way)    # swinging through to the next plant, just off the ground
+	var plant: Vector3 = Vector3(0.22 * side, 0.0, (-0.02 - fwd) * way)
+	var reach: Vector3 = Vector3(0.22 * side, 0.0, (0.55 - fwd) * way)
+	var ahead: Vector3 = Vector3(0.22 * side, 0.06, (-0.16 - fwd) * way)    # swinging through to the next plant
 	var toes: float = 70.0 * way                  # toward the nose (regular) or the tail (fakie): forward
 	var inv: Transform3D = bt.affine_inverse()
 	if _stride_ph < 0.0 or ph < _stride_ph - 0.5:

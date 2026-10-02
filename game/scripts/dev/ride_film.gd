@@ -244,7 +244,8 @@ static func metrics(s: Skater) -> Dictionary:
 		var turn: Basis = f.basis * rg._rest_model[fi].basis.inverse()
 		var sole: Vector3 = inv * (f.origin - turn * rg._ankle_off)
 		var over: bool = absf(sole.x) < HALF_W + 0.03 and absf(sole.z) < HALF_L
-		if side == ("l" if s.stance == "fakie" else "r") and s.push_anim >= 0.0 and s.state == Skater.State.GROUND:
+		var push_l: bool = (s.stance == "fakie") != (rg.push_style == "mongo")     # (which foot pushes)
+		if side == ("l" if push_l else "r") and s.push_anim >= 0.0 and s.state == Skater.State.GROUND:
 			over = false                      # the pushing foot leaves the deck on purpose
 		soles.append([sole.y - RiderRig.deck_y(sole.z), over])
 		# the shin and foot (knee -> ankle -> ball) must stay out of the deck

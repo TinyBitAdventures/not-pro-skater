@@ -66,7 +66,8 @@ func _on_goal(id: String, text: String) -> void:
 		hud.announce(parts[0], Hud.BAD, 1.8, sub)
 		Sound.play("combo_lost")
 	else:
-		hud.announce("Goal: " + text, Hud.GOOD, 2.0)
+		# a goal done for the first time gives every rider a stat point (spent on the title's STATS screen)
+		hud.announce("Goal: " + text, Hud.GOOD, 2.0, "" if runner.saved.has(id) else "+1 stat point")
 		Sound.play("skate_done")
 	_refresh_goals()
 

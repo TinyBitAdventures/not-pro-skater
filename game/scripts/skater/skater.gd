@@ -38,6 +38,11 @@ const GRIND_TIP: Dictionary = {"50-50": 0.85, "Lip Slide": 0.9, "Boardslide": 1.
 
 var state: int = State.GROUND
 var tune: SkateTuning = SkateTuning.shared()
+# who's riding (RiderProfiles): stats 1..10 scale the tuning where it's used (missing = 5, the tuning as it is);
+# style bonuses on the score. Left empty in dev scenes and tests (Game.apply_rider_profile fills them for play)
+var rider_stats: Dictionary = {}
+var terrain: String = ""                  # "street", "vert" or "all" ("": no bonus)
+var signature: Array = []                 # trick names that pay RiderProfiles.SIGNATURE_BONUS
 var inp: SkaterInput = SkaterInput.new()
 var scripted: bool = false
 var score: ScoreKeeper = null
@@ -214,6 +219,11 @@ func _make_visual() -> void:
 	visual.top_level = true
 	add_child(visual)
 	visual.setup()
+	# how the rider stands and pushes (RiderProfiles, the stance setting); STANCE= / PUSH_STYLE= in dev runs win
+	if OS.get_environment("STANCE") == "":
+		visual.goofy = Game.rider_goofy(rider)
+	var push: String = OS.get_environment("PUSH_STYLE")
+	visual.push_style = push if push != "" else String(RiderProfiles.profile(rider)["push"])
 
 
 ## Swap the rider while playing.
@@ -553,7 +563,7 @@ func _ground(dt: float) -> void:
 			if state != State.GROUND:
 				return
 			if score != null:
-				score.hold("manual", dt, Tricks.MANUAL_HOLD_RATE)
+				score.hold("manual", dt, Tricks.MANUAL_HOLD_RATE * style_k("street"))
 
 	var fwd: float = velocity.dot(hdg)
 	var lat: Vector3 = velocity - hdg * fwd
@@ -563,11 +573,12 @@ func _ground(dt: float) -> void:
 	var slope: float = 1.0 - n.y
 	var on_ramp: bool = slope > 0.1
 	var on_grass: bool = surface == "grass"
-	var cap: float = tune.max_pump_speed if on_ramp else tune.max_push_speed
+	var speed_k: float = stat_at("speed", 0.92, 1.08)
+	var cap: float = (tune.max_pump_speed if on_ramp else tune.max_push_speed) * speed_k
 	if on_grass:
 		cap = tune.grass_push_speed
 	if pushing and not braking and not manual_on and fwd < cap:
-		fwd = minf(cap, fwd + (tune.pump_accel if on_ramp else tune.push_accel) * dt)
+		fwd = minf(cap, fwd + (tune.pump_accel if on_ramp else tune.push_accel) * speed_k * dt)
 	if braking:
 		fwd = move_toward(fwd, 0.0, tune.brake_decel * dt)
 	var drag: float = tune.roll_drag if pushing else tune.coast_drag
@@ -610,7 +621,7 @@ func _ground(dt: float) -> void:
 			_ollie(n, pop_speed())
 			return
 	elif _ollie_buf > 0.0:
-		_ollie(n, tune.ollie_speed)
+		_ollie(n, tune.ollie_speed * _pop_k())
 		return
 
 	var vel_before: Vector3 = velocity
@@ -800,7 +811,48 @@ func _surface_from_slide(current: String) -> String:
 
 
 func pop_speed() -> float:
-	return lerpf(tune.pop_min, tune.pop_max, clampf(charge / tune.charge_max, 0.0, 1.0))
+	return lerpf(tune.pop_min, tune.pop_max, clampf(charge / tune.charge_max, 0.0, 1.0)) * _pop_k()
+
+
+## A rider stat's effect (RiderProfiles.at): `at1` at 1, `at5` (no change) at 5, `at10` at 10.
+func stat_at(stat: String, at1: float, at10: float, at5: float = 1.0) -> float:
+	return RiderProfiles.at(int(rider_stats.get(stat, 5)), at1, at5, at10)
+
+
+## Ollie: pop height 8% either way (the speed goes with its square root).
+func _pop_k() -> float:
+	return stat_at("ollie", sqrt(0.92), sqrt(1.08))
+
+
+## Landing: 6 degrees more (or less) crooked still lands clean, and still lands at all.
+func bail_rad() -> float:
+	return tune.bail_angle_rad() + deg_to_rad(stat_at("landing", -6.0, 6.0, 0.0))
+
+
+func assist_deg() -> float:
+	return tune.assist_angle + stat_at("landing", -6.0, 6.0, 0.0)
+
+
+## Style on the score: a trick on the rider's own terrain ("street" / "vert") pays 20% more, an all-rounder 8% on
+## everything, a signature trick 50%.
+func style_k(where: String, trick: String = "") -> float:
+	var k: float = 1.0
+	if terrain == "all":
+		k *= RiderProfiles.ALL_ROUND_BONUS
+	elif terrain != "" and terrain == where:
+		k *= RiderProfiles.TERRAIN_BONUS
+	if trick != "" and signature.has(trick):
+		k *= RiderProfiles.SIGNATURE_BONUS
+	return k
+
+
+func _styled(points: int, where: String, trick: String = "") -> int:
+	return int(round(points * style_k(where, trick)))
+
+
+## Where an air trick happens: out of a ramp (vert) or off the flat / a ledge (street).
+func _air_where() -> String:
+	return "vert" if vert_air else "street"
 
 
 func charge_frac() -> float:
@@ -860,7 +912,7 @@ func _maybe_vert(_popped: bool) -> void:
 		return
 	# the float and the lip's pop damping belong to steep take-offs: a hop from low on the face stays a hop
 	var steep: float = clampf((0.8 - n.y) / (0.8 - tune.vert_normal_y), 0.0, 1.0)
-	_vert_gs = lerpf(1.0, tune.vert_gravity_scale, steep)
+	_vert_gs = lerpf(1.0, tune.vert_gravity_scale, steep) / stat_at("air", 0.9, 1.1)    # (Air: height out of a ramp)
 	vert_air = true
 	vert_out = out
 	_vert_plane = global_position.dot(out)
@@ -927,7 +979,7 @@ func _air(dt: float) -> void:
 	air_time += dt
 	var grav: float = tune.air_gravity_up if velocity.y > 0.0 else tune.air_gravity_down
 	if absf(velocity.y) < tune.apex_hang_speed:
-		grav *= tune.apex_hang_gravity        # a little float at the top of every jump
+		grav *= tune.apex_hang_gravity * stat_at("hang", 1.18, 0.82)   # a little float at the top of every jump
 	if vert_air:
 		grav *= _vert_gs                      # vert airs hang: that is where the big tricks happen
 	velocity.y -= grav * dt
@@ -945,7 +997,7 @@ func _air(dt: float) -> void:
 	# spin comes from the stick's sideways part relative to the take-off heading, so holding the stick
 	# in the direction of travel does not spin the board (tank mode: the raw stick x, as before)
 	var lateral: float = inp.move.x if Game.steer_mode == "tank" else inp.world_dir.dot(_air_ref.cross(Vector3.UP))
-	var target: float = -lateral * tune.spin_max
+	var target: float = -lateral * tune.spin_max * stat_at("spin", 0.85, 1.15)
 	spin_vel = move_toward(spin_vel, target, tune.spin_accel * dt)
 	yaw += spin_vel * dt
 	spin_total += spin_vel * dt
@@ -982,7 +1034,7 @@ func _air(dt: float) -> void:
 			sfx.emit("ollie")
 	elif _ollie_buf > 0.0 and _coyote > 0.0:
 		_ollie_buf = 0.0
-		velocity.y = maxf(velocity.y, tune.ollie_speed * 0.85)
+		velocity.y = maxf(velocity.y, tune.ollie_speed * 0.85 * _pop_k())
 		_coyote = 0.0
 		pop_at = air_time
 		sfx.emit("ollie")
@@ -994,11 +1046,11 @@ func _air(dt: float) -> void:
 		flip_t = 0.0
 		sfx.emit("flip")
 	if flip_kind != "":
-		flip_t += dt / tune.flip_time
+		flip_t += dt / (tune.flip_time * stat_at("flip", 1.15, 0.85))
 		if flip_t >= 1.0:
 			var e2: Array = Tricks.FLIPS[flip_kind]
 			if score != null:
-				score.add_trick(String(e2[0]), int(e2[1]))
+				score.add_trick(String(e2[0]), _styled(int(e2[1]), _air_where(), String(e2[0])))
 			sfx.emit("trick")
 			flip_kind = ""
 			flip_t = 0.0
@@ -1009,10 +1061,10 @@ func _air(dt: float) -> void:
 			grab_kind = word2
 			var g: Array = Tricks.GRABS[word2]
 			if score != null:
-				score.add_trick(String(g[0]), int(g[1]))
+				score.add_trick(String(g[0]), _styled(int(g[1]), _air_where(), String(g[0])))
 			sfx.emit("grab")
 		if grab_kind != "" and score != null:
-			score.hold("grab", dt, Tricks.GRAB_HOLD_RATE)
+			score.hold("grab", dt, Tricks.GRAB_HOLD_RATE * style_k(_air_where(), String(Tricks.GRABS.get(grab_kind, [""])[0])))
 	elif grab_kind != "":
 		grab_kind = ""
 		if score != null:
@@ -1089,7 +1141,7 @@ func _wallplant() -> void:
 	wallplant_t = 0.3
 	air_time = maxf(air_time, 0.3)
 	if score != null:
-		score.add_trick("Wallplant", 250)
+		score.add_trick("Wallplant", _styled(250, "street"))
 	sfx.emit("ollie")
 	sfx.emit("trick")
 
@@ -1144,11 +1196,11 @@ func _land() -> void:
 		err = PI - a if backwards else a
 	var was_air: float = air_time
 	var was_vert: bool = vert_air
-	if was_air > 0.25 and err > tune.bail_angle_rad():
+	if was_air > 0.25 and err > bail_rad():
 		_start_bail("sideways", err)
 		return
 	var kind: String = "clean"
-	if was_air > 0.25 and err > deg_to_rad(tune.assist_angle):
+	if was_air > 0.25 and err > deg_to_rad(assist_deg()):
 		kind = "sketchy"
 		velocity *= tune.sketchy_keep
 	if ref != Vector3.ZERO:
@@ -1163,13 +1215,13 @@ func _land() -> void:
 		score.release_hold("grab")
 		if flip_kind != "" and flip_t >= 0.7:      # landed a flip that was nearly round: count it
 			var ef: Array = Tricks.FLIPS[flip_kind]
-			score.add_trick(String(ef[0]), int(ef[1]))
+			score.add_trick(String(ef[0]), _styled(int(ef[1]), _air_where(), String(ef[0])))
 		if was_air > 0.15:
 			var units: int = int(round(absf(spin_total) / PI))
-			if units >= 1 and err < tune.bail_angle_rad():
-				score.add_trick(Tricks.spin_name(units), Tricks.spin_points(units))
+			if units >= 1 and err < bail_rad():
+				score.add_trick(Tricks.spin_name(units), _styled(Tricks.spin_points(units), _air_where()))
 			if was_air > 1.1:
-				score.add_trick("Big Air", 300)
+				score.add_trick("Big Air", _styled(300, _air_where()))
 			score.landed()
 	# line the board up with where it is going (landing assist); backwards landings roll away fakie
 	var face: Vector3 = ref if ref != Vector3.ZERO else heading
@@ -1289,7 +1341,7 @@ func _start_manual(kind: String) -> void:
 	_balance_vel = 0.25 * (1.0 if randf() < 0.5 else -1.0)
 	_manual_req = ""
 	if score != null:
-		score.add_trick("Manual" if kind == "manual" else "Nose Manual", 150 if kind == "manual" else 200)
+		score.add_trick("Manual" if kind == "manual" else "Nose Manual", _styled(150 if kind == "manual" else 200, "street"))
 	sfx.emit("manual")
 
 
@@ -1305,7 +1357,7 @@ func _end_manual() -> void:
 ## manual; in a nose manual up lowers the tail). Past either end the rider falls off: a small bail.
 func _balance_manual(dt: float) -> void:
 	_manual_time += dt
-	var wobble: float = tune.manual_wobble * (1.0 + _manual_time * tune.manual_wobble_growth)
+	var wobble: float = tune.manual_wobble * stat_at("manual", 1.25, 0.75) * (1.0 + _manual_time * tune.manual_wobble_growth)
 	var input: float = inp.move.y if manual_kind == "manual" else -inp.move.y
 	_balance_vel += (manual_balance * wobble - input * tune.manual_control) * dt
 	manual_balance += _balance_vel * dt
@@ -1321,7 +1373,7 @@ func _revert() -> void:
 	_revert_t = 0.0
 	stance = "regular" if stance == "fakie" else "fakie"
 	if score != null and score.live:
-		score.add_trick("Revert", 100)
+		score.add_trick("Revert", _styled(100, "vert"))
 		score.landed()
 	landing.emit("revert")
 	sfx.emit("trick")
@@ -1411,7 +1463,7 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 			base = 350
 		elif gname == "Lip Slide":
 			base = 250
-		score.add_trick(gname, base)
+		score.add_trick(gname, _styled(base, "vert" if line.kind == "coping" else "street", gname))
 	sfx.emit("grind_start")
 	_snap_to(line.point_at(grind_dist) + Vector3.UP * GRIND_ORIGIN_DY)
 	velocity = d * grind_dir * grind_speed
@@ -1431,7 +1483,7 @@ func _grind(dt: float) -> void:
 	grind_dist += grind_dir * grind_speed * dt
 	stats["grind_time"] += dt
 	if score != null:
-		score.hold("grind", dt, Tricks.GRIND_HOLD_RATE)
+		score.hold("grind", dt, Tricks.GRIND_HOLD_RATE * style_k("vert" if grind_line != null and grind_line.kind == "coping" else "street", grind_kind))
 	var fd: Vector3 = -d if stance == "fakie" else d       # a fakie grind stays fakie off the end
 	yaw = atan2(-fd.x, -fd.z)
 	hdg = Vector3(d.x, 0.0, d.z).normalized() if Vector2(d.x, d.z).length() > 0.01 else hdg
@@ -1465,7 +1517,8 @@ func _balance_grind(d: Vector3, dt: float) -> bool:
 	_grind_time += dt
 	var across: Vector3 = _grind_across(d)
 	var input: float = inp.world_dir.dot(across)      # tank steering fills world_dir relative to the board too
-	var wobble: float = tune.grind_wobble * float(GRIND_TIP.get(grind_kind, 1.0)) * (1.0 + _grind_time * tune.grind_wobble_growth)
+	var wobble: float = tune.grind_wobble * stat_at("rails", 1.25, 0.75) * float(GRIND_TIP.get(grind_kind, 1.0)) \
+		* (1.0 + _grind_time * tune.grind_wobble_growth)
 	_grind_bal_vel += (grind_balance * wobble + input * tune.grind_control) * dt
 	grind_balance += _grind_bal_vel * dt
 	if absf(grind_balance) < 1.0:
@@ -1488,7 +1541,7 @@ func _balance_grind(d: Vector3, dt: float) -> bool:
 func _end_grind(pop: bool) -> void:
 	var d: Vector3 = grind_line.dir_at(clampf(grind_dist, 0.0, grind_line.length)) * grind_dir
 	velocity = d * grind_speed
-	velocity.y = maxf(velocity.y, 0.0) + (tune.ollie_speed * 0.9 if pop else 2.5)
+	velocity.y = maxf(velocity.y, 0.0) + (tune.ollie_speed * 0.9 * _pop_k() if pop else 2.5)
 	_snap_to(global_position + Vector3.UP * 0.25)
 	if score != null:
 		score.release_hold("grind")
@@ -1581,7 +1634,7 @@ func _start_lip(line: GrindLine, c: Dictionary, out: Vector3) -> void:
 	stats["grinds"] += 1
 	if score != null:
 		score.release_hold("grab")
-		score.add_trick(lip_kind, int(entry[1]))
+		score.add_trick(lip_kind, _styled(int(entry[1]), "vert"))
 	sfx.emit("grind_start")
 
 
@@ -1589,12 +1642,12 @@ func _lip(dt: float) -> void:
 	_lip_time += dt
 	velocity = Vector3.ZERO
 	if score != null:
-		score.hold("grind", dt, Tricks.LIP_HOLD_RATE)
+		score.hold("grind", dt, Tricks.LIP_HOLD_RATE * style_k("vert"))
 	# balance: tips away faster and faster; the stick left / right (across the coping) shifts the weight back
 	# (like grinds: lean the other way from the tip)
 	var across: Vector3 = hdg.cross(Vector3.UP).normalized()
 	var input: float = inp.move.x if Game.steer_mode == "tank" else inp.world_dir.dot(across)
-	var wobble: float = tune.lip_wobble * (1.0 + _lip_time * 0.35)
+	var wobble: float = tune.lip_wobble * stat_at("lip", 1.25, 0.75) * (1.0 + _lip_time * 0.35)
 	_lip_vel += (lip_balance * wobble + input * tune.lip_control) * dt
 	lip_balance += _lip_vel * dt
 	if absf(lip_balance) > 1.0:
@@ -1694,7 +1747,7 @@ func _start_wallride(n: Vector3, along: Vector3, vy: float) -> void:
 	velocity = _wallride_along * _wallride_speed + Vector3.UP * clampf(vy, -0.5, 2.5)      # (the wall checks a fall)
 	if score != null:
 		score.release_hold("grab")
-		score.add_trick("Wallride", 200)
+		score.add_trick("Wallride", _styled(200, "street"))
 	sfx.emit("wallride")
 
 
@@ -1705,7 +1758,7 @@ func _wallride(dt: float) -> void:
 	_wallride_speed = maxf(0.0, _wallride_speed - tune.wallride_friction * dt)
 	var vy: float = velocity.y - tune.gravity * tune.wallride_gravity * dt
 	if score != null:
-		score.hold("wallride", dt, Tricks.WALLRIDE_HOLD_RATE)
+		score.hold("wallride", dt, Tricks.WALLRIDE_HOLD_RATE * style_k("street"))
 	if _pop_asked():
 		_end_wallride(true)
 		return
@@ -1750,7 +1803,7 @@ func _end_wallride(pop: bool) -> void:
 	if pop:
 		v = _wallride_along * _wallride_speed + wall_n * tune.wallie_push + Vector3.UP * (maxf(velocity.y, 0.0) + tune.wallie_pop)
 		if score != null:
-			score.add_trick("Wallie", 250)
+			score.add_trick("Wallie", _styled(250, "street"))
 		sfx.emit("ollie")
 	state = State.AIR
 	floor_snap_length = 0.0
@@ -1791,7 +1844,7 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 	if reason == "crash":
 		sev += 0.25
 	if err > 0.0:
-		sev += clampf((err - tune.bail_angle_rad()) / maxf(PI * 0.5 - tune.bail_angle_rad(), 0.1), 0.0, 1.0) * 0.2
+		sev += clampf((err - bail_rad()) / maxf(PI * 0.5 - bail_rad(), 0.1), 0.0, 1.0) * 0.2
 	bail_severity = clampf(sev, 0.0, 1.0)
 	if bail_severity < tune.runout_below and reason != "crash" and reason != "grind":
 		bail_kind = "runout"

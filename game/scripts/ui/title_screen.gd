@@ -5,7 +5,7 @@ extends Node3D
 
 const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
 const SPOT: Vector3 = Vector3(-18.0, 0.02, 4.0)      # where the rider stands: by the mini ramp, in the late sun
-const ITEMS: Array[String] = ["event", "free", "practice", "rider", "stance", "steer", "jump", "music", "controls"]
+const ITEMS: Array[String] = ["event", "free", "practice", "rider", "stats", "stance", "steer", "jump", "music", "controls"]
 const PLAY_ITEMS: int = 3                # the big entries (things to play) before the settings
 
 var items: Array[String] = []         # ITEMS, plus Quit on desktop
@@ -18,9 +18,12 @@ var row_labels: Array[Label] = []
 var row_values: Array[Label] = []
 var selected: int = 0
 var controls_layer: Control
+var stats_screen: StatsScreen
 var progress_label: Label
 var rider_name: Label
 var rider_blurb: Label
+var rider_style: Label            # stance, push, terrain; then the signature tricks
+var rider_sig: Label
 var _hint: Control
 var _hint_root: Control
 var _col: VBoxContainer          # the logo and menu column, tightened in short windows (_fit_layout)
@@ -65,7 +68,7 @@ func _spawn_rider() -> void:
 	# chest to the sun (a regular rider's chest faces the board's right, a goofy one's its left): lit from the
 	# front on the title
 	var sun_h: Vector3 = _sun_h()
-	var hdg: Vector3 = Vector3.UP.cross(sun_h) * (-1.0 if Game.stance == "goofy" else 1.0)
+	var hdg: Vector3 = Vector3.UP.cross(sun_h) * (-1.0 if Game.rider_goofy(Game.rider) else 1.0)
 	var spot: Vector3 = SPOT
 	if OS.get_environment("TITLE_AT") != "":
 		var p: PackedStringArray = OS.get_environment("TITLE_AT").split(",")
@@ -195,6 +198,12 @@ func _build_ui() -> void:
 	rider_blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	rider_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.add_child(rider_blurb)
+	rider_style = UiKit.label("", 20, UiKit.ACCENT, "bold")
+	rider_style.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	card.add_child(rider_style)
+	rider_sig = UiKit.label("", 20, UiKit.MUTED, "bold")
+	rider_sig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	card.add_child(rider_sig)
 
 	_hint_root = root
 	_build_hints()
@@ -217,6 +226,9 @@ func _build_ui() -> void:
 	cc.add_child(p)
 	controls_layer.visible = false
 	root.add_child(controls_layer)
+	stats_screen = StatsScreen.new()
+	stats_screen.closed.connect(_refresh)
+	root.add_child(stats_screen)
 	_refresh()
 
 
@@ -224,11 +236,11 @@ func _build_ui() -> void:
 ## logo pushes Quit under the key hints: a smaller logo and tighter gaps keep the menu clear of them.
 func _fit_layout() -> void:
 	var short: bool = get_viewport().get_visible_rect().size.y < 860.0
-	_col.position.y = 26.0 if short else 64.0
+	_col.position.y = 14.0 if short else 64.0
 	for l in _logo.get_children():
-		(l as Label).add_theme_font_size_override("font_size", 72 if short else 108)
-	_logo.add_theme_constant_override("separation", -23 if short else -34)
-	_logo_gap.custom_minimum_size.y = 12.0 if short else 34.0
+		(l as Label).add_theme_font_size_override("font_size", 62 if short else 108)   # (room for the stance and stats rows)
+	_logo.add_theme_constant_override("separation", -20 if short else -34)
+	_logo_gap.custom_minimum_size.y = 6.0 if short else 34.0
 	for i in _gaps.size():
 		_gaps[i].custom_minimum_size.y = (8.0 if short else 18.0) if i < _gaps.size() - 1 else (10.0 if short else 22.0)
 	_col.reset_size()
@@ -249,6 +261,7 @@ func _on_update_found(_tag: String) -> void:
 	if selected >= at:
 		selected += 1
 	var showing_controls: bool = controls_layer.visible
+	var showing_stats: bool = stats_screen.visible
 	ui.queue_free()
 	rows.clear()
 	row_labels.clear()
@@ -257,6 +270,8 @@ func _on_update_found(_tag: String) -> void:
 	_build_ui()
 	_fit_layout()
 	controls_layer.visible = showing_controls
+	if showing_stats:
+		stats_screen.open(Game.rider)
 
 
 func _build_hints() -> void:
@@ -275,13 +290,14 @@ func _refresh() -> void:
 	var ev: Dictionary = Events.get_event(Game.event_choice)
 	var level_name: String = String(_level()["name"])
 	var names: Dictionary = {"event": String(ev["title"]), "free": "Free Skate", "practice": "Practice",
-		"rider": "Rider", "stance": "Stance", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls",
+		"rider": "Rider", "stats": "Stats", "stance": "Stance", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls",
 		"update": "New version", "quit": "Quit"}
 	var values: Dictionary = {
 		"event": "%d / %d" % [Events.ALL.find(Game.event_choice) + 1, Events.ALL.size()],
 		"free": level_name,
 		"rider": Game.rider_name(Game.rider),
-		"stance": "Goofy" if Game.stance == "goofy" else "Regular",
+		"stats": ("%d to spend" % Game.stat_points_free(Game.rider)) if Game.stat_points_free(Game.rider) > 0 else "",
+		"stance": {"own": "Rider's own", "regular": "Regular", "goofy": "Goofy"}[Game.stance],
 		"steer": "Skater" if Game.steer_mode == "tank" else "Screen",
 		"jump": "Hold, release" if Game.jump_mode == "hold" else "Tap",
 		"music": {"cruise": "Themes", "hype": "Hype", "off": "Off"}[Game.music_choice],
@@ -293,7 +309,7 @@ func _refresh() -> void:
 		row_labels[i].text = ("›  " if on else "") + String(names[key]).to_upper()
 		row_labels[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.88))
 		var val: String = String(values.get(key, ""))
-		row_values[i].text = ("‹  %s  ›" % val) if (on and val != "" and key != "update") else val
+		row_values[i].text = ("‹  %s  ›" % val) if (on and val != "" and key != "update" and key != "stats") else val
 		row_values[i].add_theme_color_override("font_color", UiKit.ACCENT if on else Color(UiKit.PAPER, 0.8))
 	# the chosen event: whose home it is, its goals so far and the best; then every event's goals together
 	var home: String = String(Events.HOME.get(Game.event_choice, ""))
@@ -318,8 +334,12 @@ func _refresh() -> void:
 		"practice":
 			lines[0] = "THE GREY TEST LEVEL: EVERY RAMP AND RAIL IN ROWS"
 		"stance":
-			lines[0] = "RIGHT FOOT FORWARD, PUSHING WITH THE LEFT" if Game.stance == "goofy" else \
-				"LEFT FOOT FORWARD, PUSHING WITH THE RIGHT"
+			var g: bool = Game.rider_goofy(Game.rider)
+			lines[0] = ("%s RIDES %s" % [Game.rider_name(Game.rider).to_upper(), "GOOFY" if g else "REGULAR"]) \
+				if Game.stance == "own" else ("EVERY RIDER " + ("GOOFY: RIGHT FOOT FORWARD" if g else "REGULAR: LEFT FOOT FORWARD"))
+		"stats":
+			var free: int = Game.stat_points_free(Game.rider)
+			lines[0] = "%d POINT%s TO SPEND: ONE FOR EVERY EVENT GOAL DONE" % [free, "" if free == 1 else "S"]
 		"update":
 			lines[0] = "%s IS OUT (YOU HAVE V%s): OPENS THE DOWNLOAD PAGE IN YOUR BROWSER" % [Game.update_tag.to_upper(),
 				Game.version()]
@@ -335,6 +355,10 @@ func _refresh() -> void:
 	progress_label.text = "\n".join(lines)
 	rider_name.text = Game.rider_name(Game.rider).to_upper()
 	rider_blurb.text = String(Game.RIDER_INFO.get(Game.rider, {}).get("blurb", ""))
+	var p: Dictionary = RiderProfiles.profile(Game.rider)
+	rider_style.text = "%s  ·  %s PUSH  ·  %s" % ["GOOFY" if Game.rider_goofy(Game.rider) else "REGULAR",
+		String(p["push"]).to_upper(), String(RiderProfiles.TERRAIN_NAMES[String(p["terrain"])]).to_upper()]
+	rider_sig.text = "SIGNATURE  " + "  ·  ".join(PackedStringArray(p["signature"])).to_upper()
 
 
 func _hover(i: int) -> void:
@@ -350,6 +374,10 @@ func _click(event: InputEvent, i: int) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if stats_screen.visible:
+		if stats_screen.handle(event):
+			get_viewport().set_input_as_handled()
+		return
 	if controls_layer.visible:
 		if event.is_action_pressed("pause") or event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
 			controls_layer.visible = false
@@ -403,7 +431,8 @@ func _change(step: int) -> void:
 			Game.save()
 			_spawn_rider()
 		"stance":
-			Game.stance = "regular" if Game.stance == "goofy" else "goofy"
+			var order: Array[String] = ["own", "regular", "goofy"]
+			Game.stance = order[posmod(order.find(Game.stance) + step, order.size())]
 			Game.save()
 			_spawn_rider()
 		"steer":
@@ -431,6 +460,8 @@ func _activate(step: int) -> void:
 			Game.go(PRACTICE_SCENE)
 		"controls":
 			controls_layer.visible = true
+		"stats":
+			stats_screen.open(Game.rider)
 		"update":
 			OS.shell_open(Game.update_url)
 		"quit":

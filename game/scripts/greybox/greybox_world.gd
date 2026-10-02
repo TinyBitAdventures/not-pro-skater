@@ -39,6 +39,7 @@ func _ready() -> void:
 	cam = _make_camera(sun)
 	skater = Skater.new()
 	skater.rider = OS.get_environment("RIDER") if OS.get_environment("RIDER") != "" else Game.rider
+	Game.apply_rider_profile(skater)
 	skater.score = score
 	skater.cam = cam
 	skater.grind_lines = level.grind_lines
@@ -143,6 +144,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var carried: Node3D = skater.visual.get("carry_item") if skater.visual != null else null
 		var i: int = (Game.RIDERS.find(skater.rider) + 1) % Game.RIDERS.size()
 		skater.set_rider(Game.RIDERS[i])
+		Game.apply_rider_profile(skater)
 		if carried != null and skater.visual != null:
 			skater.visual.set("carry_item", carried)     # the new rider holds the cake (the pizzas, ...) too
 		hud.announce(Game.rider_name(Game.RIDERS[i]), Hud.PAPER, 1.0)

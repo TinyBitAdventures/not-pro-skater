@@ -10,7 +10,8 @@ var jump_mode: String = "hold"   # "hold" = crouch while held, jump on release (
 var music_choice: String = "cruise"   # "cruise" (125 BPM), "hype" (131) or "off"; see docs/audio_credits_music.md
 var master_volume: float = 0.8
 var rider: String = "dev"          # the playable character (assets/characters/<rider>.glb)
-var stance: String = "regular"     # "regular" (left foot forward) or "goofy" (right foot forward): RiderRig.goofy
+var stance: String = "own"         # "own" (each rider's, RiderProfiles), "regular" (left foot forward) or "goofy"
+var stat_spent: Dictionary = {}    # rider -> {stat: points spent raising it} (RiderProfiles; points come from goals)
 var event_choice: String = "birthday"   # the event the title menu's EVENT row is on
 var level_choice: String = "park"       # the level the title menu's FREE SKATE row is on
 
@@ -336,7 +337,8 @@ func load_save() -> void:
 		jump_mode = cfg.get_value("settings", "jump_mode", "hold")
 	master_volume = cfg.get_value("settings", "master_volume", 0.8)
 	rider = cfg.get_value("settings", "rider", "dev")
-	stance = cfg.get_value("settings", "stance", "regular")
+	stance = cfg.get_value("settings", "stance", "own")
+	stat_spent = _valid_spent(cfg.get_value("progress", "stat_spent", {}))
 	event_choice = cfg.get_value("settings", "event_choice", "birthday")
 	if not Events.ALL.has(event_choice):
 		event_choice = "birthday"
@@ -350,8 +352,8 @@ func load_save() -> void:
 		steer_mode = "tank"
 	if not ["hold", "tap"].has(jump_mode):
 		jump_mode = "hold"
-	if not ["regular", "goofy"].has(stance):
-		stance = "regular"
+	if not ["own", "regular", "goofy"].has(stance):
+		stance = "own"
 	if not Events.LEVELS.any(func(lv: Dictionary) -> bool: return lv["id"] == level_choice):
 		level_choice = "park"
 	master_volume = clampf(float(master_volume), 0.0, 1.0)
@@ -377,6 +379,7 @@ func save() -> void:
 	cfg.set_value("settings", "master_volume", master_volume)
 	cfg.set_value("settings", "rider", rider)
 	cfg.set_value("settings", "stance", stance)
+	cfg.set_value("progress", "stat_spent", stat_spent)
 	cfg.set_value("settings", "event_choice", event_choice)
 	cfg.set_value("settings", "level_choice", level_choice)
 	cfg.set_value("update", "check", check_updates)
@@ -391,6 +394,78 @@ var goals: Dictionary = {}         # event id -> {goal id: true}
 
 func event_goals(event_id: String) -> Dictionary:
 	return goals.get(event_id, {}).duplicate()
+
+
+## Stat points: every event goal done (by anyone) gives each rider a point to spend on their own stats.
+func stat_points_earned() -> int:
+	var n: int = 0
+	for e in goals:
+		n += (goals[e] as Dictionary).size()
+	return n
+
+
+func stat_points_free(key: String) -> int:
+	var used: int = 0
+	for v in (stat_spent.get(key, {}) as Dictionary).values():
+		used += int(v)
+	return stat_points_earned() - used
+
+
+## The rider's stats now: their own plus the points spent.
+func rider_stats(key: String) -> Dictionary:
+	return RiderProfiles.with_spent(key, stat_spent.get(key, {}))
+
+
+## Raise a stat a point (`step` 1, while there are points and room) or take a spent point back (`step` -1).
+## Returns whether it changed.
+func spend_stat(key: String, stat: String, step: int) -> bool:
+	var spent: Dictionary = (stat_spent.get(key, {}) as Dictionary).duplicate()
+	var have: int = int(spent.get(stat, 0))
+	var now: int = int(rider_stats(key)[stat])
+	if step > 0 and (stat_points_free(key) <= 0 or now >= RiderProfiles.MAX):
+		return false
+	if step < 0 and have <= 0:
+		return false
+	spent[stat] = have + step
+	if int(spent[stat]) == 0:
+		spent.erase(stat)
+	stat_spent[key] = spent
+	save()
+	return true
+
+
+## Right foot forward? The stance setting, or the rider's own.
+func rider_goofy(key: String) -> bool:
+	if stance == "own":
+		return String(RiderProfiles.profile(key)["stance"]) == "goofy"
+	return stance == "goofy"
+
+
+## Who the skater is for play: stats and the scoring style. (Stance and push style are drawn for every skater,
+## Skater._make_visual.) Dev scenes and screenshot runs keep the tuning as it is unless PROFILE=1.
+func apply_rider_profile(sk: Skater) -> void:
+	if is_dev_run() and OS.get_environment("PROFILE") == "":
+		return
+	sk.rider_stats = rider_stats(sk.rider)
+	var p: Dictionary = RiderProfiles.profile(sk.rider)
+	sk.terrain = String(p["terrain"])
+	sk.signature = (p["signature"] as Array).duplicate()
+
+
+## A save's spent points, kept to riders and stats that exist (a corrupt or future save must not break the menu).
+static func _valid_spent(v: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	if not (v is Dictionary):
+		return out
+	for key in v:
+		if not RIDERS.has(String(key)) or not (v[key] is Dictionary):
+			continue
+		var d: Dictionary = {}
+		for stat in v[key]:
+			if RiderProfiles.STATS.has(String(stat)) and int(v[key][stat]) > 0:
+				d[String(stat)] = int(v[key][stat])
+		out[String(key)] = d
+	return out
 
 
 func record_goal(event_id: String, goal_id: String) -> void:

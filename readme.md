@@ -34,7 +34,9 @@ Two steering styles (pick one in the title menu; saved):
 | R | Reset to the start |
 | Esc | Pause (resume, restart, controls, quit to title) |
 
-Stance (**Regular**, left foot forward, or **Goofy**, right foot forward), steering, jump style (hold-release or instant tap) and music are in the title menu. Music **Themes** plays each place's own soundtrack (Launch Day's lo-fi synthwave, Record Release's hip-hop funk, Rush Hour's upbeat electronic, Between Takes' orchestral score; the cruise theme in the park and at the school), **Hype** plays the harder track everywhere, **Off** is off.
+Stance (**Rider's own**, or every rider **Regular**, left foot forward, or **Goofy**, right foot forward), steering, jump style (hold-release or instant tap) and music are in the title menu.
+
+**Riders have stats and a style.** Ten stats from 1 to 10 (Ollie, Air, Hang time, Speed, Spin, Flip, Landing, Rail, Lip and Manual balance; 5 is the game's own feel, and no rider is so weak that a goal goes out of reach), and each rider starts with their own strengths. Every event goal done for the first time gives every rider a stat point, spent on the title's **Stats** screen (right raises a stat, left takes a point back). Each rider also has a stance, a push (regular, or mongo: the front foot pushes), a terrain (street or vert tricks pay 20% more; an all-rounder gets 8% on everything) and three signature tricks that pay 50% more. The rider card shows them all. Profiles live in `scripts/skater/rider_profiles.gd`; `scenes/dev_stats.tscn` checks them, the points and that the stats really move the physics. Music **Themes** plays each place's own soundtrack (Launch Day's lo-fi synthwave, Record Release's hip-hop funk, Rush Hour's upbeat electronic, Between Takes' orchestral score; the cruise theme in the park and at the school), **Hype** plays the harder track everywhere, **Off** is off.
 
 **Riding a half pipe:** roll into the ramp with W held, keep Space held as you climb the face (the POP meter fills), release at the lip for a big air, spin with A / D, add J or K for tricks, then land back on the transition and pump again. Bigger ramps need more speed: keep pumping.
 
