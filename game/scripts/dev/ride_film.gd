@@ -234,7 +234,7 @@ static func metrics(s: Skater) -> Dictionary:
 	var out: Dictionary = {}
 	if rg == null or rg._walk_mode or rg.phys_phase != "":
 		return out
-	var bt: Transform3D = rg.board.transform
+	var bt: Transform3D = rg.board_logic            # (the worked-out pose: goofy draws both mirrored)
 	var inv: Transform3D = bt.affine_inverse()
 	var soles: Array = []
 	var cut: int = 0
@@ -277,7 +277,7 @@ static func metrics(s: Skater) -> Dictionary:
 		var space: PhysicsDirectSpaceState3D = rg.get_world_3d().direct_space_state
 		for wx in [-LooseBoard.WHEEL_X, LooseBoard.WHEEL_X]:
 			for wz in [-LooseBoard.TRUCK_Z, LooseBoard.TRUCK_Z]:
-				var p2: Vector3 = rg.global_transform * (bt * Vector3(wx, 0.0, wz))
+				var p2: Vector3 = rg.global_transform * (rg.board.transform * Vector3(wx, 0.0, wz))   # (as drawn)
 				var up: Vector3 = rg.global_transform.basis.y.normalized()     # the drawn frame's up
 				var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(p2 + up * 0.3, p2 - up * 0.5, 1)
 				var hit: Dictionary = space.intersect_ray(q)

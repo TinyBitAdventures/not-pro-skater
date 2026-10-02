@@ -59,6 +59,8 @@ const CURL_SIGN: float = -1.0            # which way the palm faces (set by eye;
 const GAIT_START: float = 0.26           # set off with the left foot under the body (mid-stance), the right one lifting
 const CARRY_OFFSET: Vector3 = Vector3(0.36, -0.4, 0.0)   # shoulders' midpoint -> the carried thing (chest is +X)
 const CARRY_HALF_W: float = 0.17
+const MX: Basis = Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1))   # across the board (goofy = this mirror)
+const MS: Basis = Basis(Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, -1))   # the body's own left / right
 
 var char_key: String = "dev"
 var model: Node3D
@@ -116,6 +118,14 @@ var _stride_ph: float = -1.0             # the stride phase last drawn (a drop =
 var vis_n: Vector3 = Vector3.UP
 var _t: float = 0.0
 var carry_item: Node3D = null            # something held in both hands in front of the belly (the cake)
+# goofy (right foot forward): the rig works out a regular rider as always and _flush() draws it mirrored across
+# the board's long axis, left and right swapped (on foot: across the body, so it still walks forward)
+var goofy: bool = false
+var board_logic: Transform3D = Transform3D.IDENTITY   # the board as worked out (board.transform is it drawn)
+var _twin: PackedInt32Array = PackedInt32Array()     # each bone's other-side twin (itself down the middle)
+var _mir_s: Array[Basis] = []                         # per bone: maps its twin's mirrored frame onto its own
+var _order: PackedInt32Array = PackedInt32Array()     # bones, parents first
+var _logic_local: Array[Transform3D] = []             # each bone's local pose as worked out (before the mirror)
 
 # physical bails: ragdoll fall -> get up (blend from the fallen pose) -> walk to the loose board -> step on
 var ragdoll: Ragdoll
@@ -177,6 +187,8 @@ var _look_back: float = 0.0
 
 
 func setup(_look: Dictionary = {}) -> void:
+	var stance: String = OS.get_environment("STANCE") if OS.get_environment("STANCE") != "" else Game.stance
+	goofy = stance == "goofy"
 	model = Node3D.new()
 	model.name = "Rider"
 	add_child(model)
@@ -200,6 +212,7 @@ func setup(_look: Dictionary = {}) -> void:
 		_rest_local[i] = skel.get_bone_rest(i)
 		_rest_model[i] = _m * skel.get_bone_global_rest(i)
 		_b[skel.get_bone_name(i)] = i
+	_setup_mirror()
 	for side in ["l", "r"]:
 		var th: Vector3 = _rest_model[_b["thigh_" + side]].origin
 		var ca: Vector3 = _rest_model[_b["calf_" + side]].origin
@@ -415,7 +428,7 @@ func _ground_fit(sk: Skater, dt: float) -> void:
 			var back: float = (h[2] + h[3]) * 0.5
 			var heel: float = (h[0] + h[2]) * 0.5     # x -: the heel edge
 			var toe: float = (h[1] + h[3]) * 0.5
-			want = Vector3(rad_to_deg(atan2(front - back, 2.0 * AXLE.y)), rad_to_deg(atan2(toe - heel, 2.0 * LooseBoard.WHEEL_X)),
+			want = Vector3(rad_to_deg(atan2(front - back, 2.0 * AXLE.y)), rad_to_deg(atan2(toe - heel, 2.0 * LooseBoard.WHEEL_X)) * (-1.0 if goofy else 1.0),
 				maxf(0.0, (front + back) * 0.5))
 	_fit = want if sk.state == Skater.State.GROUND else _fit.lerp(want, 1.0 - exp(-30.0 * dt))   # (wheels drop at once)
 
@@ -454,6 +467,7 @@ func _pose(sk: Skater, dt: float) -> void:
 	var look_t2: float = 0.0             # the head turned back over the shoulder (an idle glance)
 	var speed: float = sk.velocity.length()
 	var fakie: bool = sk.stance == "fakie"
+	var gs: float = -1.0 if goofy else 1.0       # goofy: world left / right swapped going in
 	_flip_feet = []
 	if st != Skater.State.AIR:
 		_pop_seen = -1.0
@@ -477,7 +491,7 @@ func _pose(sk: Skater, dt: float) -> void:
 			# carving: lean into the turn (the toe edge is the chest side, so a left turn regular, which is toward the
 			# heels, leans back; fakie the other way round), hips over the inside edge, the deck rolling with it a
 			# little, knees bending more on a heel-side turn
-			var into: float = -sk.lean * (-1.0 if fakie else 1.0)            # + toward the toe edge
+			var into: float = -sk.lean * (-1.0 if fakie else 1.0) * gs       # + toward the toe edge
 			sway_t = clampf(into * 30.0, -22.0, 22.0)
 			px_t = clampf(into, -1.0, 1.0) * 0.05
 			roll_t = clampf(into, -1.0, 1.0) * 5.0
@@ -586,7 +600,7 @@ func _pose(sk: Skater, dt: float) -> void:
 			hip_t = lerpf(0.74, hip_t, reach)
 			look_t = 22.0 * (1.0 - reach)                     # eyes on the landing
 			# spinning: arms in (a fast spin tucks them), the shoulders and then the head lead the hips round
-			var spin: float = clampf(sk.spin_vel / maxf(sk.tune.spin_max, 0.1), -1.0, 1.0)
+			var spin: float = clampf(sk.spin_vel / maxf(sk.tune.spin_max, 0.1), -1.0, 1.0) * gs
 			arms_t = lerpf(arms_t, 0.4, absf(spin) * 0.8)
 			lead_t = spin * 28.0
 			if sk.flip_kind != "":
@@ -642,11 +656,11 @@ func _pose(sk: Skater, dt: float) -> void:
 			hip_t = 0.58
 			lean_t = 20.0
 			arms_t = 0.95
-			yaw_t = rad_to_deg(sk.grind_board_turn)
+			yaw_t = rad_to_deg(sk.grind_board_turn) * gs
 			roll_t = 6.0
 			# leaning with the grind's balance (+ = right of travel: the chest side, the back side when fakie),
 			# wobbling harder as it nears the edge
-			var bal: float = sk.grind_balance * (-1.0 if fakie else 1.0)
+			var bal: float = sk.grind_balance * (-1.0 if fakie else 1.0) * gs
 			sway_t = bal * 16.0 + sin(_t * 9.0) * (2.0 + absf(bal) * 5.0)
 			var face: float = -1.0 if fakie else 1.0     # turning the chest toward the way it's sliding
 			glift_t = ON_RAIL - DECK_BOTTOM                # the deck on the rail
@@ -664,7 +678,7 @@ func _pose(sk: Skater, dt: float) -> void:
 					# the board turned across the rail with its nose (tail) on it: weight over that end, the shoulders
 					# opened toward the way it's going
 					var nose: bool = sk.grind_kind == "Noseslide"
-					var turn: float = sk.grind_board_turn
+					var turn: float = sk.grind_board_turn * gs
 					shift_t = Vector2((0.3 if nose else -0.3) * sin(turn), 0.0)
 					by_t = face * rad_to_deg(turn) * 0.75
 					px_t = (0.16 if nose else -0.16) * sin(turn)
@@ -675,7 +689,7 @@ func _pose(sk: Skater, dt: float) -> void:
 					hip_t = 0.6
 			if sk.lip_kind != "":
 				# stalled on the coping: weight back over the ramp, arms out, swaying with the balance
-				sway_t = sk.lip_balance * 18.0
+				sway_t = sk.lip_balance * 18.0 * gs
 				arms_t = 0.9
 				roll_t = 0.0
 				match sk.lip_kind:
@@ -708,6 +722,7 @@ func _pose(sk: Skater, dt: float) -> void:
 		# riding a wall: the board stands on it (the frame tilts: _sync_riding), the body leans back toward
 		# upright off it, knees bent, arms out, looking along the wall
 		var up_m: Vector3 = global_transform.basis.inverse() * Vector3.UP
+		up_m.x *= gs
 		sway_t = -rad_to_deg(atan2(-up_m.x, up_m.y)) * WALL_UPRIGHT
 		hip_t = 0.62
 		lean_t = 12.0
@@ -845,17 +860,95 @@ func _pose_bone(i: int, g: Transform3D) -> void:
 		g = Transform3D(Basis(q), a.origin.lerp(g.origin, _blend_w))
 	var p: int = _parent[i]
 	var local: Transform3D = (_glob[p].affine_inverse() * g) if p >= 0 else (_m.affine_inverse() * g)
-	skel.set_bone_pose_position(i, local.origin)
-	skel.set_bone_pose_rotation(i, local.basis.orthonormalized().get_rotation_quaternion())
+	var q: Quaternion = local.basis.orthonormalized().get_rotation_quaternion()
+	_logic_local[i] = Transform3D(Basis(q), local.origin)
+	if not goofy:
+		skel.set_bone_pose_position(i, local.origin)
+		skel.set_bone_pose_rotation(i, q)
 	_glob[i] = Transform3D(g.basis.orthonormalized(), g.origin)
+
+
+## Goofy: each bone's twin on the other side, how to map a mirrored twin onto it, and the order to rebuild the
+## skeleton in. A bone's mirror is its twin's pose reflected across the board's long axis (MX); `_mir_s` turns the
+## reflected (left-handed) frame back into the bone's own, so at rest the whole body is the regular rest turned
+## round (a goofy rider stands facing the other way on the board).
+func _setup_mirror() -> void:
+	var n: int = skel.get_bone_count()
+	_logic_local = _rest_local.duplicate()
+	_twin.resize(n)
+	_mir_s.resize(n)
+	for i in n:
+		var nm: String = skel.get_bone_name(i)
+		var tw: String = nm
+		if nm.ends_with("_l"):
+			tw = nm.left(-2) + "_r"
+		elif nm.ends_with("_r"):
+			tw = nm.left(-2) + "_l"
+		_twin[i] = int(_b.get(tw, i))
+	for i in n:
+		_mir_s[i] = _rest_model[_twin[i]].basis.orthonormalized().inverse() * MS * _rest_model[i].basis.orthonormalized()
+	var depth: Array = []
+	for i in n:
+		var d: int = 0
+		var p: int = _parent[i]
+		while p >= 0:
+			d += 1
+			p = _parent[p]
+		depth.append([d, i])
+	depth.sort()
+	_order.resize(n)
+	for k in n:
+		_order[k] = int(depth[k][1])
+
+
+## Each bone's pose in model space as worked out (from _logic_local, every bone, parents first).
+func _logic_glob() -> Array[Transform3D]:
+	var g: Array[Transform3D] = []
+	g.resize(_logic_local.size())
+	for i in _order:
+		var p: int = _parent[i]
+		g[i] = (g[p] * _logic_local[i]) if p >= 0 else (_m * _logic_local[i])
+	return g
+
+
+## A whole pose mirrored for goofy: every bone takes its twin's pose reflected across the board (the same call
+## turns a drawn pose back into a worked-out one).
+func _mirrored(g: Array[Transform3D]) -> Array[Transform3D]:
+	var out: Array[Transform3D] = []
+	out.resize(g.size())
+	for i in g.size():
+		var t: Transform3D = g[_twin[i]]
+		out[i] = Transform3D((MX * t.basis.orthonormalized() * _mir_s[i]).orthonormalized(), MX * t.origin)
+	return out
+
+
+## Goofy: draw the pose worked out this frame mirrored. (Regular riders' bones were written as they were posed.)
+func _flush() -> void:
+	if not goofy:
+		return
+	var d: Array[Transform3D] = _mirrored(_logic_glob())
+	for i in _order:
+		var p: int = _parent[i]
+		var local: Transform3D = (d[p].affine_inverse() * d[i]) if p >= 0 else (_m.affine_inverse() * d[i])
+		skel.set_bone_pose_position(i, local.origin)
+		skel.set_bone_pose_rotation(i, local.basis.orthonormalized().get_rotation_quaternion())
+
+
+## The walker's frame for planting feet in the world: chest first along _walk_dir. Goofy, the body is drawn
+## mirrored across itself, so a point in the world maps to its mirror image in the worked-out pose.
+func _walk_frame() -> Transform3D:
+	var f: Transform3D = Transform3D(Basis(_walk_dir, Vector3.UP, _walk_dir.cross(Vector3.UP).normalized()), _walk_pos)
+	return f * Transform3D(MS, Vector3.ZERO) if goofy else f
 
 
 ## Follow the parent at rest (for bones this rig does not drive: fingers, toes, clavicles).
 func _rest_follow(i: int) -> void:
 	var p: int = _parent[i]
 	_glob[i] = (_glob[p] * _rest_local[i]) if p >= 0 else (_m * _rest_local[i])
-	skel.set_bone_pose_position(i, _rest_local[i].origin)
-	skel.set_bone_pose_rotation(i, _rest_local[i].basis.get_rotation_quaternion())
+	_logic_local[i] = _rest_local[i]
+	if not goofy:
+		skel.set_bone_pose_position(i, _rest_local[i].origin)
+		skel.set_bone_pose_rotation(i, _rest_local[i].basis.get_rotation_quaternion())
 
 
 ## Rotate bone i (as it is now, following its parent) by `q` about its own head, in model space.
@@ -911,7 +1004,8 @@ func _apply_rig(sk: Skater) -> void:
 	var rot: Basis = Basis.from_euler(Vector3(deg_to_rad(board_pitch + _fit.x), deg_to_rad(board_yaw),
 		deg_to_rad(board_roll + _fit.y)), EULER_ORDER_YXZ)
 	bt = Transform3D(rot, pivot - rot * pivot + Vector3(board_shift.x, board_lift + _fit.z, board_shift.y))
-	board.transform = bt                       # (hidden while the loose board is out in the world)
+	board_logic = bt
+	board.transform = Transform3D(MX * bt.basis * MX, MX * bt.origin) if goofy else bt   # (hidden while it's loose)
 
 	# hips: hip_h is a pose number (0.72 riding tall .. 0.55 deep crouch) mapped onto a share of this leg
 	var frac: float = clampf((hip_h - _absorb - 0.145) / 0.665, 0.42, 1.05)
@@ -1058,7 +1152,10 @@ func _apply_rig(sk: Skater) -> void:
 		var c: Vector3 = (sh_l + sh_r) * 0.5 + CARRY_OFFSET
 		hand_l = c + Vector3(-0.03, -0.02, -CARRY_HALF_W)
 		hand_r = c + Vector3(-0.03, -0.02, CARRY_HALF_W)
-		carry_item.global_transform = global_transform * Transform3D(Basis.IDENTITY, c + Vector3(0.0, -0.06, 0.0))
+		var held: Transform3D = Transform3D(Basis.IDENTITY, c + Vector3(0.0, -0.06, 0.0))
+		if goofy:                                # in front of the mirrored rider, turned to face the same way
+			held = Transform3D(Basis(Vector3.UP, PI), MX * held.origin)
+		carry_item.global_transform = global_transform * held
 	elif grab_amt > 0.01 and sk.grab_kind != "":
 		var gp: Array = _grab_targets(sk.grab_kind, bt)
 		hand_l = free_l.lerp(gp[0], grab_amt * float(gp[2]))
@@ -1073,6 +1170,7 @@ func _apply_rig(sk: Skater) -> void:
 	for side in ["l", "r"]:
 		_pose_bone(_b["hand_" + side], _rotated(_b["hand_" + side], Basis.IDENTITY))
 	_pose_fingers()
+	_flush()
 
 
 ## Fingers relaxed, curled a little toward the palm (the rest pose has them flat and spread, like a mannequin).
@@ -1295,6 +1393,8 @@ func _begin_getup(sk: Skater) -> void:
 	_blend_from.clear()
 	for t in poses:
 		_blend_from.append(inv * t)
+	if goofy:
+		_blend_from = _mirrored(_blend_from)
 	_blend_w = 0.0
 	_walk_mode = true
 	_step_on = 0.0
@@ -1362,7 +1462,10 @@ func _walk(sk: Skater, dt: float) -> void:
 			sk.bail_focus = _walk_pos
 			_apply_pose(_getup_pose(_phase_t))
 			return
-		# standing: hand over to the walk (a short blend covers the small difference)
+		# standing: hand over to the walk (a short blend covers the small difference). The get-up's last frame fell
+		# anywhere up to a frame short of standing (hips 1.3 cm low bent the knee 24 degrees): finish it first
+		_place_walker()
+		_apply_pose(_getup_pose(total))
 		phys_phase = "walk"
 		_walk_pace = _pace_to(sk, dist)
 		_blend_from.clear()
@@ -1467,7 +1570,7 @@ func _pace_to(sk: Skater, dist: float) -> float:
 func _begin_run(sk: Skater) -> void:
 	var inv_from: Transform3D = model.global_transform
 	var world: Array[Transform3D] = []
-	for g in _glob:
+	for g in (_mirrored(_logic_glob()) if goofy else _glob):
 		world.append(inv_from * g)
 	var h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
 	_walk_dir = h.normalized() if h.length() > 0.2 else Vector3(sk.hdg.x, 0.0, sk.hdg.z).normalized()
@@ -1477,6 +1580,8 @@ func _begin_run(sk: Skater) -> void:
 	_blend_from.clear()
 	for t in world:
 		_blend_from.append(inv * t)
+	if goofy:
+		_blend_from = _mirrored(_blend_from)
 	_blend_w = 0.0
 	_walk_mode = true
 	_step_on = 0.0
@@ -1689,6 +1794,7 @@ func _apply_pose(k: Dictionary) -> void:
 		var h: int = _b["hand_" + side]
 		_pose_bone(h, _rotated(h, Basis.IDENTITY))
 	_pose_fingers()
+	_flush()
 
 
 ## Each finger bone's curl axis: across the finger, so a positive turn brings the tip toward the palm.
@@ -1740,9 +1846,10 @@ func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
 	var floor_hip: float = _stand_hip * lerpf(0.9, 0.84, run_k)    # never sink lower than this over a planted foot
 	# planted feet stay where they landed in the world, whatever the body does meanwhile (speeds up from
 	# standing, slows for the board, turns): the gait only says when a foot lifts and where it lands next
-	var frame: Transform3D = Transform3D(Basis(_walk_dir, Vector3.UP, _walk_dir.cross(Vector3.UP).normalized()), _walk_pos)
+	var frame: Transform3D = _walk_frame()
 	var inv: Transform3D = frame.affine_inverse()
 	var heading: float = atan2(-_walk_dir.z, _walk_dir.x)
+	var ys: float = -1.0 if goofy else 1.0        # goofy: a foot's yaw in the world is mirrored
 	var feet: Array = []
 	var cap: float = INF
 	for i in 2:
@@ -1763,9 +1870,9 @@ func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
 		if ground:
 			var sg: float = clampf(ph / duty, 0.0, 1.0)              # 0 touch down .. 1 push off
 			if _plant[i] == null or dt <= 0.0:
-				_plant[i] = [frame * Vector3(reach * (0.42 - sg), 0.0, p.z), heading + deg_to_rad(toe)]
+				_plant[i] = [frame * Vector3(reach * (0.42 - sg), 0.0, p.z), heading + deg_to_rad(toe) * ys]
 			var q: Vector3 = inv * (_plant[i][0] as Vector3)
-			var q_yaw: float = rad_to_deg(wrapf(float(_plant[i][1]) - heading, -PI, PI))
+			var q_yaw: float = rad_to_deg(wrapf(float(_plant[i][1]) - heading, -PI, PI)) * ys
 			# the heel comes up to push off once the foot trails behind the body (one still under it, setting off from
 			# standing, rolled up onto its toes and folded the knee 45 degrees)
 			var trail: float = clampf(-q.x / maxf(reach * 0.25, 0.04), 0.0, 1.0)
@@ -1810,7 +1917,7 @@ func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
 			var from_yaw: float = toe
 			if _lift[i] != null:
 				from = inv * (_lift[i][0] as Vector3)
-				from_yaw = rad_to_deg(wrapf(float(_lift[i][1]) - heading, -PI, PI))
+				from_yaw = rad_to_deg(wrapf(float(_lift[i][1]) - heading, -PI, PI)) * ys
 			p = from.lerp(Vector3(reach * 0.42, 0.0, p.z), e)
 			p.y += lift * sin(PI * pow(sw, lerpf(0.9, 0.6, run_k)))  # a runner's heel comes up early
 			yaw = lerpf(from_yaw, toe, e)
@@ -1850,7 +1957,7 @@ func _foot_pose(sole: Vector3, turn: Basis, pitch: float) -> Array:
 func _place_walker() -> void:
 	var x: Vector3 = _walk_dir
 	var z: Vector3 = x.cross(Vector3.UP).normalized()
-	global_transform = Transform3D(Basis(x, Vector3.UP, z), _walk_pos)
+	global_transform = Transform3D(Basis(-x, Vector3.UP, -z) if goofy else Basis(x, Vector3.UP, z), _walk_pos)
 	vis_n = Vector3.UP
 
 
@@ -1873,7 +1980,7 @@ func _flip_kick() -> void:
 		return
 	var k: float = 1.0 - _board_flip_t / BOARD_FLIP
 	var kick: float = sin(PI * clampf(k * 1.25, 0.0, 1.0))
-	var frame: Transform3D = Transform3D(Basis(_walk_dir, Vector3.UP, _walk_dir.cross(Vector3.UP).normalized()), _walk_pos)
+	var frame: Transform3D = _walk_frame()
 	var edge: Vector3 = frame.affine_inverse() * loose.global_position
 	var feet: Array = _gait_now["feet"]
 	var fr: Array = feet[1]

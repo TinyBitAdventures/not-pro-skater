@@ -5,7 +5,7 @@ extends Node3D
 
 const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
 const SPOT: Vector3 = Vector3(-18.0, 0.02, 4.0)      # where the rider stands: by the mini ramp, in the late sun
-const ITEMS: Array[String] = ["event", "free", "practice", "rider", "steer", "jump", "music", "controls"]
+const ITEMS: Array[String] = ["event", "free", "practice", "rider", "stance", "steer", "jump", "music", "controls"]
 const PLAY_ITEMS: int = 3                # the big entries (things to play) before the settings
 
 var items: Array[String] = []         # ITEMS, plus Quit on desktop
@@ -62,9 +62,10 @@ func _spawn_rider() -> void:
 	rider.rider = Game.rider
 	rider.scripted = true
 	add_child(rider)
-	# chest to the sun (a regular rider's chest faces the board's right): lit from the front on the title
+	# chest to the sun (a regular rider's chest faces the board's right, a goofy one's its left): lit from the
+	# front on the title
 	var sun_h: Vector3 = _sun_h()
-	var hdg: Vector3 = Vector3.UP.cross(sun_h)
+	var hdg: Vector3 = Vector3.UP.cross(sun_h) * (-1.0 if Game.stance == "goofy" else 1.0)
 	var spot: Vector3 = SPOT
 	if OS.get_environment("TITLE_AT") != "":
 		var p: PackedStringArray = OS.get_environment("TITLE_AT").split(",")
@@ -274,12 +275,13 @@ func _refresh() -> void:
 	var ev: Dictionary = Events.get_event(Game.event_choice)
 	var level_name: String = String(_level()["name"])
 	var names: Dictionary = {"event": String(ev["title"]), "free": "Free Skate", "practice": "Practice",
-		"rider": "Rider", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls",
+		"rider": "Rider", "stance": "Stance", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls",
 		"update": "New version", "quit": "Quit"}
 	var values: Dictionary = {
 		"event": "%d / %d" % [Events.ALL.find(Game.event_choice) + 1, Events.ALL.size()],
 		"free": level_name,
 		"rider": Game.rider_name(Game.rider),
+		"stance": "Goofy" if Game.stance == "goofy" else "Regular",
 		"steer": "Skater" if Game.steer_mode == "tank" else "Screen",
 		"jump": "Hold, release" if Game.jump_mode == "hold" else "Tap",
 		"music": {"cruise": "Themes", "hype": "Hype", "off": "Off"}[Game.music_choice],
@@ -315,6 +317,9 @@ func _refresh() -> void:
 			lines[0] = "%s    NO CLOCK, NO GOALS: JUST SKATE" % level_name.to_upper()
 		"practice":
 			lines[0] = "THE GREY TEST LEVEL: EVERY RAMP AND RAIL IN ROWS"
+		"stance":
+			lines[0] = "RIGHT FOOT FORWARD, PUSHING WITH THE LEFT" if Game.stance == "goofy" else \
+				"LEFT FOOT FORWARD, PUSHING WITH THE RIGHT"
 		"update":
 			lines[0] = "%s IS OUT (YOU HAVE V%s): OPENS THE DOWNLOAD PAGE IN YOUR BROWSER" % [Game.update_tag.to_upper(),
 				Game.version()]
@@ -395,6 +400,10 @@ func _change(step: int) -> void:
 		"rider":
 			var i: int = Game.RIDERS.find(Game.rider)
 			Game.rider = Game.RIDERS[posmod(i + step, Game.RIDERS.size())]
+			Game.save()
+			_spawn_rider()
+		"stance":
+			Game.stance = "regular" if Game.stance == "goofy" else "goofy"
 			Game.save()
 			_spawn_rider()
 		"steer":

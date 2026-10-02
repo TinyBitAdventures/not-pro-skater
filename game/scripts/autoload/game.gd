@@ -10,6 +10,7 @@ var jump_mode: String = "hold"   # "hold" = crouch while held, jump on release (
 var music_choice: String = "cruise"   # "cruise" (125 BPM), "hype" (131) or "off"; see docs/audio_credits_music.md
 var master_volume: float = 0.8
 var rider: String = "dev"          # the playable character (assets/characters/<rider>.glb)
+var stance: String = "regular"     # "regular" (left foot forward) or "goofy" (right foot forward): RiderRig.goofy
 var event_choice: String = "birthday"   # the event the title menu's EVENT row is on
 var level_choice: String = "park"       # the level the title menu's FREE SKATE row is on
 
@@ -335,6 +336,7 @@ func load_save() -> void:
 		jump_mode = cfg.get_value("settings", "jump_mode", "hold")
 	master_volume = cfg.get_value("settings", "master_volume", 0.8)
 	rider = cfg.get_value("settings", "rider", "dev")
+	stance = cfg.get_value("settings", "stance", "regular")
 	event_choice = cfg.get_value("settings", "event_choice", "birthday")
 	if not Events.ALL.has(event_choice):
 		event_choice = "birthday"
@@ -348,6 +350,8 @@ func load_save() -> void:
 		steer_mode = "tank"
 	if not ["hold", "tap"].has(jump_mode):
 		jump_mode = "hold"
+	if not ["regular", "goofy"].has(stance):
+		stance = "regular"
 	if not Events.LEVELS.any(func(lv: Dictionary) -> bool: return lv["id"] == level_choice):
 		level_choice = "park"
 	master_volume = clampf(float(master_volume), 0.0, 1.0)
@@ -372,6 +376,7 @@ func save() -> void:
 	cfg.set_value("settings", "music_choice", music_choice)
 	cfg.set_value("settings", "master_volume", master_volume)
 	cfg.set_value("settings", "rider", rider)
+	cfg.set_value("settings", "stance", stance)
 	cfg.set_value("settings", "event_choice", event_choice)
 	cfg.set_value("settings", "level_choice", level_choice)
 	cfg.set_value("update", "check", check_updates)

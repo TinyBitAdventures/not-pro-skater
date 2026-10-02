@@ -308,6 +308,8 @@ func _gait_sample(rig: RiderRig, g: Dictionary) -> void:
 	var planted: Array = g["planted"]
 	for i in 2:
 		var side: String = "l" if i == 0 else "r"
+		if rig.goofy:                    # (a goofy rider is drawn mirrored: the gait's left foot is the right leg)
+			side = "r" if i == 0 else "l"
 		var ball: Vector3 = sk3.global_transform * sk3.get_bone_global_pose(sk3.find_bone("ball_" + side)).origin
 		if bool(feet[i][2]) and OS.get_environment("GAIT_DEBUG") != "":
 			var f: Array = feet[i]

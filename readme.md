@@ -34,7 +34,7 @@ Two steering styles (pick one in the title menu; saved):
 | R | Reset to the start |
 | Esc | Pause (resume, restart, controls, quit to title) |
 
-Steering, jump style (hold-release or instant tap) and music are in the title menu. Music **Themes** plays each place's own soundtrack (Launch Day's lo-fi synthwave, Record Release's hip-hop funk, Rush Hour's upbeat electronic, Between Takes' orchestral score; the cruise theme in the park and at the school), **Hype** plays the harder track everywhere, **Off** is off.
+Stance (**Regular**, left foot forward, or **Goofy**, right foot forward), steering, jump style (hold-release or instant tap) and music are in the title menu. Music **Themes** plays each place's own soundtrack (Launch Day's lo-fi synthwave, Record Release's hip-hop funk, Rush Hour's upbeat electronic, Between Takes' orchestral score; the cruise theme in the park and at the school), **Hype** plays the harder track everywhere, **Off** is off.
 
 **Riding a half pipe:** roll into the ramp with W held, keep Space held as you climb the face (the POP meter fills), release at the lip for a big air, spin with A / D, add J or K for tricks, then land back on the transition and pump again. Bigger ramps need more speed: keep pumping.
 
@@ -140,7 +140,7 @@ blender --background --python blender/character.py              # all five (or: 
 cd game && godot --path . res://scenes/dev_rig.tscn             # pose tour -> ../shots/rig_*.png
 ```
 
-Archetypes are recipes in `ARCHETYPES` (body settings, stylizing targets, skin, eyes, hair, clothes). MPFB and the MakeHuman CC0 asset packs must be installed (see `art_credits.md`). In Godot, `RiderRig` poses the skeleton; `Skater.rider = "dev"` picks the character.
+Archetypes are recipes in `ARCHETYPES` (body settings, stylizing targets, skin, eyes, hair, clothes). MPFB and the MakeHuman CC0 asset packs must be installed (see `art_credits.md`). In Godot, `RiderRig` poses the skeleton; `Skater.rider = "dev"` picks the character. A goofy rider is the regular pose drawn mirrored across the board (`RiderRig.goofy`, from `Game.stance`; `STANCE=goofy` in dev scenes): left and right bones swap, the board and anything carried mirror with it, and the world's left / right going into the pose (turns, spins, grind and lip balance, the ground's roll) is mirrored on the way in.
 
 ## Tests
 
