@@ -107,6 +107,12 @@ var body_yaw: float = 0.0                # the whole body turned with the board 
 var board_shift: Vector2 = Vector2.ZERO  # (across, along) the board moved off the frame's middle (a nose on the rail)
 var grind_lift: float = 0.0              # the drawn rider raised onto the rail (see ON_RAIL)
 var _fit: Vector3 = Vector3.ZERO         # (pitch, roll degrees, lift): sets all four wheels on the ground (_ground_fit)
+var push_hold: float = 0.0               # 0 riding sideways .. 1 turned to push, held through a run of strides
+var _chain_out: float = 0.0              # 1: the pushing foot swings straight into another stride (0: back onto the deck)
+var _chain_in: bool = false              # this stride began with the foot still off the deck, from the last one
+var _stride_from: Vector3 = Vector3.ZERO # board space: where the pushing foot was when this stride began
+var _stride_last: Vector3 = Vector3.ZERO # board space: where the pushing foot was drawn last
+var _stride_ph: float = -1.0             # the stride phase last drawn (a drop = a new stride; -1 = not striding)
 var vis_n: Vector3 = Vector3.UP
 var _t: float = 0.0
 var carry_item: Node3D = null            # something held in both hands in front of the belly (the cake)
@@ -452,6 +458,15 @@ func _pose(sk: Skater, dt: float) -> void:
 	if st != Skater.State.AIR:
 		_pop_seen = -1.0
 	_land_spring(sk, dt)
+	# pushing: the first stride turns the body to face the way it goes and it stays turned while strides follow
+	# one another, the pushing foot swinging straight from one push into the next. Only the last stride steps back
+	# onto the deck and turns the body sideways again (turning back between every push read as flipping about)
+	var striding: bool = sk.push_anim >= 0.0 and st == Skater.State.GROUND and not sk.manual_on
+	_chain_out = _approach(_chain_out, 1.0 if striding and sk.pushing and not sk.braking and not sk.pumping else 0.0, 14.0, dt)
+	var hold_t: float = 1.0 if striding and (sk.push_anim < 0.62 or _chain_out > 0.5) else 0.0
+	push_hold = _approach(push_hold, hold_t, 9.0 if hold_t > push_hold else (7.0 if st == Skater.State.GROUND else 18.0), dt)
+	if not striding:
+		_stride_ph = -1.0
 	match st:
 		Skater.State.GROUND:
 			# (a landing sets the skater's crouch to full: the legs' spring below takes a landing instead, as deep
@@ -906,13 +921,14 @@ func _apply_rig(sk: Skater) -> void:
 	if walking:
 		hip_y = lerpf(hip_y, float(_gait_now["hip"]), off_k)
 	var stride: Array = []
-	var push_amt: float = 0.0              # 0..1 through a stride: the body turns to face the way it's going to push
+	var push_amt: float = 0.0              # 0..1: the body turned to face the way it's going to push (push_hold)
 	var push_way: float = -1.0 if sk.stance == "fakie" else 1.0     # (toward the nose, or the tail rolling fakie)
+	if not walking:
+		push_amt = push_hold * push_hold * (3.0 - 2.0 * push_hold)
+	var push_feet: bool = push_amt > 0.001 and sk.state == Skater.State.GROUND and not sk.manual_on and not walking
 	if sk.push_anim >= 0.0 and sk.state == Skater.State.GROUND and not sk.manual_on:
 		stride = _push_stride(sk.push_anim, bt, sk.stance == "fakie")
 		hip_y -= float(stride[2])            # the standing leg bends as the other reaches the ground
-		push_amt = clampf(1.0 - absf(sk.push_anim - 0.42) / 0.42, 0.0, 1.0)
-		push_amt = push_amt * push_amt * (3.0 - 2.0 * push_amt)
 	for i in [_b["Root"]]:
 		_rest_follow(i)
 	var pelvis: int = _b["pelvis"]
@@ -960,19 +976,22 @@ func _apply_rig(sk: Skater) -> void:
 			back.y = maxf(back.y, on_b.y)
 		turn_f = _slerp_basis(turn_f, Basis(Vector3.UP, deg_to_rad(float(_flip_feet[1]))), free_feet)
 		turn_b = _slerp_basis(turn_b, Basis(Vector3.UP, deg_to_rad(float(_flip_feet[3]))), free_feet)
+	if push_feet and push_way > 0.0:
+		# the front foot swivels to point up the board, its heel a little back so the toes stay off the nose's kick
+		# (and stays turned through a run of strides)
+		turn_f = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_f.z, 65.0, push_amt)))
+		front = bt * Vector3(foot_f.x, deck_y(foot_f.y + 0.05 * push_amt), foot_f.y + 0.05 * push_amt)
+	elif push_feet:
+		# rolling fakie the nose end trails: the front foot pushes, and the back foot swivels to point the way it's
+		# going, toward the tail (the regular stride pushed with the leading foot, toward the way it was going)
+		turn_b = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_b.z, -65.0, push_amt)))
+		back = bt * Vector3(foot_b.x, deck_y(foot_b.y - 0.05 * push_amt), foot_b.y - 0.05 * push_amt)
 	if not stride.is_empty() and push_way > 0.0:
 		back = stride[0]
 		turn_b = Basis(Vector3.UP, deg_to_rad(float(stride[1])))
-		# the front foot swivels to point up the board, its heel a little back so the toes stay off the nose's kick
-		turn_f = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_f.z, 65.0, push_amt)))
-		front = bt * Vector3(foot_f.x, deck_y(foot_f.y + 0.05 * push_amt), foot_f.y + 0.05 * push_amt)
 	elif not stride.is_empty():
-		# rolling fakie the nose end trails: the front foot pushes, and the back foot swivels to point the way it's
-		# going, toward the tail (the regular stride pushed with the leading foot, toward the way it was going)
 		front = stride[0]
 		turn_f = Basis(Vector3.UP, deg_to_rad(float(stride[1])))
-		turn_b = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_b.z, -65.0, push_amt)))
-		back = bt * Vector3(foot_b.x, deck_y(foot_b.y - 0.05 * push_amt), foot_b.y - 0.05 * push_amt)
 	var front_pitch: float = 0.0
 	var back_pitch: float = 0.0
 	var pole_l: Vector3 = Vector3(1.0, 0.1, -0.35)           # riding: knees over the toes, a little apart
@@ -1002,7 +1021,7 @@ func _apply_rig(sk: Skater) -> void:
 	var free_r: Vector3 = sh_r + Vector3(0.06 + 0.05 * spread, -0.5 + 0.36 * spread, 0.2 + 0.26 * spread)
 	# pushing: the arms swing against the pushing leg (the front arm reaches toward the nose as the foot plants,
 	# the back arm goes back as it pushes)
-	if push_amt > 0.0 or (not stride.is_empty()):
+	if not stride.is_empty():
 		var sw: float = sin(TAU * (sk.push_anim - 0.1)) * 0.11 * push_way
 		free_l += Vector3(0.03, 0.0, -1.0) * sw
 		free_r += Vector3(-0.03, 0.0, -1.0) * sw
@@ -1970,6 +1989,8 @@ func _end_physical() -> void:
 	_walk_mode = false
 	_blend_w = 1.0
 	_blend_from.clear()
+	push_hold = 0.0
+	_stride_ph = -1.0
 
 
 ## The pushing foot through one push: up off its mark, out past the deck's edge and down beside the board, toes
@@ -1977,36 +1998,58 @@ func _end_physical() -> void:
 ## regular that's the back foot, planted a little ahead of the board's middle and pushed back toward the tail;
 ## fakie (rolling tail first) the front foot, the same toward the nose. Returns [foot, angle, hip drop]. (Straight
 ## lines from the deck to the ground cut the foot through the deck's edge; the planted foot used to point back.)
+## Strides in a row (the push held, _chain_out): the foot swings forward beside the board, still in the air, and
+## comes down for the next push, the way a rider pushes up to speed; only the last one goes back onto the deck. A
+## stride starts from wherever the foot was last drawn, so the change between the two never jumps.
 func _push_stride(ph: float, bt: Transform3D = Transform3D.IDENTITY, fakie: bool = false) -> Array:
 	var mark: Vector3 = foot_f if fakie else foot_b
 	var way: float = -1.0 if fakie else 1.0       # + toward the tail: behind, riding regular
 	var deck: Vector3 = bt * Vector3(mark.x, deck_y(mark.y), mark.y)      # (the board as drawn: tilted to the ground)
 	var plant: Vector3 = Vector3(0.22, 0.0, -0.02 * way)
 	var reach: Vector3 = Vector3(0.22, 0.0, 0.55 * way)
+	var ahead: Vector3 = Vector3(0.22, 0.06, -0.16 * way)    # swinging through to the next plant, just off the ground
 	var toes: float = 70.0 * way                  # toward the nose (regular) or the tail (fakie): forward
+	var inv: Transform3D = bt.affine_inverse()
+	if _stride_ph < 0.0 or ph < _stride_ph - 0.5:
+		# a new stride: from the deck, or (in a run of strides) from the air where the last swing left the foot
+		_chain_in = _stride_ph >= 0.0 and _chain_out > 0.5
+		_stride_from = _stride_last if _stride_ph >= 0.0 else inv * deck
+	_stride_ph = ph
+	var from: Vector3 = bt * _stride_from
 	var foot: Vector3
 	var ang: float
-	if ph < 0.18:                                   # lift, out and step down beside the board
+	if ph < 0.18:
 		var k: float = ph / 0.18
-		var out: float = smoothstep(0.0, 0.6, k)
-		var down: float = smoothstep(0.3, 1.0, k)
-		foot = Vector3(lerpf(deck.x, plant.x, out), lerpf(deck.y, plant.y, down) + sin(k * PI) * 0.05,
-			lerpf(deck.z, plant.z, smoothstep(0.0, 1.0, k)))
-		ang = lerpf(mark.z, toes, smoothstep(0.0, 1.0, k))
+		if _chain_in:                               # down out of the swing onto the ground
+			foot = from.lerp(plant, smoothstep(0.0, 1.0, k))
+			ang = toes
+		else:                                       # lift, out and step down beside the board
+			var out: float = smoothstep(0.0, 0.6, k)
+			var down: float = smoothstep(0.3, 1.0, k)
+			foot = Vector3(lerpf(from.x, plant.x, out), lerpf(from.y, plant.y, down) + sin(k * PI) * 0.05,
+				lerpf(from.z, plant.z, smoothstep(0.0, 1.0, k)))
+			ang = lerpf(mark.z, toes, smoothstep(0.0, 1.0, k))
 	elif ph < 0.62:                                 # push back along the ground
 		var k2: float = (ph - 0.18) / 0.44
 		foot = plant.lerp(reach, k2 * k2 * (3.0 - 2.0 * k2))
 		ang = toes
-	elif ph < 0.88:                                 # swing up, back in over the deck and onto it
-		var k3: float = (ph - 0.62) / 0.26
-		var up: float = smoothstep(0.0, 0.5, k3)
-		var inward: float = smoothstep(0.4, 1.0, k3)
-		foot = Vector3(lerpf(reach.x, deck.x, inward), lerpf(reach.y, deck.y, up) + sin(k3 * PI) * 0.1,
-			lerpf(reach.z, deck.z, smoothstep(0.0, 1.0, k3)))
-		ang = lerpf(toes, mark.z, smoothstep(0.0, 1.0, k3))
 	else:
-		foot = deck
-		ang = mark.z
+		# the last stride: swing up, back in over the deck and onto it
+		var back_on: Vector3 = deck
+		var back_ang: float = mark.z
+		if ph < 0.88:
+			var k3: float = (ph - 0.62) / 0.26
+			var up: float = smoothstep(0.0, 0.5, k3)
+			var inward: float = smoothstep(0.4, 1.0, k3)
+			back_on = Vector3(lerpf(reach.x, deck.x, inward), lerpf(reach.y, deck.y, up) + sin(k3 * PI) * 0.1,
+				lerpf(reach.z, deck.z, smoothstep(0.0, 1.0, k3)))
+			back_ang = lerpf(toes, mark.z, smoothstep(0.0, 1.0, k3))
+		# another one coming: swing forward beside the board, knee leading, toes still pointing the way it goes
+		var k4: float = (ph - 0.62) / 0.38
+		var swing: Vector3 = reach.lerp(ahead, smoothstep(0.0, 1.0, k4)) + Vector3.UP * sin(k4 * PI) * 0.08
+		foot = back_on.lerp(swing, _chain_out)
+		ang = lerpf(back_ang, toes, _chain_out)
+	_stride_last = inv * foot
 	var on_ground: float = clampf(1.0 - absf(ph - 0.4) / 0.3, 0.0, 1.0)
 	return [foot, ang, on_ground * 0.06]
 

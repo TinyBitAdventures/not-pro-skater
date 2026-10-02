@@ -3,6 +3,7 @@ extends Node3D
 ## pose's target, never how it moves): pushes, pumps, ollies, flips, manuals, grinds, carves, landings.
 ##   CLIP=ollie,kickflip godot --path . res://scenes/dev_ridefilm.tscn --fixed-fps 60 --resolution 640x480 \
 ##       --audio-driver Dummy --position -3000,-3000
+## CAM=side|behind|chase|near|top overrides the clip's camera.
 ## Writes ../shots/ride_<clip>_NN.png from the clip's moment (the pop, the grind lock, ...), EVERY seconds apart
 ## (each clip has its own default), N frames. Every frame prints metrics too:
 ##   soles  how far each sole is above the grip under it (m, - = sunk into the deck), and whether it is over the deck
@@ -132,7 +133,7 @@ func _process(_dt: float) -> void:
 func _aim() -> void:
 	var p: Vector3 = sk.rider_position()
 	cam_look = cam_look.lerp(p + Vector3.UP * 0.65, 0.25)
-	var mode: String = clip.get("cam", "near")
+	var mode: String = OS.get_environment("CAM") if OS.get_environment("CAM") != "" else String(clip.get("cam", "near"))
 	var fwd: Vector3 = Vector3.UP.cross(cam_side).normalized()      # the start heading
 	var dist: float = float(clip.get("dist", 2.3))
 	var from: Vector3
@@ -141,6 +142,10 @@ func _aim() -> void:
 			from = cam_side * dist + Vector3.UP * 0.25
 		"behind":
 			from = -fwd * dist + Vector3.UP * 0.6
+		"top":                                    # straight down, the start heading up the picture
+			cam_look = p + Vector3.UP * 0.1
+			cam.global_transform = Transform3D(Basis.looking_at(Vector3.DOWN, fwd), cam_look + Vector3.UP * dist * 1.4)
+			return
 		"chase":                                  # behind the way it's going now (carves)
 			var h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
 			var back: Vector3 = -h.normalized() if h.length() > 0.5 else -fwd
@@ -161,6 +166,8 @@ func _shot() -> void:
 		var spine: Vector3 = rgd.global_transform * rgd._glob[rgd._b["head"]].origin - rgd.global_transform * rgd._glob[rgd._b["pelvis"]].origin
 		var v_h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z).normalized()
 		line += " lean %+.2f spine->left %+.3f" % [sk.lean, spine.normalized().dot(Vector3.UP.cross(v_h))]
+	if OS.get_environment("FOOT_DBG") != "":
+		line += foot_frame(sk)
 	if m.has("soles"):
 		var s: Array = m["soles"]
 		line += " soles %+.3f%s %+.3f%s" % [s[0][0], "" if s[0][1] else "(off)", s[1][0], "" if s[1][1] else "(off)"]
@@ -198,6 +205,30 @@ func _shot() -> void:
 # ------------------------------------------------------------------ metrics
 
 ## Soles against the grip, wheels against the ground, legs against the deck, from the rig as it is drawn now.
+## FOOT_DBG=1: where the drawn feet are and which way they, the hips and the chest point, in the frame of travel
+## (forward, right of it; angles 0 = the way it's going, + = turned right). A mirror pair (regular / fakie,
+## regular / goofy) reads the same with the right-hand numbers negated.
+static func foot_frame(s: Skater) -> String:
+	var rg: RiderRig = s.visual
+	var sk3: Skeleton3D = rg.skel
+	var g: Transform3D = sk3.global_transform
+	var at: Callable = func(bone: String) -> Vector3: return g * sk3.get_bone_global_pose(sk3.find_bone(bone)).origin
+	var fwd: Vector3 = Vector3(s.velocity.x, 0.0, s.velocity.z)
+	fwd = fwd.normalized() if fwd.length() > 0.3 else s.hdg
+	var right: Vector3 = fwd.cross(Vector3.UP).normalized()
+	var o: Vector3 = rg.global_transform.origin
+	var ang: Callable = func(v: Vector3) -> float: return rad_to_deg(atan2(v.dot(right), v.dot(fwd)))
+	var out: String = ""
+	for side in ["l", "r"]:
+		var ankle: Vector3 = at.call("foot_" + side)
+		var ball: Vector3 = at.call("ball_" + side)
+		out += " %s(%+.2f,%+.2f %+4.0f)" % [side, (ankle - o).dot(fwd), (ankle - o).dot(right), ang.call(ball - ankle)]
+	var hips: Vector3 = Vector3.UP.cross(at.call("thigh_r") - at.call("thigh_l"))
+	var chest: Vector3 = Vector3.UP.cross(at.call("upperarm_r") - at.call("upperarm_l"))
+	out += " hips %+4.0f chest %+4.0f" % [ang.call(hips), ang.call(chest)]
+	return out
+
+
 static func metrics(s: Skater) -> Dictionary:
 	var rg: RiderRig = s.visual
 	var out: Dictionary = {}
@@ -262,7 +293,11 @@ static func metrics(s: Skater) -> Dictionary:
 
 # ------------------------------------------------------------------ clips
 
+## PUSH_FOR=<seconds>: let go after that long (the last stride steps back onto the deck).
 func _push() -> void:
+	if OS.get_environment("PUSH_FOR") != "" and ticks * DT > float(OS.get_environment("PUSH_FOR")):
+		_coast()
+		return
 	sk.inp.world_dir = sk.hdg
 	sk.inp.move = Vector2(0, -1)
 

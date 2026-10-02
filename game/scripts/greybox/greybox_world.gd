@@ -164,6 +164,8 @@ func _process(delta: float) -> void:
 	Sound.set_grinding(skater.state == Skater.State.GRIND and not skater.wallriding, skater.grind_speed, delta)
 	if _shot_t >= 0.0:
 		if skater.scripted:
+			if OS.get_environment("FAKIE") != "" and skater.state == Skater.State.GROUND:
+				skater.stance = "fakie"     # FAKIE=1: rolling tail first (a fakie push)
 			skater.inp.move = Vector2(0, -1)
 			skater.inp.world_dir = skater.hdg if skater.state == Skater.State.GROUND else Vector3.ZERO
 			if OS.get_environment("GRAB_IN_AIR") != "":
