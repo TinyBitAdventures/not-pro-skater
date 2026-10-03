@@ -48,7 +48,9 @@ def ground():
     slab("AveSidewalkN", "Concrete", "Sidewalk", -62.0, 62.0, -32.5, -30.0, top=0.0, t=-ROAD_Z)
     slab("AveRoad", "Path", "Road", -62.0, 62.0, -40.5, -32.5, top=ROAD_Z, t=0.3)
     slab("AveSidewalkS", "Concrete", "Sidewalk", -62.0, 62.0, -43.0, -40.5, top=0.0, t=-ROAD_Z)
-    slab("FarVerge", "Grass", "Grass", -62.0, 62.0, -62.0, -43.0, top=terrain.LAWN_Z)
+    # (to 60 m, where the far ground takes over: out to 62 the two grasses overlapped and flickered; the edge warps you
+    # back at 60 m anyway)
+    slab("FarVerge", "Grass", "Grass", -60.0, 60.0, -60.0, -43.0, top=terrain.LAWN_Z)
     # the lot is poured concrete (light, like a studio's stage aprons); the western street hard-packed dirt that
     # rides like the lot (a Grass surface would grow tufts and drag)
     slab("Lot", "Concrete", "Sidewalk", -62.0, 62.0, -30.0, 62.0, top=0.0, t=0.1, group="plaza")
@@ -193,7 +195,7 @@ def set_pieces():
     quarter_pipe(root("StuntQP", 0.0, 36.0, 0.0), W=8.0, R=3.2, H=2.6, D=2.0, rails=True, decals=False)
     # the green screen: a curved cyclorama, rideable like a quarter pipe (its top is out of reach)
     qp = root("GreenScreen", 42.0, 36.0, 0.0)
-    quarter_pipe(qp, W=14.0, R=4.5, H=4.5, D=1.0, coping=False, rails=False, decals=False)
+    quarter_pipe(qp, W=14.0, R=4.5, H=4.5, D=1.0, coping=False, rails=False, decals=False, details=False)
     for ob in qp.children_recursive:
         if ob.type == "MESH":
             for i, m in enumerate(ob.data.materials):
@@ -341,7 +343,8 @@ def build(out, bake=True, samples=128):
     markers()
     tree_fn = lambda name, base, h, crown, seed: trees.tree(name, base, height=h, crown=crown, seed=seed)
     terrain.backdrop(tree_fn=lambda name, base, h, crown, seed: trees.tree(name, base, height=h, crown=crown, seed=seed,
-                                                                         cards=60, litter=0))
+                                                                         cards=60, litter=0),
+                     street_from=62.0)                  # (the avenue runs out to 62 m here)
     terrain.edge_trees(tree_fn)
     # the studio's wall round the other three sides (the lot ran straight into the meadow)
     stucco = mat("StudioWall", "#d8cdb8")

@@ -58,7 +58,8 @@ def ground():
     slab("FarBlocks", "Concrete", "Sidewalk", -62.0, 62.0, -62.0, -43.0, top=CURB, t=0.3)
     # Market Street (north-south), Second Street (east-west)
     slab("MarketRoad", "Path", "Road", -8.0, 8.0, -30.0, 62.0, top=0.0, t=0.3, group="plaza")
-    slab("SecondRoad", "Path", "Road", -62.0, 62.0, 19.0, 25.0, top=0.0, t=0.3, group="plaza")
+    for (x0, x1) in ((-62.0, -8.0), (8.0, 62.0)):        # either side of the market road (they crossed: drawn twice)
+        slab(lib.uname("SecondRoad"), "Path", "Road", x0, x1, 19.0, 25.0, top=0.0, t=0.3, group="plaza")
     # the blocks' sidewalks and yards (raised a curb above the roads)
     for (x0, x1, y0, y1) in ((-62.0, -8.0, -30.0, 19.0), (8.0, 62.0, -30.0, 19.0), (-62.0, -8.0, 25.0, 62.0),
                              (8.0, 62.0, 25.0, 62.0)):
@@ -242,11 +243,11 @@ def civic_plaza():
     # the stairs down the south side to Second Street's sidewalk: riding -Y
     W = 14.0
     sx = 24.0
-    rt = empty(lib.uname("CivicSteps"), (sx, y0, 0.0), math.pi, None)
+    rt = empty(lib.uname("CivicSteps"), (sx, y0 - 0.01, 0.0), math.pi, None)     # (1 cm proud of the platform's face)
     rt["bake_group"] = "plaza"
     n, rise, run = STAIRS_N, STAIRS_RISE, STAIRS_RUN
     Ht = PLAZA_H - CURB
-    pts = [(-0.4, 0.0), (-0.4, Ht), (0.0, Ht)]
+    pts = [(-0.4, 0.0), (-0.4, Ht + 0.008), (0.0, Ht + 0.008)]           # (over the platform's paving, not flush with it)
     em = [2, 0]
     for k in range(1, n + 1):
         z = Ht - k * (Ht / n)
@@ -463,7 +464,8 @@ def build(out, bake=True, samples=128):
     plant_trees()
     markers()
     # the city goes on: paved to the horizon, blocks all round (the streets used to end in a grassy meadow)
-    terrain.backdrop(road_top=0.0, walk_top=CURB, ground=("FarCity", "#9c988f"), far_trees=False, hills=False)
+    terrain.backdrop(road_top=0.0, walk_top=CURB, ground=("FarCity", "#9c988f"), far_trees=False, hills=False,
+                     street_from=62.0)
     terrain.city_blocks(seed=11)
     objs = list(bpy.context.scene.objects)
     realism.dress([o for o in objs if not o.get("library") and not o.name.startswith(("Tree", "Far_Tree", "FarTree"))])

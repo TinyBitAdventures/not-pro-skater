@@ -204,11 +204,13 @@ def terrace():
                         scale=0.7, collide=False)
     # the steps: built riding +Y (down), turned to face the plaza
     W = STEPS_X[1] - STEPS_X[0]
-    rt = empty(lib.uname("AtriumSteps"), ((STEPS_X[0] + STEPS_X[1]) / 2, ty0, 0.0), math.pi, None)
+    # (1 cm proud of the terrace's front, the top step a granite slab 8 mm over its paving: flush, the two surfaces
+    # tied in the depth buffer and flickered)
+    rt = empty(lib.uname("AtriumSteps"), ((STEPS_X[0] + STEPS_X[1]) / 2, ty0 - 0.01, 0.0), math.pi, None)
     rt["bake_group"] = "plaza"
     n, rise, run = STEPS_N, STEPS_RISE, STEPS_RUN
     Ht = TERRACE_H
-    pts = [(-0.4, 0.0), (-0.4, Ht), (0.0, Ht)]
+    pts = [(-0.4, 0.0), (-0.4, Ht + 0.008), (0.0, Ht + 0.008)]
     em = [2, 0]
     for k in range(1, n + 1):
         z = Ht - k * rise

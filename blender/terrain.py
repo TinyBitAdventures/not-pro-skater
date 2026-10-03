@@ -118,12 +118,13 @@ def _in_street_band(y, margin=0.0):
 
 
 def backdrop(extent=420.0, step=12.0, tree_fn=None, road_top=ROAD_Z, walk_top=0.0, ground=None, far_trees=True, hills=True,
-             flat_to=25.0, near_ground=None):
+             flat_to=25.0, near_ground=None, street_from=EDGE):
     """The world past the square: rolling far terrain, the street carrying on both ways, clumps of trees.
     road_top / walk_top: the level's own road and sidewalk heights, so the street continues without a step.
     ground: (material name, colour) for the far ground (a city's is paved); far_trees=False for no meadow trees.
     flat_to: the ground stays level this far past the edge (room for industrial()); near_ground: (material name,
-    colour) for that level band (yards), with the far trees and hills only beyond it."""
+    colour) for that level band (yards), with the far trees and hills only beyond it. street_from: where the level's
+    own street ends (Downtown and the Backlot run theirs out to 62 m: from 60, the two overlapped and flickered)."""
     _FLAT[0] = flat_to
     far_grass = mat(*ground) if ground else mat("FarGrass", "#6a8a44")
     near = mat(*near_ground) if near_ground else far_grass
@@ -172,7 +173,7 @@ def backdrop(extent=420.0, step=12.0, tree_fn=None, road_top=ROAD_Z, walk_top=0.
     road = mat("FarRoad", "#4c4f55")
     walk = mat("FarWalk", "#b9b6ae")
     for sx in (-1, 1):
-        xa, xb = sx * EDGE, sx * extent
+        xa, xb = sx * street_from, sx * extent
         lo, hi = min(xa, xb), max(xa, xb)
         lib.box("Far_Road", (hi - lo, 8.0, 0.1), ((lo + hi) / 2, -36.5, road_top - 0.05), road)
         for y0, y1 in ((-32.5, -30.0), (-43.0, -40.5)):

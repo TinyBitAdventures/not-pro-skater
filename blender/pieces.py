@@ -105,11 +105,11 @@ def guard_rail(root, p0, p1, z, h, colors, post_every=1.4, col=True, surface="Wa
 # skate obstacles
 # --------------------------------------------------------------------------
 
-def quarter_pipe(root, W=6.0, R=3.2, H=2.4, D=2.0, coping=True, rails=True, decals=True, seed=1):
+def quarter_pipe(root, W=6.0, R=3.2, H=2.4, D=2.0, coping=True, rails=True, decals=True, seed=1, details=True):
     wood, woodb, navy = M("Wood"), M("WoodB"), M("Navy")
     pts, em, sm, yt, th = qp_profile(R, H, D)
     prism(uname("Wood_QuarterPipe") + "-col", pts, -W / 2, W / 2, [wood, woodb, navy], em, sm, cap_mat=2, parent=root)
-    if H > 0.9:
+    if H > 0.9 and details:                     # (details=False: no foot plate or side sheets, a film set's cyclorama)
         ramp_details(root, W, R, H, D, yt)
     if coping:
         cyl_between(uname("Coping"), (-W / 2, yt, H + 0.02), (W / 2, yt, H + 0.02), 0.075, M("Metal"), seg=8, parent=root)
