@@ -82,6 +82,37 @@ static func level_name(gltf: String) -> String:
 	return "the level"
 
 
+## Medals for a session's score: bronze at half the event's score goal, silver at the goal, gold at twice it (or an
+## event's own "medals": [bronze, silver, gold], in points).
+const MEDALS: Array[String] = ["Bronze", "Silver", "Gold"]
+
+
+static func medal_scores(id: String) -> Array:
+	var ev: Dictionary = get_event(id)
+	if ev.has("medals"):
+		return ev["medals"]
+	for g in ev.get("goals", []):
+		if String(g["kind"]) == "score":
+			var s: int = int(g["points"])
+			return [s / 2, s, s * 2]
+	return [10000, 20000, 40000]
+
+
+## The medal a score wins: 0 none, 1 bronze, 2 silver, 3 gold.
+static func medal(id: String, score: int) -> int:
+	var m: Array = medal_scores(id)
+	var n: int = 0
+	for i in 3:
+		if score >= int(m[i]):
+			n = i + 1
+	return n
+
+
+## The event after this one in menu order (round to the first).
+static func next_event(id: String) -> String:
+	return ALL[(ALL.find(id) + 1) % ALL.size()]
+
+
 static func get_event(id: String) -> Dictionary:
 	match id:
 		"birthday":

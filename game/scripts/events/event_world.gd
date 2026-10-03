@@ -30,6 +30,10 @@ func _ready() -> void:
 	add_child(runner)
 	runner.setup(event_id, level, skater, score)
 	runner.changed.connect(_refresh_goals)
+	hud.next_requested.connect(func() -> void:
+		Game.event_choice = Events.next_event(event_id)
+		Game.save()
+		Game.go(Events.scene(Game.event_choice)))
 	runner.goal_done.connect(_on_goal)
 	runner.hint.connect(func(text: String, sub: String) -> void: hud.announce(text, Hud.PAPER, 1.8, sub))
 	score.awarded.connect(func(award_name: String, points: int) -> void:
@@ -101,14 +105,24 @@ func _finish() -> void:
 	finished = true
 	score.bank()                  # a combo landed before the buzzer still counts (and can finish a goal)
 	runner.active = false         # nothing after the buzzer completes or saves
-	var new_best: bool = Game.record(String(ev["id"]), score.score, score.best_combo)
+	var id: String = String(ev["id"])
+	var old_medal: int = Events.medal(id, int(Game.best.get(id, {}).get("score", 0)))
+	var new_best: bool = Game.record(id, score.score, score.best_combo)
+	var medal: int = Events.medal(id, score.score)
+	var next_medal: Array = []
+	if medal < 3:
+		next_medal = [Events.MEDALS[medal], int(Events.medal_scores(id)[medal])]
 	Sound.play("time_up")
 	Sound.fade_music(0.8)
 	Sound.play_jingle("results", -2.0)
 	if new_best and score.score > 0:
 		get_tree().create_timer(1.4).timeout.connect(func() -> void: Sound.play_jingle("new_best", -3.0, 1))
 	hud.show_results({"title": ev["title"], "score": score.score, "best_combo": score.best_combo,
-		"new_best": new_best and score.score > 0, "goals": runner.goal_list()})
+		"new_best": new_best and score.score > 0, "goals": runner.goal_list(),
+		"medal": medal, "new_medal": medal > old_medal, "next_medal": next_medal,
+		"best_combo_ever": int(Game.best.get(id, {}).get("combo", 0)),
+		"all_goals": Game.event_goals(id).size() >= (ev["goals"] as Array).size(),
+		"next_title": String(Events.get_event(Events.next_event(id))["title"])})
 	skater.scripted = true
 	skater.inp = SkaterInput.new()
 	skater.inp.brake = true

@@ -10,6 +10,7 @@ const ACCENT: Color = Color(1.0, 0.6, 0.16)         # the one highlight colour
 const GOOD: Color = Color(0.46, 0.9, 0.56)
 const BAD: Color = Color(1.0, 0.4, 0.34)
 const INFO: Color = Color(0.5, 0.78, 1.0)
+const MEDAL_COLORS: Array[Color] = [Color(0.86, 0.56, 0.32), Color(0.84, 0.87, 0.92), Color(1.0, 0.82, 0.3)]   # bronze, silver, gold
 
 const FONT_BODY: FontFile = preload("res://assets/fonts/BarlowCondensed-Medium.ttf")
 const FONT_BOLD: FontFile = preload("res://assets/fonts/BarlowCondensed-Bold.ttf")

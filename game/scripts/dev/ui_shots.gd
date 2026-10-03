@@ -120,6 +120,8 @@ func _run() -> void:
 	await _shot("controls")
 	hud.close_pause()
 	hud.show_results({"title": "Birthday at the Park", "score": 26350, "best_combo": 9120, "new_best": true,
+		"medal": 2, "new_medal": true, "next_medal": ["Gold", 50000], "best_combo_ever": 12400, "all_goals": false,
+		"next_title": "SKATE-A-THON",
 		"goals": [{"text": "Grab the P-A-R-T-Y balloons", "done": true}, {"text": "Bring the cake to the party", "done": false},
 			{"text": "Boardslide the party bench", "done": true}]})
 	await _wait(0.8)

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Medals:** every event has bronze, silver and gold for a session's score (bronze at half the event's score goal, silver at the goal, gold at twice it). The results show the medal you won (NEW if it beats your best), what the next one needs, your best combo ever in that event, and ALL GOALS DONE once you've finished every goal. The title shows each event's best medal, every goal done, and your medals over all six events.
+- **Next event:** the results are a small menu now: **Skate again**, **Next** (the next event, straight in) or **Title** (R and Esc still go straight to skating again and to the title).
 - **Options:** a new Options screen on the title and the pause menu: window or fullscreen (**Alt+Enter** or **F11** switch any time), vsync, a quality preset (High, Medium, Low: anti-aliasing and shadow detail, for older computers), master, music and effects volume, the music choice, stance, steering, jump, combo rules, camera shake and the daily update check. Everything applies at once and is saved. Stance, Steering, Jump and Music moved there from the title menu, which is shorter now.
 - The mouse pointer hides while you skate (it's back over the menus), and the game pauses itself when its window loses focus or a controller is unplugged.
 - The F3 tuning sliders are gone from the released game (they're a development tool: an event's best score could be set on changed physics). In an event, swapping rider (P) works until the clock starts.

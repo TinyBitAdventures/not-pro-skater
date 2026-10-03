@@ -21,6 +21,7 @@ signal resume_requested
 signal restart_requested
 signal quit_requested
 signal options_changed(key: String)
+signal next_requested                    # the results' NEXT EVENT
 
 var root: Control
 var score_value: Label
@@ -71,6 +72,9 @@ var pause_menu: VBoxContainer
 var results_layer: Control
 var results_box: VBoxContainer
 var _results_at: int = 0             # when the results came up (msec)
+var results_items: Array[Label] = []
+var results_keys: Array[String] = []     # "again", "next", "title"
+var results_sel: int = 0
 var _shown_score: float = 0.0
 var _target_score: int = 0
 var _card_t: float = 0.0
@@ -916,12 +920,26 @@ func _unhandled_input(event: InputEvent) -> void:
 	if results_layer.visible:
 		if Time.get_ticks_msec() < _results_at + 1000:
 			return                 # a jump pressed just as the buzzer went mustn't skip the results
-		if event.is_action_pressed("ui_accept") or event.is_action_pressed("respawn"):
+		if event.is_action_pressed("ui_accept"):
+			get_viewport().set_input_as_handled()
+			Sound.play("ui_ok")
+			_results_activate()
+		elif event.is_action_pressed("respawn"):
 			get_viewport().set_input_as_handled()
 			restart_requested.emit()
 		elif event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel"):
 			get_viewport().set_input_as_handled()
 			quit_requested.emit()
+		elif Controls.nav_pressed(event, "move_right") or Controls.nav_pressed(event, "ui_right") \
+				or Controls.nav_pressed(event, "move_down") or Controls.nav_pressed(event, "ui_down"):
+			get_viewport().set_input_as_handled()
+			_results_select(results_sel + 1)
+			Sound.play("ui_ok", -6.0, 0.9)
+		elif Controls.nav_pressed(event, "move_left") or Controls.nav_pressed(event, "ui_left") \
+				or Controls.nav_pressed(event, "move_up") or Controls.nav_pressed(event, "ui_up"):
+			get_viewport().set_input_as_handled()
+			_results_select(results_sel - 1)
+			Sound.play("ui_ok", -6.0, 0.9)
 		return
 	if options_screen.visible:
 		if options_screen.handle(event):
@@ -961,10 +979,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # ------------------------------------------------------------------ results
 
-## results: {"title", "score", "best_combo", "new_best": bool, "goals": [{"text","done"}]}
+## results: {"title", "score", "best_combo", "new_best": bool, "goals": [{"text","done"}]}, and for an event:
+## "medal" (0 none .. 3 gold), "new_medal": bool, "next_medal": [name, points] (or []), "best_combo_ever",
+## "all_goals": bool (every goal of the event done, ever), "next_title" (the next event, for NEXT EVENT)
 func show_results(r: Dictionary) -> void:
 	for c in results_box.get_children():
 		c.queue_free()
+	results_items.clear()
+	results_keys.clear()
 	results_box.add_child(UiKit.caption(String(r.get("title", "")), 22, ACCENT))
 	results_box.add_child(UiKit.label("SESSION OVER", 64, PAPER, "display"))
 	var row: HBoxContainer = HBoxContainer.new()
@@ -980,6 +1002,26 @@ func show_results(r: Dictionary) -> void:
 		nb.size_flags_vertical = Control.SIZE_SHRINK_END
 		row.add_child(nb)
 	results_box.add_child(row)
+	if r.has("medal"):
+		var m: int = int(r["medal"])
+		var mrow: HBoxContainer = HBoxContainer.new()
+		mrow.add_theme_constant_override("separation", 18)
+		var medal: Label = UiKit.label((Events.MEDALS[m - 1] + " medal").to_upper() if m > 0 else "NO MEDAL", 40,
+			UiKit.MEDAL_COLORS[m - 1] if m > 0 else MUTED, "display")
+		_outline(medal, 8)
+		mrow.add_child(medal)
+		if r.get("new_medal", false):
+			var nm: Label = UiKit.label("NEW", 26, ACCENT, "display")
+			nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			mrow.add_child(nm)
+		var nxt: Array = r.get("next_medal", [])
+		var tail: String = ("%s AT %s" % [String(nxt[0]).to_upper(), amount(int(nxt[1]))]) if not nxt.is_empty() else "THE TOP MEDAL"
+		var nl: Label = UiKit.label(tail, 22, MUTED, "bold")
+		nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mrow.add_child(nl)
+		results_box.add_child(mrow)
+		if int(r.get("best_combo_ever", 0)) > 0:
+			results_box.add_child(UiKit.caption("Best combo ever  " + amount(int(r["best_combo_ever"]))))
 	var gap: Control = Control.new()
 	gap.custom_minimum_size = Vector2(0, 10)
 	results_box.add_child(gap)
@@ -987,7 +1029,9 @@ func show_results(r: Dictionary) -> void:
 	var goals: Array = r.get("goals", [])
 	for g in goals:
 		done += int(g.get("done", false))
-	results_box.add_child(UiKit.caption("Goals  %d / %d" % [done, goals.size()]))
+	var gcap: Label = UiKit.caption("Goals  %d / %d" % [done, goals.size()] + ("    ALL GOALS DONE" if r.get("all_goals", false) else ""),
+		17, GOOD if r.get("all_goals", false) else MUTED)
+	results_box.add_child(gcap)
 	var list: VBoxContainer = VBoxContainer.new()
 	list.add_theme_constant_override("separation", 2)
 	results_box.add_child(list)
@@ -995,13 +1039,54 @@ func show_results(r: Dictionary) -> void:
 	var gap2: Control = Control.new()
 	gap2.custom_minimum_size = Vector2(0, 14)
 	results_box.add_child(gap2)
-	results_box.add_child(UiKit.hints([["ENTER", "skate again", "A"], ["ESC", "title", "B"]]))
+	# the way on: skate again, the next event, or the title
+	var menu: HBoxContainer = HBoxContainer.new()
+	menu.add_theme_constant_override("separation", 36)
+	results_box.add_child(menu)
+	var entries: Array = [["again", "SKATE AGAIN"]]
+	if String(r.get("next_title", "")) != "":
+		entries.append(["next", "NEXT: " + String(r["next_title"])])
+	entries.append(["title", "TITLE"])
+	for e in entries:
+		var i: int = results_items.size()
+		var l: Label = UiKit.label(String(e[1]), 30, PAPER, "bold")
+		l.mouse_filter = Control.MOUSE_FILTER_STOP
+		l.mouse_entered.connect(func() -> void: _results_select(i))
+		l.gui_input.connect(func(ev: InputEvent) -> void:
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+				_results_select(i)
+				_results_activate())
+		menu.add_child(l)
+		results_items.append(l)
+		results_keys.append(String(e[0]))
+	_results_select(0)
+	results_box.add_child(UiKit.hints([["LEFT / RIGHT", "choose", "D-PAD"], ["ENTER", "go", "A"], ["R", "skate again", "BACK"],
+		["ESC", "title", "B"]]))
 	_set_hud_visible(false)
 	results_layer.visible = true
 	_cursor(true)
 	_results_at = Time.get_ticks_msec()
 	results_layer.modulate.a = 0.0
 	create_tween().tween_property(results_layer, "modulate:a", 1.0, 0.5)
+
+
+func _results_select(i: int) -> void:
+	results_sel = posmod(i, results_items.size())
+	for j in results_items.size():
+		var on: bool = j == results_sel
+		results_items[j].add_theme_color_override("font_color", ACCENT if on else Color(PAPER, 0.8))
+		var t: String = results_items[j].text.trim_prefix("›  ")
+		results_items[j].text = ("›  " + t) if on else t
+
+
+func _results_activate() -> void:
+	match results_keys[results_sel]:
+		"again":
+			restart_requested.emit()
+		"next":
+			next_requested.emit()
+		"title":
+			quit_requested.emit()
 
 
 static func _commas(n: int) -> String:

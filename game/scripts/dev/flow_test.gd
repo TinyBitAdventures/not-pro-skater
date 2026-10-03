@@ -140,5 +140,16 @@ func _run() -> void:
 	var music: AudioStreamPlayer = Sound.get("_music")
 	_check("skate again: new session, music playing", _scene().ends_with("birthday.tscn") \
 		and not get_tree().current_scene.get("finished") and music.playing and music.volume_db > -6.0)
+	# the results' NEXT EVENT: on to the skate-a-thon
+	var w2: Node = get_tree().current_scene
+	w2.set("running", true)
+	w2.set("time_left", 0.3)
+	await _wait(2.0)
+	var hud2: Hud = w2.get("hud")
+	_check("results offer the next event", hud2.results_keys.has("next"))
+	await _press("ui_right")
+	await _press("ui_accept")
+	await _wait(2.0)
+	_check("next event: the skate-a-thon loads", _scene().ends_with("skateathon.tscn"))
 	print("[flow] %d failed" % fails)
 	get_tree().quit(fails)

@@ -327,13 +327,21 @@ func _refresh() -> void:
 	var best_text: String = ("$" + UiKit.commas(int(round(best * money)))) if money > 0.0 else UiKit.commas(best)
 	var all_done: int = 0
 	var all_goals: int = 0
+	var medals: Array[int] = [0, 0, 0]
 	for eid in Events.ALL:
 		all_done += Game.event_goals(eid).size()
 		all_goals += (Events.get_event(eid)["goals"] as Array).size()
+		var m: int = Events.medal(eid, int(Game.best.get(eid, {}).get("score", 0)))
+		if m > 0:
+			medals[m - 1] += 1
+	var medal: int = Events.medal(Game.event_choice, best)
+	var goal_count: int = (ev["goals"] as Array).size()
 	var lines: Array[String] = [
 		(Game.rider_name(home) + "'s home event" if home != "" else "Everyone's event").to_upper()
-			+ "    %d / %d GOALS" % [done, (ev["goals"] as Array).size()] + (("    BEST  " + best_text) if best > 0 else ""),
-		"ALL EVENTS  %d / %d GOALS" % [all_done, all_goals],
+			+ ("    ALL %d GOALS" % goal_count if done >= goal_count else "    %d / %d GOALS" % [done, goal_count])
+			+ (("    BEST  " + best_text) if best > 0 else "") + (("  " + Events.MEDALS[medal - 1].to_upper()) if medal > 0 else ""),
+		"ALL EVENTS  %d / %d GOALS" % [all_done, all_goals] + ("    MEDALS  %d GOLD  %d SILVER  %d BRONZE" % [medals[2],
+			medals[1], medals[0]] if medals != [0, 0, 0] else ""),
 	]
 	# the footer follows the row: Free Skate describes its level, Rider the rider's own event
 	match items[selected] if selected < items.size() else "":
