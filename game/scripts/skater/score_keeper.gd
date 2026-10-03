@@ -2,14 +2,19 @@ class_name ScoreKeeper
 extends RefCounted
 ## Combo rules: tricks pile up as "pending" points, the multiplier is the number of different tricks
 ## in the chain, and landing then leaving the combo idle for a moment banks it. A bail loses the pile.
+## Standard rules (the default): that moment is short (WINDOW: land and go straight into the next trick, or link
+## with a manual), and a sketchy landing knocks one off the multiplier. Relaxed (Options): the old rules, a long
+## window and nothing lost to a sketchy landing.
 
 signal changed
 signal banked(points: int, combo_len: int)
 signal lost
 signal trick_added(trick_name: String, points: int)
 signal awarded(award_name: String, points: int)   # points paid straight into the score (an event's lap, its one take)
+signal cut                                         # a sketchy landing took one off the multiplier
 
-const WINDOW: float = 1.25
+const WINDOW: float = 0.5               # s rolling without a trick before the combo banks (standard rules)
+const WINDOW_RELAXED: float = 1.25      # relaxed rules
 const HOLD_CAP_SECONDS: float = 4.0   # one combo pays at most this many seconds of each hold (manual/grab/grind)
 
 var score: int = 0
@@ -20,11 +25,13 @@ var best_combo: int = 0
 var best_trick: int = 0
 var trick_count: int = 0
 var live: bool = false           # a combo exists
+var relaxed: bool = false        # the Relaxed combo rules (Game.combo_rules)
 var hold_kind: String = ""       # what is being held right now: grind / manual / grab
 var _window: float = 0.0
 var _hold_acc: float = 0.0
 var _hold_paid: Dictionary = {}
 var _seen: Dictionary = {}
+var _cut: int = 0                # multiplier lost to sketchy landings in this combo
 
 
 func reset() -> void:
@@ -46,6 +53,7 @@ func _clear() -> void:
 	_hold_acc = 0.0
 	_hold_paid.clear()
 	_seen.clear()
+	_cut = 0
 
 
 func add_trick(trick_name: String, points: int) -> void:
@@ -55,7 +63,7 @@ func add_trick(trick_name: String, points: int) -> void:
 		_seen[trick_name] += 1
 	else:
 		_seen[trick_name] = 1
-		mult = _seen.size()
+		mult = maxi(1, _seen.size() - _cut)
 	names.append(trick_name)
 	pending += pts
 	trick_added.emit(trick_name, pts)
@@ -97,17 +105,32 @@ func release_hold(kind: String) -> void:
 		hold_kind = ""
 
 
+## How long rolling without a trick keeps a combo alive.
+func window() -> float:
+	return WINDOW_RELAXED if relaxed else WINDOW
+
+
 ## Called when the skater is back on the ground and rolling (not mid-grind or manual).
 func landed() -> void:
 	if live:
-		_window = WINDOW
+		_window = window()
+
+
+## A sketchy landing (standard rules): the combo's multiplier loses one, not below 1.
+func sketchy() -> void:
+	if not live or relaxed:
+		return
+	_cut += 1
+	mult = maxi(1, _seen.size() - _cut)
+	cut.emit()
+	changed.emit()
 
 
 func tick(dt: float, busy: bool) -> void:
 	if not live:
 		return
 	if busy or hold_kind != "":
-		_window = WINDOW
+		_window = window()
 		return
 	if _window > 0.0:
 		_window -= dt

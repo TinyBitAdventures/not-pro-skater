@@ -46,10 +46,14 @@ var _sting: AudioStreamPlayer
 var _pool_i: int = 0
 
 
+const MUSIC_DB: float = -9.0             # the buses' own levels; Options' music and effects volumes go on top
+const SFX_DB: float = -4.5
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_make_bus("Music", -9.0)
-	_make_bus("SFX", -4.5)
+	_make_bus("Music", MUSIC_DB)
+	_make_bus("SFX", SFX_DB)
 	var lp: AudioEffectLowPassFilter = AudioEffectLowPassFilter.new()
 	lp.cutoff_hz = 700.0
 	var mb: int = AudioServer.get_bus_index("Music")
@@ -131,7 +135,11 @@ func set_paused(v: bool) -> void:
 
 func apply_settings() -> void:
 	AudioServer.set_bus_volume_db(0, linear_to_db(clampf(Game.master_volume, 0.0001, 1.0)))
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), not music_on)
+	var mb: int = AudioServer.get_bus_index("Music")
+	var sb: int = AudioServer.get_bus_index("SFX")
+	AudioServer.set_bus_volume_db(mb, MUSIC_DB + linear_to_db(clampf(Game.music_volume, 0.0001, 1.0)))
+	AudioServer.set_bus_volume_db(sb, SFX_DB + linear_to_db(clampf(Game.sfx_volume, 0.0001, 1.0)))
+	AudioServer.set_bus_mute(mb, not music_on or Game.music_volume <= 0.0)
 
 
 func toggle_music() -> bool:

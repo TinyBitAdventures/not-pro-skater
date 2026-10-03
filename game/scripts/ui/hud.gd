@@ -40,6 +40,8 @@ var pointer_label: Label
 var trick_box: VBoxContainer
 var trick_names: Label
 var trick_points: Label
+var trick_flag: Label                  # "SKETCHY  -1x" over the trick string for a moment
+var _flag_t: float = 0.0
 var charge_bar: ProgressBar
 var balance_box: VBoxContainer
 var balance_marker: ColorRect
@@ -172,6 +174,10 @@ func _build_tricks() -> void:
 	trick_box.add_theme_constant_override("separation", -4)
 	trick_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(trick_box)
+	trick_flag = UiKit.label("", 26, BAD, "display")
+	trick_flag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(trick_flag, 8)
+	trick_box.add_child(trick_flag)
 	trick_names = UiKit.label("", 30, PAPER, "bold")
 	trick_names.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	trick_names.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -473,6 +479,13 @@ func _process(delta: float) -> void:
 	if _edge_k > 0.0:
 		edge_a = lerpf(0.75, 1.0, 0.5 + 0.5 * sin(_edge_clock))
 	edge_box.modulate.a = move_toward(edge_box.modulate.a, edge_a, delta * (6.0 if edge_a > edge_box.modulate.a else 3.0))
+	if _flag_t > 0.0:
+		_flag_t -= delta
+		trick_flag.modulate.a = clampf(_flag_t / 0.3, 0.0, 1.0)
+		if _flag_t <= 0.0:
+			trick_flag.text = ""
+			if _trick_state == "live":
+				trick_points.add_theme_color_override("font_color", ACCENT)
 	# trick string: a bank shows green, a bail red, then it fades
 	match _trick_state:
 		"live":
@@ -543,6 +556,15 @@ func combo_banked(points: int) -> void:
 	trick_points.add_theme_color_override("font_color", GOOD)
 	trick_points.pivot_offset = trick_points.size * 0.5
 	trick_points.scale = Vector2(1.3, 1.3)
+
+
+## A sketchy landing took one off the multiplier (standard combo rules).
+func combo_cut() -> void:
+	trick_flag.text = "SKETCHY  -1x"
+	_flag_t = 1.1
+	trick_points.add_theme_color_override("font_color", BAD)
+	trick_points.pivot_offset = trick_points.size * 0.5
+	trick_points.scale = Vector2(0.86, 0.86)
 
 
 func combo_lost() -> void:

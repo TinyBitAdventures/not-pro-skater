@@ -36,6 +36,7 @@ func _ready() -> void:
 			start_names.append(n)
 
 	score = ScoreKeeper.new()
+	score.relaxed = Game.combo_rules == "relaxed"
 	cam = _make_camera(sun)
 	skater = Skater.new()
 	skater.rider = OS.get_environment("RIDER") if OS.get_environment("RIDER") != "" else Game.rider
@@ -63,6 +64,9 @@ func _ready() -> void:
 	score.lost.connect(func() -> void:
 		hud.combo_lost()
 		Sound.play("combo_lost"))
+	score.cut.connect(func() -> void:
+		hud.combo_cut()
+		Sound.play("combo_lost", -8.0, 1.3))
 	skater.sfx.connect(_on_sfx)
 	skater.thud.connect(_on_thud)
 	skater.bailed.connect(func(_r: String) -> void: _cracked = false)

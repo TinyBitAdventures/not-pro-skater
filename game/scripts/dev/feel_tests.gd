@@ -9,7 +9,7 @@ const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert"
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
 	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
 	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate", "lip_stall", "lip_arm",
-	"grind_hold", "grind_drop", "grind_lean", "edge_warp", "wallride", "wallie", "wallride_headon", "grind_ground", "revert", "revert_early"]
+	"grind_hold", "grind_drop", "grind_lean", "edge_warp", "wallride", "wallie", "wallride_headon", "grind_ground", "revert", "revert_early", "flip_late", "flip_late_relaxed", "grab_land", "grab_land_relaxed"]
 
 var level: Level
 var sk: Skater
@@ -288,6 +288,61 @@ func _revert_run(early: bool) -> void:
 	_result(name, landings.count("revert") == 1 and landed_as != "" and flipped and not sk.manual_on and bails.is_empty(),
 		"vert landing (%s), manual %s: landings %s, rolling %s, manual %s, bails=%s" % [landed_as,
 		"just before touching down" if early else "just after", landings, sk.stance, sk.manual_on, bails])
+
+
+## Standard combo rules: a flip pressed too late to come round before the wheels touch lands sketchy, isn't counted,
+## and the multiplier loses one. Relaxed: it just isn't counted.
+func _t_flip_late() -> void:
+	await _late_trick("flip_late", false, false)
+
+
+func _t_flip_late_relaxed() -> void:
+	await _late_trick("flip_late_relaxed", false, true)
+
+
+## A grab still held as the wheels touch: sketchy under the standard rules, clean under the relaxed ones.
+func _t_grab_land() -> void:
+	await _late_trick("grab_land", true, false)
+
+
+func _t_grab_land_relaxed() -> void:
+	await _late_trick("grab_land_relaxed", true, true)
+
+
+func _late_trick(name: String, grab: bool, relaxed: bool) -> void:
+	await _spawn("flat", 7.0)
+	sk.score.relaxed = relaxed
+	sk.score.add_trick("Manual", 100)                 # a combo on the go, x2 with the next one, to see a cut
+	sk.score.add_trick("Nose Manual", 100)
+	sk.inp.ollie_pressed = true
+	await _tick()
+	sk.inp.ollie_pressed = false
+	var cuts: Array = [0]
+	sk.score.cut.connect(func() -> void: cuts[0] += 1)
+	var pressed: bool = false
+	for i in 240:
+		if sk.state == Skater.State.AIR and sk.velocity.y < -2.0 and not pressed:
+			pressed = true
+			if grab:
+				sk.inp.grab_held = true
+			else:
+				sk.inp.flip_pressed = true
+		var was: int = sk.state
+		await _tick()
+		sk.inp.flip_pressed = false
+		if was == Skater.State.AIR and sk.state == Skater.State.GROUND:
+			break
+	sk.inp.grab_held = false
+	await _tick(2)
+	var sketchy: bool = landings.has("sketchy")
+	var counted: bool = tricks.has("Kickflip") or tricks.has("Heelflip") or tricks.has("Pop Shove-it") or tricks.has("Hardflip") or tricks.has("Impossible")
+	var want_sketchy: bool = not relaxed
+	var ok: bool = pressed and sketchy == want_sketchy and (cuts[0] == 1) == want_sketchy and bails.is_empty()
+	if not grab:
+		ok = ok and not counted
+	_result(name, ok, "%s at the last moment (%s rules): landings %s, tricks %s, multiplier cuts %d, x%d, bails=%s" % [
+		"grab held" if grab else "flip pressed", "relaxed" if relaxed else "standard", landings, tricks, cuts[0],
+		sk.score.mult, bails])
 
 
 # ------------------------------------------------------------------ rails

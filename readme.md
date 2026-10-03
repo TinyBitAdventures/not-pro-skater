@@ -54,7 +54,7 @@ Stance (**Rider's own**, or every rider **Regular**, left foot forward, or **Goo
 
 **Lip tricks:** at the top of a quarter or half pipe, press L as you reach the coping (in the air, or on the way up the wall: it waits for the coping) to stall on it. The stick picks the trick: none Rock to Fakie, up Nose Stall, down Blunt to Fakie, left Axle Stall, right Disaster. Keep the BALANCE meter centred with left / right (push against the lean, like a grind) and press Space to drop back in (the "to Fakie" ones come back in backwards). Ride along the coping and L is a coping grind instead.
 
-Combos: every trick adds points and, if it is new to the combo, one to the multiplier. Land cleanly and keep going within about a second; stop and the combo is banked. Bail and you lose it.
+Combos: every trick adds points and, if it is new to the combo, one to the multiplier. Land and go straight into the next trick (half a second on the ground), or link with a manual; stop and the combo is banked. A sketchy landing takes one off the multiplier, and so does landing a flip that hasn't come round or with a grab still held. Bail and you lose it. **Options > Combo rules > Relaxed** keeps the old, forgiving rules (about a second on the ground, nothing lost to a sketchy landing).
 
 ## The game (Not Pro Skater)
 

@@ -1308,6 +1308,11 @@ func _land() -> void:
 	if was_air > 0.25 and err > deg_to_rad(assist_deg()):
 		kind = "sketchy"
 		velocity *= tune.sketchy_keep
+	# standard combo rules: a flip that isn't nearly round, or a grab still held as the wheels touch, lands sketchy
+	var strict: bool = score != null and not score.relaxed
+	if strict and kind == "clean" and ((flip_kind != "" and flip_t < 0.7) or grab_kind != ""):
+		kind = "sketchy"
+		velocity *= tune.sketchy_keep
 	if ref != Vector3.ZERO:
 		stance = "fakie" if backwards else "regular"
 		if backwards and kind == "clean" and was_air > 0.15:
@@ -1322,12 +1327,15 @@ func _land() -> void:
 			var ef: Array = Tricks.FLIPS[flip_kind]
 			score.add_trick(String(ef[0]), _styled(int(ef[1]), _air_where(), String(ef[0])))
 		if was_air > 0.15:
-			var units: int = int(round(absf(spin_total) / PI))
+			# a spin counts its 180s from 90 degrees on (relaxed) or 135 (standard: most of the way round)
+			var units: int = int(round(absf(spin_total) / PI)) if not strict else int((absf(spin_total) + PI * 0.25) / PI)
 			if units >= 1 and err < bail_rad():
 				score.add_trick(Tricks.spin_name(units), _styled(Tricks.spin_points(units), _air_where()))
 			if was_air > 1.1:
 				score.add_trick("Big Air", _styled(300, _air_where()))
 			score.landed()
+		if kind == "sketchy":
+			score.sketchy()
 	# line the board up with where it is going (landing assist); backwards landings roll away fakie
 	var face: Vector3 = ref if ref != Vector3.ZERO else heading
 	var on_plane: Vector3 = face - n * face.dot(n)

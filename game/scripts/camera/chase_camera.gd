@@ -68,7 +68,7 @@ func attach(sk: Skater) -> void:
 			_dip_v -= clampf(air * 0.9, 0.25, 1.6))
 	sk.bailed.connect(func(_r: String) -> void:
 		_dip_v -= lerpf(0.4, 1.6, sk.bail_severity)
-		_shake = lerpf(0.03, 0.09, sk.bail_severity) if sk.bail_kind != "runout" else 0.0)
+		_shake = lerpf(0.03, 0.09, sk.bail_severity) if sk.bail_kind != "runout" and Game.camera_shake else 0.0)
 	snap_behind()
 
 

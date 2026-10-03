@@ -9,6 +9,14 @@ var steer_mode: String = "tank"    # "tank" = skater steering (A/D turn, W push)
 var jump_mode: String = "hold"   # "hold" = crouch while held, jump on release (hold longer = higher); "tap" = jump on press
 var music_choice: String = "cruise"   # "cruise" (125 BPM), "hype" (131) or "off"; see docs/audio_credits_music.md
 var master_volume: float = 0.8
+var music_volume: float = 1.0      # on top of the music bus's own level (Options)
+var sfx_volume: float = 1.0        # sound effects and ambience
+var window_mode: String = "windowed"   # "windowed" or "fullscreen" (Alt+Enter / F11 toggle it anywhere)
+var vsync: bool = true
+var quality: String = "high"       # "high", "medium" or "low": anti-aliasing and shadow detail (QUALITY)
+var camera_shake: bool = true      # a crash shakes the camera
+var combo_rules: String = "standard"   # "standard" or "relaxed" (ScoreKeeper: the old, forgiving window)
+var tutorial_done: bool = false    # Learn to Skate finished (the title stops suggesting it)
 var rider: String = "dev"          # the playable character (assets/characters/<rider>.glb)
 var stance: String = "own"         # "own" (each rider's, RiderProfiles), "regular" (left foot forward) or "goofy"
 var stat_spent: Dictionary = {}    # rider -> {stat: points spent raising it} (RiderProfiles; points come from goals)
@@ -54,6 +62,12 @@ var update_url: String = ""                  # its release page
 var update_checked_at: int = 0               # unix time of the last answer from GitHub
 var last_release: Dictionary = {}            # GitHub's last answer (for the update test)
 var _update_http: HTTPRequest = null
+## Quality presets: MSAA (Viewport.MSAA_*), the sun's shadow map size and how soft its edges are filtered.
+const QUALITY: Dictionary = {
+	"high": {"msaa": Viewport.MSAA_4X, "shadow": 4096, "soft": RenderingServer.SHADOW_QUALITY_SOFT_HIGH},
+	"medium": {"msaa": Viewport.MSAA_2X, "shadow": 2048, "soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW},
+	"low": {"msaa": Viewport.MSAA_DISABLED, "shadow": 2048, "soft": RenderingServer.SHADOW_QUALITY_HARD},
+}
 const UI_BASE: Vector2 = Vector2(1600, 900)   # the UI is laid out for this size and scales with the window...
 const UI_MIN_SCALE: float = 0.75              # ...but no smaller than this: small windows (a web embed) get more room instead
 
@@ -103,6 +117,8 @@ func _ready() -> void:
 	get_tree().root.size_changed.connect(_fit_ui)
 	_fit_ui()
 	load_save()
+	apply_display()
+	apply_quality()
 	# web: index.html?scene=<event id>, park, school, ... or greybox opens that scene straight away; desktop builds
 	# take the same as a user argument: NotProSkater -- --scene=rushhour
 	var q: Variant = ""
@@ -311,6 +327,42 @@ func _fetch_pack(level_gltf: String) -> bool:
 	return true
 
 
+## Window or fullscreen, and vsync, as set (Options). Dev and test runs keep the window they were started with.
+func apply_display() -> void:
+	if is_dev_run() or DisplayServer.get_name() == "headless":
+		return
+	var full: bool = window_mode == "fullscreen"
+	var now: int = DisplayServer.window_get_mode()
+	var is_full: bool = now == DisplayServer.WINDOW_MODE_FULLSCREEN or now == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+	if full != is_full:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if full else DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
+
+
+## Anti-aliasing and shadow detail for the quality preset (QUALITY).
+func apply_quality() -> void:
+	var q: Dictionary = QUALITY[quality]
+	get_tree().root.msaa_3d = int(q["msaa"])
+	RenderingServer.directional_shadow_atlas_set_size(int(q["shadow"]), true)
+	RenderingServer.directional_soft_shadow_filter_set_quality(int(q["soft"]))
+
+
+## Alt+Enter or F11: fullscreen and back, anywhere (and remembered).
+func toggle_fullscreen() -> void:
+	window_mode = "windowed" if window_mode == "fullscreen" else "fullscreen"
+	apply_display()
+	save()
+
+
+func _input(event: InputEvent) -> void:
+	var k: InputEventKey = event as InputEventKey
+	if k == null or not k.pressed or k.echo:
+		return
+	if k.physical_keycode == KEY_F11 or (k.physical_keycode == KEY_ENTER and k.alt_pressed):
+		toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+
+
 func is_dev_run() -> bool:
 	if OS.get_environment("SHOT") != "":       # screenshot runs of real scenes: the player's save stays out of them
 		return true
@@ -336,6 +388,14 @@ func load_save() -> void:
 		# v3 reset a jump_mode of "tap" that was saved by accident from the title menu
 		jump_mode = cfg.get_value("settings", "jump_mode", "hold")
 	master_volume = cfg.get_value("settings", "master_volume", 0.8)
+	music_volume = clampf(float(cfg.get_value("settings", "music_volume", 1.0)), 0.0, 1.0)
+	sfx_volume = clampf(float(cfg.get_value("settings", "sfx_volume", 1.0)), 0.0, 1.0)
+	window_mode = String(cfg.get_value("settings", "window_mode", "windowed"))
+	vsync = bool(cfg.get_value("settings", "vsync", true))
+	quality = String(cfg.get_value("settings", "quality", "high"))
+	camera_shake = bool(cfg.get_value("settings", "camera_shake", true))
+	combo_rules = String(cfg.get_value("settings", "combo_rules", "standard"))
+	tutorial_done = bool(cfg.get_value("progress", "tutorial_done", false))
 	rider = cfg.get_value("settings", "rider", "dev")
 	stance = cfg.get_value("settings", "stance", "own")
 	stat_spent = _valid_spent(cfg.get_value("progress", "stat_spent", {}))
@@ -354,6 +414,12 @@ func load_save() -> void:
 		jump_mode = "hold"
 	if not ["own", "regular", "goofy"].has(stance):
 		stance = "own"
+	if not ["windowed", "fullscreen"].has(window_mode):
+		window_mode = "windowed"
+	if not QUALITY.has(quality):
+		quality = "high"
+	if not ["standard", "relaxed"].has(combo_rules):
+		combo_rules = "standard"
 	if not Events.LEVELS.any(func(lv: Dictionary) -> bool: return lv["id"] == level_choice):
 		level_choice = "park"
 	master_volume = clampf(float(master_volume), 0.0, 1.0)
@@ -372,11 +438,19 @@ func save() -> void:
 	var cfg: ConfigFile = ConfigFile.new()
 	cfg.set_value("progress", "best", best)
 	cfg.set_value("progress", "goals", goals)
-	cfg.set_value("settings", "version", 3)
+	cfg.set_value("settings", "version", 4)
 	cfg.set_value("settings", "steer_mode", steer_mode)
 	cfg.set_value("settings", "jump_mode", jump_mode)
 	cfg.set_value("settings", "music_choice", music_choice)
 	cfg.set_value("settings", "master_volume", master_volume)
+	cfg.set_value("settings", "music_volume", music_volume)
+	cfg.set_value("settings", "sfx_volume", sfx_volume)
+	cfg.set_value("settings", "window_mode", window_mode)
+	cfg.set_value("settings", "vsync", vsync)
+	cfg.set_value("settings", "quality", quality)
+	cfg.set_value("settings", "camera_shake", camera_shake)
+	cfg.set_value("settings", "combo_rules", combo_rules)
+	cfg.set_value("progress", "tutorial_done", tutorial_done)
 	cfg.set_value("settings", "rider", rider)
 	cfg.set_value("settings", "stance", stance)
 	cfg.set_value("progress", "stat_spent", stat_spent)
