@@ -675,15 +675,16 @@ func _pose(sk: Skater, dt: float) -> void:
 			# wobbling harder as it nears the edge
 			var bal: float = sk.grind_balance * (-1.0 if fakie else 1.0) * gs
 			sway_t = bal * 16.0 + sin(_t * 9.0) * (2.0 + absf(bal) * 5.0)
-			var face: float = -1.0 if fakie else 1.0     # turning the chest toward the way it's sliding
 			glift_t = ON_RAIL - DECK_BOTTOM                # the deck on the rail
 			match sk.grind_kind:
 				"50-50":
 					glift_t = ON_RAIL - HANGER_BOTTOM        # the trucks on it, the wheels either side
 				"Boardslide", "Lip Slide":
 					if sk.grind_board_turn != 0.0:
-						# square across the rail, facing down it, head looking along the line
-						by_t = face * 90.0
+						# square across the rail, head looking along the line: the body turns with the board (a fixed
+						# +90 faced the wrong way whenever the board turned the other way, approached from the other
+						# side, fakie or goofy: the legs crossed)
+						by_t = 90.0 * signf(yaw_t)
 						roll_t = 0.0
 						hip_t = 0.62
 						lean_t = 14.0
@@ -693,7 +694,7 @@ func _pose(sk: Skater, dt: float) -> void:
 					var nose: bool = sk.grind_kind == "Noseslide"
 					var turn: float = sk.grind_board_turn * gs
 					shift_t = Vector2((0.3 if nose else -0.3) * sin(turn), 0.0)
-					by_t = face * rad_to_deg(turn) * 0.75
+					by_t = rad_to_deg(turn) * 0.75              # (with the board, as for a boardslide)
 					px_t = (0.16 if nose else -0.16) * sin(turn)
 					roll_t = 0.0
 					ff_t = Vector3(0.0, -0.27, 12.0) if nose else Vector3(0.0, -0.1, 22.0)
@@ -781,14 +782,28 @@ func _pose(sk: Skater, dt: float) -> void:
 		board_pitch = pitch_t
 	elif st == Skater.State.GRIND:
 		# locking onto a rail turns the board in about 0.08 s (in one frame it read as a glitch)
+		board_yaw = yaw_t + _fold180(board_yaw - yaw_t)
 		board_roll = _approach(wrapf(board_roll, -180.0, 180.0), roll_t, 35.0, dt)
 		board_yaw = _approach(wrapf(board_yaw, -180.0, 180.0), yaw_t, 35.0, dt)
 		board_pitch = _approach(wrapf(board_pitch, -180.0, 180.0), pitch_t, 35.0, dt)
 	else:
-		# a flip that just finished stands at 360: that's 0, not a turn back the other way
+		# a flip that just finished stands at 360: that's 0, not a turn back the other way; and a shove-it's 180 is the
+		# board end for end, which looks the same (it spun back 180 the other way, in the air)
+		board_yaw = yaw_t + _fold180(board_yaw - yaw_t)
 		board_roll = _approach(wrapf(board_roll, -180.0, 180.0), roll_t, 20.0, dt)
 		board_yaw = _approach(wrapf(board_yaw, -180.0, 180.0), yaw_t, 20.0, dt)
 		board_pitch = _approach(wrapf(board_pitch, -180.0, 180.0), pitch_t, 14.0, dt)
+
+
+## An angle in degrees as the nearest look-alike within +-90: the deck turned end for end looks the same (the
+## underside's graphic aside, and that's face down here).
+static func _fold180(a: float) -> float:
+	a = wrapf(a, -180.0, 180.0)
+	if a > 90.0:
+		a -= 180.0
+	elif a < -90.0:
+		a += 180.0
+	return a
 
 
 ## A touchdown kicks the legs' spring by how hard it came down (rolling back into a ramp barely sinks; a drop
@@ -847,8 +862,8 @@ func _flip_pose(sk: Skater, pop_pitch: float) -> void:
 		"left":
 			out = 0.1                         # off the toe edge
 		"right":
-			top = 0.05                        # flat under the feet: only just clear of it
-			back_out = 0.04                   # the back foot scoops
+			top = 0.1                         # flat under the feet, clear of it (at 5 cm the tail's kick swung up into
+			back_out = 0.04                   # the back foot's toes); the back foot scoops
 		"forward":
 			out = 0.06
 			spread = 0.08
@@ -1019,6 +1034,11 @@ func _apply_rig(sk: Skater) -> void:
 	bt = Transform3D(rot, pivot - rot * pivot + Vector3(board_shift.x, board_lift + _fit.z, board_shift.y))
 	board_logic = bt
 	board.transform = Transform3D(MX * bt.basis * MX, MX * bt.origin) if goofy else bt   # (hidden while it's loose)
+	# where the feet go: the deck looks the same turned end for end, so with the board turned more than 90 degrees
+	# (a shove-it, a hardflip) the feet stand on it as if it had turned 180 less. They used to go to their marks on
+	# the turned board, the front foot to the end now at the back: the legs crossed at the catch
+	var bf: Transform3D = bt * Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO) \
+		if absf(wrapf(board_yaw, -180.0, 180.0)) > 90.0 else bt
 
 	# hips: hip_h is a pose number (0.72 riding tall .. 0.55 deep crouch) mapped onto a share of this leg
 	var frac: float = clampf((hip_h - _absorb - 0.145) / 0.665, 0.42, 1.05)
@@ -1034,7 +1054,7 @@ func _apply_rig(sk: Skater) -> void:
 		push_amt = push_hold * push_hold * (3.0 - 2.0 * push_hold)
 	var push_feet: bool = push_amt > 0.001 and sk.state == Skater.State.GROUND and not sk.manual_on and not walking
 	if sk.push_anim >= 0.0 and sk.state == Skater.State.GROUND and not sk.manual_on:
-		stride = _push_stride(sk.push_anim, bt, sk.stance == "fakie", push_style == "mongo")
+		stride = _push_stride(sk.push_anim, bf, sk.stance == "fakie", push_style == "mongo")
 		hip_y -= float(stride[2])            # the standing leg bends as the other reaches the ground
 	for i in [_b["Root"]]:
 		_rest_follow(i)
@@ -1068,10 +1088,10 @@ func _apply_rig(sk: Skater) -> void:
 
 	# legs: feet flat on their marks on the deck, riding its tilt (a manual's pitch, a grab, a slide), lifted off it
 	# while a flip goes round below, walking or running on the ground after a bail
-	var front: Vector3 = bt * Vector3(foot_f.x, deck_y(foot_f.y) + feet_lift, foot_f.y)
-	var back: Vector3 = bt * Vector3(foot_b.x, deck_y(foot_b.y) + feet_lift, foot_b.y)
-	var turn_f: Basis = bt.basis * Basis(Vector3.UP, deg_to_rad(foot_f.z))
-	var turn_b: Basis = bt.basis * Basis(Vector3.UP, deg_to_rad(foot_b.z))
+	var front: Vector3 = bf * Vector3(foot_f.x, deck_y(foot_f.y) + feet_lift, foot_f.y)
+	var back: Vector3 = bf * Vector3(foot_b.x, deck_y(foot_b.y) + feet_lift, foot_b.y)
+	var turn_f: Basis = bf.basis * Basis(Vector3.UP, deg_to_rad(foot_f.z))
+	var turn_b: Basis = bf.basis * Basis(Vector3.UP, deg_to_rad(foot_b.z))
 	if free_feet > 0.0 and not _flip_feet.is_empty():
 		var on_f: Vector3 = front
 		var on_b: Vector3 = back
@@ -1088,12 +1108,12 @@ func _apply_rig(sk: Skater) -> void:
 	if push_feet and not push_front:
 		# the front foot stays on and swivels to point the way it's going, its heel a little in so the toes stay off
 		# the nose's kick (and stays turned through a run of strides)
-		turn_f = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_f.z, 65.0 * push_way, push_amt)))
-		front = bt * Vector3(foot_f.x, deck_y(foot_f.y + 0.05 * push_amt), foot_f.y + 0.05 * push_amt)
+		turn_f = bf.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_f.z, 65.0 * push_way, push_amt)))
+		front = bf * Vector3(foot_f.x, deck_y(foot_f.y + 0.05 * push_amt), foot_f.y + 0.05 * push_amt)
 	elif push_feet:
 		# the back foot stays on: rolling fakie it leads, toward the tail; a mongo push stands on it pointing at the nose
-		turn_b = bt.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_b.z, 65.0 * push_way, push_amt)))
-		back = bt * Vector3(foot_b.x, deck_y(foot_b.y - 0.05 * push_amt), foot_b.y - 0.05 * push_amt)
+		turn_b = bf.basis * Basis(Vector3.UP, deg_to_rad(lerpf(foot_b.z, 65.0 * push_way, push_amt)))
+		back = bf * Vector3(foot_b.x, deck_y(foot_b.y - 0.05 * push_amt), foot_b.y - 0.05 * push_amt)
 	if not stride.is_empty() and not push_front:
 		back = stride[0]
 		turn_b = Basis(Vector3.UP, deg_to_rad(float(stride[1])))
@@ -1171,7 +1191,7 @@ func _apply_rig(sk: Skater) -> void:
 			held = Transform3D(Basis(Vector3.UP, PI), MX * held.origin)
 		carry_item.global_transform = global_transform * held
 	elif grab_amt > 0.01 and sk.grab_kind != "":
-		var gp: Array = _grab_targets(sk.grab_kind, bt)
+		var gp: Array = _grab_targets(sk.grab_kind, bf)
 		hand_l = free_l.lerp(gp[0], grab_amt * float(gp[2]))
 		hand_r = free_r.lerp(gp[1], grab_amt * float(gp[3]))
 	if _cheer > 0.0 and not walking and carry_item == null and grab_amt < 0.1:

@@ -100,7 +100,7 @@ func _play(nm: String, spec: Dictionary) -> void:
 	clip["n"] = n
 	cam_side = sk.hdg.cross(Vector3.UP).normalized()
 	cam_look = sk.render_position() + Vector3.UP * 0.75
-	var worst: Dictionary = {"sole": 0.0, "wheel": 0.0, "cut": 0}
+	var worst: Dictionary = {"sole": 0.0, "wheel": 0.0, "cut": 0, "cross": 0}
 	clip["worst"] = worst
 	while shots < n and ticks < 120 * 20:
 		await get_tree().physics_frame
@@ -108,8 +108,8 @@ func _play(nm: String, spec: Dictionary) -> void:
 			continue
 		if film_tick >= 0 and (ticks - film_tick) >= shots * int(clip["every_ticks"]):
 			await _shot()
-	report.append("[ride] %-11s soles off the grip up to %.3f m, wheels into the ground %.3f m, cut frames %d" % [
-		nm, worst["sole"], worst["wheel"], worst["cut"]])
+	report.append("[ride] %-11s soles off the grip up to %.3f m, wheels into the ground %.3f m, cut frames %d, crossed-leg frames %d" % [
+		nm, worst["sole"], worst["wheel"], worst["cut"], worst["cross"]])
 	clip = {}
 
 
@@ -174,6 +174,8 @@ func _shot() -> void:
 	if m.has("wheels"):
 		line += " wheels %+.3f..%+.3f" % [m["wheels"][0], m["wheels"][1]]
 	line += " cut %d pitch %.0f" % [m.get("cut", 0), m.get("pitch", 0.0)]
+	if float(m.get("cross", 0.0)) > 0.0:
+		line += " crossed %.2f" % float(m["cross"])
 	if m.has("rail"):
 		line += " rail %s" % [(m["rail"] as Vector3).snapped(Vector3(0.001, 0.001, 0.001))]
 	var w: Dictionary = clip["worst"]
@@ -188,6 +190,9 @@ func _shot() -> void:
 		over = over or float(m["wheels"][0]) < -0.01
 	if int(m.get("cut", 0)) > 0:
 		w["cut"] += 1
+		over = true
+	if float(m.get("cross", 0.0)) > 0.03:
+		w["cross"] += 1
 		over = true
 	if over:
 		bad += 1
@@ -269,6 +274,14 @@ static func metrics(s: Skater) -> Dictionary:
 		var rb: Vector3 = inv * lp
 		out["rail"] = Vector3(rb.x, rb.y - RiderRig.DECK_BOTTOM, rb.z)
 	out["cut"] = cut
+	# legs crossed: the left ankle on the right of the right one, across the line of the hips (as drawn: a goofy
+	# rider is mirrored, its left leg drawn as the right). m past each other (0 = not crossed)
+	var sk3: Skeleton3D = rg.skel
+	var at: Callable = func(bone: String) -> Vector3: return sk3.get_bone_global_pose(sk3.find_bone(bone)).origin
+	var lr: Vector3 = at.call("thigh_r") - at.call("thigh_l")
+	lr.y = 0.0
+	if lr.length() > 0.01:
+		out["cross"] = maxf(0.0, -((at.call("foot_r") as Vector3) - (at.call("foot_l") as Vector3)).dot(lr.normalized()))
 	out["pitch"] = rg.board_pitch
 	out["on_deck"] = s.state == Skater.State.GROUND or s.state == Skater.State.GRIND or (s.state == Skater.State.AIR \
 		and rg.free_feet < 0.01)
@@ -455,11 +468,17 @@ func _clips() -> Dictionary:
 					sk.lip_balance = 0.0                     # (hold the stall still for the film)
 					sk._lip_vel = 0.0,
 			"begin": func() -> bool: return sk.lip_kind != ""}
-	for g in [["5050", "none"], ["noseslide", "forward"], ["tailslide", "back"], ["boardslide", "board"]]:
+	# (_other: the board turned the other way across the rail; _fakie: rolling tail first)
+	for g in [["5050", "none"], ["noseslide", "forward"], ["tailslide", "back"], ["boardslide", "board"],
+			["boardslide_other", "board"], ["boardslide_fakie", "board"], ["noseslide_fakie", "forward"]]:
 		var gname: String = g[0]
 		var stick: String = g[1]
+		var turn: float = -PI * 0.5 if gname.ends_with("_other") else PI * 0.5
+		var fakie: bool = gname.ends_with("_fakie")
 		c[gname] = {"start": "rail", "v0": 7.5, "every": 0.1, "n": 10,
 			"drive": func() -> void:
+				if fakie and ticks == 1:
+					sk.stance = "fakie"
 				if sk.state == Skater.State.GROUND:
 					_push()
 					if sk.global_position.z < 0.6 and d["phase"] == 0:
@@ -471,7 +490,7 @@ func _clips() -> Dictionary:
 				elif sk.state == Skater.State.GRIND:
 					if stick == "board" and sk.grind_kind != "Boardslide":
 						sk.grind_kind = "Boardslide"           # (coming in square across the rail is hard to script)
-						sk.grind_board_turn = PI * 0.5
+						sk.grind_board_turn = turn
 					sk.grind_speed = maxf(sk.grind_speed, 3.0)
 					_steady(),
 			"begin": func() -> bool: return sk.state == Skater.State.GRIND}
