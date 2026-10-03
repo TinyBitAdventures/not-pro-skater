@@ -34,6 +34,26 @@ func _run() -> void:
 	var lv: Level = world.level
 	var ev: Dictionary = Events.get_event(id)
 	var report: Array[String] = []
+	# every start (and the spawn): nothing to collect hangs between the chase camera and the rider (a letter balloon
+	# filled the whole screen at Between Takes' New York street start)
+	var spots: Dictionary = lv.starts.duplicate()
+	spots["spawn"] = lv.spawn
+	var blocked: Array[String] = []
+	for nm in spots:
+		var xf: Transform3D = spots[nm]
+		var f: Vector3 = -xf.basis.z
+		f.y = 0.0
+		f = f.normalized() if f.length() > 0.1 else Vector3.FORWARD
+		var rider: Vector3 = xf.origin + Vector3.UP * 1.0
+		var cam: Vector3 = xf.origin - f * 4.4 + Vector3.UP * 1.65
+		for mk in lv.markers:
+			if not (String(mk).begins_with("letter_") or String(mk).ends_with("pickup")):
+				continue
+			var m: Vector3 = (lv.markers[mk] as Transform3D).origin
+			var t: float = clampf((m - cam).dot(rider - cam) / maxf((rider - cam).length_squared(), 0.001), 0.0, 1.0)
+			if m.distance_to(cam.lerp(rider, t)) < 1.3:
+				blocked.append("%s: %s" % [nm, mk])
+	report.append("starts (camera view clear): %s" % ("true" if blocked.is_empty() else "false " + str(blocked)))
 	for g in ev["goals"]:
 		var gid: String = g["id"]
 		match String(g["kind"]):
@@ -221,6 +241,6 @@ func _run() -> void:
 	var all_done: bool = r.done.size() == (ev["goals"] as Array).size() and not report.any(func(l: String) -> bool:
 		return (l.contains("wrong grind first") and (l.contains("counted true") or l.contains("hinted []"))) \
 			or l.contains("done outside counted true") or l.contains("counted while rolling true") \
-			or l.contains("bailed trick counted true"))
+			or l.contains("bailed trick counted true") or l.contains("camera view clear): false"))
 	print("[event] %s all goals: %s" % [id, all_done])
 	get_tree().quit(0 if all_done else 1)

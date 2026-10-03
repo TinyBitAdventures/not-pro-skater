@@ -302,7 +302,7 @@ def markers():
     marker("Spawn_Player", 0.0, -24.0, 0.02, 0.0)
     marker("Start_gate", 0.0, -24.0, 0.02, 0.0)
     marker("Start_west", WEST_X, -20.0, 0.02, 0.0)
-    marker("Start_ny", NY_X, -20.0, 0.02, 0.0)
+    marker("Start_ny", NY_X, -14.0, 0.02, 0.0)                  # (at -20 the chase camera sat in the O balloon)
     marker("Start_stunt", 0.0, 27.0, 0.02, 0.0)                 # (at 22 the camera sat in the craft tent)
     marker("Start_green", 44.0, 25.0, 0.02, 0.0)
     marker("Start_dolly", 10.0, -23.4, 0.02, -90.0)
