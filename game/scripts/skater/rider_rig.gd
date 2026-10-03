@@ -177,6 +177,9 @@ var _thud_cd: float = 0.0
 var _thuds: int = 0
 var _board_flip_t: float = 0.0           # seconds left of hooking the board over (the walk stops for it)
 var _flail: float = 0.0                  # 0..1: the first steps of a run-out, arms thrown up and out for balance
+var _foot_dt: float = 0.0                # this frame's dt on foot (run, walk): the arms' smoothing
+var _arm_th: Array[float] = [0.0, 0.0]   # the walking arms' swing (radians), smoothed: it followed the feet frame by frame
+var _hand_s: Array = [null, null]        # on foot: the hand targets, smoothed (a run-out flail into a walk snapped them)
 const CHEER_TIME: float = 0.9
 var _cheer: float = 0.0                  # seconds left of a fist pump after banking a big combo
 var _score_hooked: ScoreKeeper = null
@@ -1246,14 +1249,27 @@ func _apply_rig(sk: Skater) -> void:
 		var lo_l: float = float(_up_len["lowerarm_l"])
 		var hands: Array = []
 		for side in [0, 1]:
-			var th: float = deg_to_rad(float(_gait_now["arm_l" if side == 0 else "arm_r"]))
-			var bend: float = deg_to_rad(lerpf(14.0, 78.0, run_k)) + maxf(0.0, th) * lerpf(0.9, 0.35, run_k)
+			var th_want: float = deg_to_rad(float(_gait_now["arm_l" if side == 0 else "arm_r"]))
+			_arm_th[side] = th_want if _foot_dt <= 0.0 else lerpf(_arm_th[side], th_want, 1.0 - exp(-12.0 * _foot_dt))
+			var th: float = _arm_th[side]
+			var bend: float = deg_to_rad(lerpf(12.0, 70.0, run_k)) + maxf(0.0, th) * lerpf(0.5, 0.3, run_k)
 			var sh: Vector3 = sh_l if side == 0 else sh_r
 			var out: float = (-1.0 if side == 0 else 1.0) * lerpf(0.07, 0.04, run_k) * (1.0 - 0.5 * maxf(0.0, sin(th)))
 			hands.append(sh + Vector3(sin(th) * up_l + sin(th + bend) * lo_l, -cos(th) * up_l - cos(th + bend) * lo_l, out))
 		free_l = free_l.lerp(hands[0], off_k * (1.0 - _flail))
 		free_r = free_r.lerp(hands[1], off_k * (1.0 - _flail))
 		elbow_out = lerpf(0.3, 0.1, off_k)
+		# the hands follow their targets a touch behind: no snap as a run-out's flail gives way to the walk
+		for side in [0, 1]:
+			var want: Vector3 = free_l if side == 0 else free_r
+			if _hand_s[side] == null or _foot_dt <= 0.0:
+				_hand_s[side] = want
+			else:
+				_hand_s[side] = (_hand_s[side] as Vector3).lerp(want, 1.0 - exp(-18.0 * _foot_dt))
+		free_l = _hand_s[0]
+		free_r = _hand_s[1]
+	else:
+		_hand_s = [null, null]
 	var hand_l: Vector3 = free_l
 	var hand_r: Vector3 = free_r
 	if carry_item != null and is_instance_valid(carry_item) and not _walk_mode:
@@ -1576,6 +1592,7 @@ func _body_lost(sk: Skater) -> bool:
 
 
 func _walk(sk: Skater, dt: float) -> void:
+	_foot_dt = dt
 	var target: Vector3 = loose.global_position
 	var to: Vector3 = target - _walk_pos
 	to.y = 0.0
@@ -1731,6 +1748,7 @@ func _begin_run(sk: Skater) -> void:
 
 
 func _run(sk: Skater, dt: float) -> void:
+	_foot_dt = dt
 	var h: Vector3 = Vector3(sk.velocity.x, 0.0, sk.velocity.z)
 	var spd: float = h.length()
 	if spd > 0.2:
@@ -1745,9 +1763,9 @@ func _run(sk: Skater, dt: float) -> void:
 	lean = 10.0 - spd * 1.5                    # leaning back against the speed
 	twist = 0.0
 	sway = 0.0
-	# stepping off a mistake: the arms fly up and out for balance, then settle into the run's swing
-	_flail = 1.0 - smoothstep(0.25, 0.75, _phase_t)
-	arms_out = lerpf(0.55, 1.15, _flail)
+	# stepping off a mistake: the arms go out for balance (chest high, elbows soft), then settle into the run's swing
+	_flail = 1.0 - smoothstep(0.15, 0.6, _phase_t)
+	arms_out = lerpf(0.55, 0.85, _flail)
 	_rest_board_pose()
 	_apply_rig(sk)
 
@@ -2065,8 +2083,10 @@ func _gait_update(dt: float, v: float, turn_rate: float = 0.0) -> void:
 		"yaw": -ahead * lerpf(9.0, 12.0, run_k),
 		# weight over the standing foot
 		"sway": -width * 0.45 * cos(TAU * (_gait - duty * 0.5)) * (1.0 - 0.6 * run_k) * move,
-		"arm_l": -ahead * lerpf(24.0, 38.0, run_k) - lerpf(4.0, 10.0, run_k),     # (a little behind the body at rest:
-		"arm_r": ahead * lerpf(24.0, 38.0, run_k) - lerpf(4.0, 10.0, run_k),      # the swing is more back than forward)
+		# (a little behind the body at rest: the swing is more back than forward; a walk's is small, about 16 degrees
+		# each way: at 24 they swung like a jogger's even walking back to the board)
+		"arm_l": -clampf(ahead, -1.0, 1.0) * lerpf(16.0, 34.0, run_k) - lerpf(3.0, 8.0, run_k),
+		"arm_r": clampf(ahead, -1.0, 1.0) * lerpf(16.0, 34.0, run_k) - lerpf(3.0, 8.0, run_k),
 	}
 
 

@@ -86,6 +86,9 @@ func _film(label: String) -> void:
 	var t_bail0: float = sk.bail_time
 	var board_far: float = 0.0
 	var board_up: float = 1.0
+	# the arms on foot (run-out, walk): how fast the hands move against the chest and how high they go above the
+	# shoulders (flailing like a rag doll shows as fast, high hands)
+	var arms: Dictionary = {"peak": 0.0, "high": -INF, "sum": 0.0, "n": 0, "prev": []}
 	var ahead: float = INF
 	while k < n:
 		await get_tree().process_frame
@@ -115,6 +118,25 @@ func _film(label: String) -> void:
 				rig.ragdoll.simulating(), counts["mod"], counts["upd"], Engine.get_physics_frames()])
 			counts["mod"] = 0
 			counts["upd"] = 0
+		if walker._walk_mode and (walker.phys_phase == "run" or walker.phys_phase == "walk"):
+			var sk3: Skeleton3D = walker.skel
+			var chest: Transform3D = sk3.global_transform * sk3.get_bone_global_pose(sk3.find_bone("spine_03"))
+			var now: Array = []
+			for lr in ["l", "r"]:
+				var hand: Vector3 = (sk3.global_transform * sk3.get_bone_global_pose(sk3.find_bone("hand_" + lr))).origin
+				var sh: Vector3 = (sk3.global_transform * sk3.get_bone_global_pose(sk3.find_bone("upperarm_" + lr))).origin
+				arms["high"] = maxf(float(arms["high"]), hand.y - sh.y)
+				now.append(chest.affine_inverse() * hand)
+			var dt2: float = get_process_delta_time()
+			if not (arms["prev"] as Array).is_empty() and dt2 > 0.0:
+				for j in 2:
+					var v: float = ((now[j] as Vector3) - (arms["prev"][j] as Vector3)).length() / dt2
+					arms["peak"] = maxf(float(arms["peak"]), v)
+					if OS.get_environment("ARM_DBG") != "" and j == 0:
+						print("[arms] t=%.3f %s v_l=%.2f hand_l=%s chest-space" % [t, walker.phys_phase, v, (now[0] as Vector3).snapped(Vector3.ONE * 0.01)])
+					arms["sum"] = float(arms["sum"]) + v
+					arms["n"] = int(arms["n"]) + 1
+			arms["prev"] = now
 		if t >= 1.0 and ahead == INF and walker.loose != null and is_instance_valid(walker.loose):
 			# where the board is against the body a second in, along the way they were going (+ ahead, - behind)
 			var way: Vector3 = Vector3(sk.bail_velocity.x, 0.0, sk.bail_velocity.z).normalized()
@@ -130,6 +152,9 @@ func _film(label: String) -> void:
 		("at 1 s the board was %.1f m %s the body" % [absf(ahead), "ahead of" if ahead > 0.0 else "behind"]) if ahead != INF else "-",
 		"wheels down" if board_up > 0.5 else ("upside down" if board_up < -0.5 else "on its side"), thuds["body"],
 		thuds["hardest"], thuds["board"]])
+	if int(arms["n"]) > 0:
+		print("[film] %s arms on foot: hands move %.1f m/s against the chest at the most (%.1f on average), up to %.2f m from the shoulders' height" % [
+			label, arms["peak"], float(arms["sum"]) / int(arms["n"]), arms["high"]])
 
 
 func _aim(p: Vector3, _snap: bool) -> void:
