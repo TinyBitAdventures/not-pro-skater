@@ -62,6 +62,8 @@ Combos: every trick adds points and, if it is new to the combo, one to the multi
 cd game && godot --path .          # title: Event (six), Free Skate (six levels), Practice, rider select
 ```
 
+**Learn to Skate** (title menu; the first launch starts on it): ten steps in Neighborhood Park with no clock (push, ollie, flip, grab, grind, manual, a combo, revert, lip trick, wallride), each with its keys along the bottom; **TAB** goes to a good spot for the step (the low ledge, the quarter pipe, the painted wallride wall). Finishing it offers the first event (`scripts/tutorial/tutorial_world.gd`; `scenes/dev_tutorial.tscn` rides the spots' moves with real physics).
+
 The title menu's Event row cycles through the six events (left / right) with each one's home rider, goals done, best and medal; Free Skate cycles through the levels with no timer. Every event has **medals** for a session's score: bronze at half its score goal, silver at the goal, gold at twice it (`Events.medal_scores`). The results show the medal, what the next one needs, the best combo ever and whether every goal is done, and offer **Skate again**, **Next event** or the title.
 
 | Event | Rider | Level | Goals |

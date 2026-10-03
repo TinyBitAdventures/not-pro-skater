@@ -4,9 +4,10 @@ extends Node3D
 ## to Quit (desktop builds; a browser tab has nothing to quit to).
 
 const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
+const TUTORIAL_SCENE: String = "res://scenes/tutorial.tscn"
 const SPOT: Vector3 = Vector3(-18.0, 0.02, 4.0)      # where the rider stands: by the mini ramp, in the late sun
-const ITEMS: Array[String] = ["event", "free", "practice", "rider", "stats", "options", "controls"]
-const PLAY_ITEMS: int = 3                # the big entries (things to play) before the settings
+const ITEMS: Array[String] = ["event", "free", "learn", "practice", "rider", "stats", "options", "controls"]
+const PLAY_ITEMS: int = 4                # the big entries (things to play) before the settings
 
 var items: Array[String] = []         # ITEMS, plus Quit on desktop
 var level: Level
@@ -51,6 +52,9 @@ func _ready() -> void:
 		items.append("update")
 	if not OS.has_feature("web"):
 		items.append("quit")
+	# a first launch (nothing done yet): the menu starts on Learn to Skate
+	if not Game.tutorial_done and Game.stat_points_earned() == 0:
+		selected = items.find("learn")
 	_build_ui()
 	get_viewport().size_changed.connect(_fit_layout)
 	_fit_layout()
@@ -301,12 +305,13 @@ func _build_hints() -> void:
 func _refresh() -> void:
 	var ev: Dictionary = Events.get_event(Game.event_choice)
 	var level_name: String = String(_level()["name"])
-	var names: Dictionary = {"event": String(ev["title"]), "free": "Free Skate", "practice": "Practice",
+	var names: Dictionary = {"event": String(ev["title"]), "free": "Free Skate", "learn": "Learn to Skate", "practice": "Practice",
 		"rider": "Rider", "stats": "Stats", "options": "Options", "controls": "Controls",
 		"update": "New version", "quit": "Quit"}
 	var values: Dictionary = {
 		"event": "%d / %d" % [Events.ALL.find(Game.event_choice) + 1, Events.ALL.size()],
 		"free": level_name,
+		"learn": "Done" if Game.tutorial_done else "Start here",
 		"rider": Game.rider_name(Game.rider),
 		"stats": ("%d to spend" % Game.stat_points_free(Game.rider)) if Game.stat_points_free(Game.rider) > 0 else "",
 		"update": Game.update_tag,
@@ -347,6 +352,8 @@ func _refresh() -> void:
 	match items[selected] if selected < items.size() else "":
 		"free":
 			lines[0] = "%s    NO CLOCK, NO GOALS: JUST SKATE" % level_name.to_upper()
+		"learn":
+			lines[0] = "TEN STEPS IN THE PARK, NO CLOCK: PUSH, OLLIE, FLIP, GRAB, GRIND, MANUAL, A COMBO, REVERT, LIP TRICK, WALLRIDE"
 		"practice":
 			lines[0] = "THE GREY TEST LEVEL: EVERY RAMP AND RAIL IN ROWS"
 		"options":
@@ -461,6 +468,8 @@ func _activate(step: int) -> void:
 			Game.go(Events.scene(Game.event_choice))
 		"free":
 			Game.go(String(_level()["scene"]))
+		"learn":
+			Game.go(TUTORIAL_SCENE)
 		"practice":
 			Game.go(PRACTICE_SCENE)
 		"controls":

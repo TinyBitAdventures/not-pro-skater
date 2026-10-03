@@ -49,6 +49,9 @@ func _run() -> void:
 	await _wait(1.0)
 	_check("title loads", _scene().ends_with("title.tscn"))
 	var title: Node = get_tree().current_scene
+	var first: Array[String] = title.get("items")
+	_check("a first launch starts on Learn to Skate", first[int(title.get("selected"))] == "learn")
+	Game.tutorial_done = true                 # (from here on, a returning player: the title starts on the event)
 	# one push of the stick is a stream of motion events: it moves one row, not one per event
 	var before: int = int(title.get("selected"))
 	for v in [0.3, 0.55, 0.7, 0.85, 1.0, 1.0, 0.8, 0.2, 0.0]:

@@ -73,6 +73,18 @@ def skate_features():
     stair_set(root("Stairs", 0.0, 3.0, 180.0), n=4)
     quarter_pipe(root("QP", 2.0, -16.0, 180.0), W=6.0, R=2.8, H=1.8, D=1.5, rails=True, decals=False)
     bank(root("Bank", -28.0, -18.0, 0.0), W=4.0, L=3.0, H=0.8)
+    wallride_wall(-22.5, -23.2, L=9.0, H=2.6)
+
+
+def wallride_wall(x, y, L=9.0, H=2.6, T=0.4):
+    """A painted concrete wall along the plaza's south edge, its face to the plaza: jump at it at an angle and press
+    grind to wallride (Learn to Skate teaches it here). A stripe 8 mm proud of the face, a cap on top."""
+    rt = root("WallrideWall", x, y, 0.0)
+    box("Wall_WallrideWall-col", (L, T, H), (0.0, 0.0, H / 2), mat("Concrete", "#c9c5bb"), parent=rt)
+    box(lib.uname("WallrideCap"), (L + 0.06, T + 0.06, 0.08), (0.0, 0.0, H + 0.04), mat("ConcreteDk", "#9a968e"), parent=rt)
+    for z, h, colour in ((0.55, 0.45, "#d9643a"), (1.12, 0.18, "#2f5f8a")):
+        box(lib.uname("WallrideStripe"), (L - 0.4, 0.016, h), (0.0, T / 2 + 0.008, z), paint("WallStripe" + colour[1:], colour),
+            parent=rt)
 
 
 def party():

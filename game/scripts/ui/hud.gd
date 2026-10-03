@@ -981,14 +981,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## results: {"title", "score", "best_combo", "new_best": bool, "goals": [{"text","done"}]}, and for an event:
 ## "medal" (0 none .. 3 gold), "new_medal": bool, "next_medal": [name, points] (or []), "best_combo_ever",
-## "all_goals": bool (every goal of the event done, ever), "next_title" (the next event, for NEXT EVENT)
+## "all_goals": bool (every goal of the event done, ever), "next_title" (the next event, for NEXT EVENT); "heading"
+## instead of SESSION OVER
 func show_results(r: Dictionary) -> void:
 	for c in results_box.get_children():
 		c.queue_free()
 	results_items.clear()
 	results_keys.clear()
 	results_box.add_child(UiKit.caption(String(r.get("title", "")), 22, ACCENT))
-	results_box.add_child(UiKit.label("SESSION OVER", 64, PAPER, "display"))
+	results_box.add_child(UiKit.label(String(r.get("heading", "SESSION OVER")), 64, PAPER, "display"))
 	var row: HBoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 48)
 	for pair in [["Raised" if money > 0.0 else "Score", int(r.get("score", 0))], ["Best combo", int(r.get("best_combo", 0))]]:
