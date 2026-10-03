@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Bystanders react:** the kids, guests, fans and crew wince at a crash (hands to the head, eyes down, a moment after it), clap for a trick done near them, and cheer big (higher, faster) when a big combo lands near them. Standing around, they breathe.
 - **Learn to Skate:** a new first entry on the title (a first launch starts on it): ten steps in Neighborhood Park with no clock, one at a time: push, ollie, flip, grab, grind, manual, link a combo, revert, lip trick and wallride. Each step says what to do with its keys (or buttons) along the bottom, ticks off when it's done, and **TAB** takes you to a good spot for it. Finish them all and you're ready: the first event is one press away.
 - **A wallride wall in Neighborhood Park:** a painted concrete wall along the plaza's south edge, to jump at and ride.
 - **More to hear:** every push stride scuffs off the ground; wind rushes past as you pick up speed (a little more in the air); grinds sound like what they're on (a ringing steel rail or coping, a gritty concrete ledge or curb, a hollow wooden bench); and each place has its own background: traffic, horns, a crowd and pigeons downtown, machinery, reversing beepers and clanks in the Warehouse District, a generator, a distant crew, hammering and a radio on the Big Moon Studios lot (the park's birds and breeze everywhere else). A lip stall no longer plays the grind sound.

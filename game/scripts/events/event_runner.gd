@@ -12,6 +12,9 @@ const CAKE_SCENE: PackedScene = preload("res://assets/models/cake.glb")
 const PICK_RADIUS: float = 1.7
 const LETTER_RADIUS: float = 1.5
 const KID_RADIUS: float = 6.0
+const SEE_RADIUS: float = 18.0           # bystanders this close react to a crash or a big combo
+const BIG_COMBO: int = 3000              # points (or BIG_TRICKS tricks) that get the big cheer
+const BIG_TRICKS: int = 4
 ## Balloon colours for the letters, in word order (P red, A blue, R yellow, T green, Y purple).
 const LETTER_COLORS: Array[Color] = [Color(0.9, 0.15, 0.2), Color(0.15, 0.45, 0.95), Color(1.0, 0.75, 0.1),
 	Color(0.2, 0.75, 0.35), Color(0.8, 0.3, 0.85)]
@@ -323,7 +326,20 @@ func _cake_tick() -> void:
 			pass
 
 
+## Everyone watching (the kids, guests, fans, crew) within `radius` of the rider.
+func _near(radius: float) -> Array[Npc]:
+	var p: Vector3 = skater.rider_position()
+	var out: Array[Npc] = []
+	for n in _kids + _guests:
+		if is_instance_valid(n) and Vector2(p.x - n.global_position.x, p.z - n.global_position.z).length() < radius:
+			out.append(n)
+	return out
+
+
 func _on_bailed(reason: String) -> void:
+	if reason != "reset":
+		for n in _near(SEE_RADIUS):
+			n.wince(randf_range(1.3, 1.9), randf_range(0.12, 0.35))
 	if _run_t >= 0.0:
 		_ruin_take(("RESET!" if reason == "reset" else "BAILED!") + "  THAT TAKE'S RUINED, BACK TO THE START")
 	if _cake_state == "carried":
@@ -346,7 +362,7 @@ func _on_trick(_name: String, _points: int) -> void:
 	var p: Vector3 = skater.rider_position()
 	for gst in _guests:
 		if Vector2(p.x - gst.global_position.x, p.z - gst.global_position.z).length() < KID_RADIUS:
-			gst.cheer(2.0)
+			gst.cheer(1.6, 0, randf_range(0.05, 0.25))         # a clap
 	for i in _kids.size():
 		var k: Npc = _kids[i]
 		if _kids_shown.has(i) or _kids_pending.has(i):
@@ -359,7 +375,10 @@ func _on_trick(_name: String, _points: int) -> void:
 			_zone_hit[g["id"]] = true
 
 
-func _on_banked(points: int, _n: int) -> void:
+func _on_banked(points: int, n: int) -> void:
+	if points >= BIG_COMBO or n >= BIG_TRICKS:
+		for npc in _near(SEE_RADIUS):
+			npc.cheer(2.6, 2, randf_range(0.05, 0.3))
 	if not active:
 		return
 	if not _kids_pending.is_empty():

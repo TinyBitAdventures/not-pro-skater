@@ -1,12 +1,17 @@
 class_name Npc
 extends Node3D
-## A bystander (MPFB character, not a rider): stands relaxed, turns its head to follow someone, and cheers
-## (arms up, waving, bouncing) for a while when asked. Poses are set straight on the skeleton: arms by
-## two-bone IK, head and neck turned about the vertical axis. The character glb faces +Z.
+## A bystander (MPFB character, not a rider): stands relaxed (breathing, arms swaying a little), turns its head to
+## follow someone, and reacts when asked: claps for a trick, cheers (arms up, waving, bouncing; higher and faster
+## for a big combo), winces at a crash (hands to the head, looking down). Poses are set straight on the skeleton:
+## arms by two-bone IK, head and neck turned about the vertical axis. The character glb faces +Z.
 
 var char_key: String = "kid_leo"
 var watch: Node3D = null                  # who to follow with the eyes (the skater)
 var cheer_time: float = 0.0
+var cheer_level: int = 1                  # 0 a clap, 1 a cheer, 2 a big one (a big combo)
+var wince_time: float = 0.0
+var _delay: float = 0.0                   # a reaction starts this much later (people take a moment)
+var _pending: Array = []                  # [kind, seconds, level] waiting out the delay
 var skel: Skeleton3D
 var _b: Dictionary = {}
 var _rest_g: Array[Transform3D] = []      # rest global poses (skeleton space)
@@ -60,30 +65,81 @@ func wear_party_hat(color: Color) -> void:
 	hat.add_child(p)
 
 
-func cheer(seconds: float = 2.5) -> void:
+## Cheer for `seconds`: level 0 claps, 1 cheers, 2 cheers big. A wince in progress isn't cut short by it.
+func cheer(seconds: float = 2.5, level: int = 1, delay: float = 0.0) -> void:
+	if delay > 0.0:
+		_pending.append(["cheer", seconds, level])
+		_delay = delay
+		return
+	if wince_time > 0.0:
+		return
+	if cheer_time <= 0.0 or level >= cheer_level:
+		cheer_level = level
 	cheer_time = maxf(cheer_time, seconds)
+
+
+## A crash: hands to the head, eyes down, for `seconds` (it stops any cheer).
+func wince(seconds: float = 1.5, delay: float = 0.0) -> void:
+	if delay > 0.0:
+		_pending.append(["wince", seconds, 0])
+		_delay = delay
+		return
+	cheer_time = 0.0
+	wince_time = maxf(wince_time, seconds)
 
 
 func _process(dt: float) -> void:
 	_t += dt
+	if not _pending.is_empty():
+		_delay -= dt
+		if _delay <= 0.0:
+			for r in _pending:
+				if r[0] == "wince":
+					wince(float(r[1]))
+				else:
+					cheer(float(r[1]), int(r[2]))
+			_pending.clear()
 	cheer_time = maxf(0.0, cheer_time - dt)
-	var up: bool = cheer_time > 0.0
-	# a small hop while cheering, a gentle sway while idle
+	wince_time = maxf(0.0, wince_time - dt)
+	var mood: String = "wince" if wince_time > 0.0 else ("cheer" if cheer_time > 0.0 else "")
+	# a hop while cheering (higher for a big one), breathing while idle
 	var ch: Node3D = get_child(0) as Node3D
-	ch.position.y = _root_y + (absf(sin(_t * 9.0)) * 0.06 if up else 0.0)
-	_arms(up)
-	_look()
+	var hop: float = 0.0
+	if mood == "cheer" and cheer_level >= 1:
+		hop = absf(sin(_t * (9.0 if cheer_level == 1 else 11.0))) * (0.06 if cheer_level == 1 else 0.13)
+	ch.position.y = _root_y + hop
+	_breathe()
+	_arms(mood)
+	_look(mood == "wince")
 
 
-func _arms(cheering: bool) -> void:
+## The chest rising and falling a little (spine_03 pitching a degree or so, at about 15 breaths a minute).
+func _breathe() -> void:
+	if not _b.has("spine_03"):
+		return
+	var i: int = _b["spine_03"]
+	var rest: Quaternion = skel.get_bone_rest(i).basis.get_rotation_quaternion()
+	skel.set_bone_pose_rotation(i, rest * Quaternion(Vector3.RIGHT, sin(_t * 1.6 + _seed) * 0.018))
+
+
+func _arms(mood: String) -> void:
+	var head: Vector3 = _rest_g[_b["head"]].origin
 	for side in ["l", "r"]:
 		var s: float = 1.0 if side == "l" else -1.0          # left arm on +X (the character faces +Z)
 		var sh: Vector3 = _rest_g[_b["upperarm_" + side]].origin
 		var hand: Vector3
 		var pole: Vector3
-		if cheering:
-			var wave: float = sin(_t * 10.0 + (0.0 if side == "l" else 1.7)) * 0.12
-			hand = sh + Vector3(s * (0.22 + wave), 0.48, 0.06)
+		if mood == "wince":                                   # hands to the sides of the head, elbows forward
+			hand = head + Vector3(s * 0.11, 0.1, 0.04)
+			pole = Vector3(s * 0.6, 0.0, 1.0)
+		elif mood == "cheer" and cheer_level == 0:           # a clap in front of the chest
+			var k: float = absf(sin(_t * 11.0 + _seed))
+			hand = Vector3(s * (0.035 + 0.075 * k), sh.y - 0.14, sh.z + 0.3)
+			pole = Vector3(s, -0.4, -0.2)
+		elif mood == "cheer":
+			var rate: float = 10.0 if cheer_level == 1 else 14.0
+			var wave: float = sin(_t * rate + (0.0 if side == "l" else 1.7)) * (0.12 if cheer_level == 1 else 0.18)
+			hand = sh + Vector3(s * (0.22 + wave), 0.48 if cheer_level == 1 else 0.56, 0.06)
 			pole = Vector3(s, 0.0, -0.3)
 		else:
 			var sway: float = sin(_t * 1.3 + _seed) * 0.02
@@ -114,17 +170,18 @@ func _aimed(i: int, child: int, head: Vector3, target: Vector3, pole: Vector3, r
 	return RiderRig._frame(want, pole) * RiderRig._frame(rest_dir, rest_pole).inverse() * _rest_g[i].basis
 
 
-## Turn the head (and a little of the neck) toward whoever it is watching.
-func _look() -> void:
+## Turn the head (and a little of the neck) toward whoever it is watching; wincing, it drops a little too.
+func _look(down: bool = false) -> void:
 	if watch == null or not is_instance_valid(watch):
 		return
 	# the rider, not the skater's capsule: in a crash the capsule waits where the fall began
 	var at: Vector3 = (watch as Skater).rider_position() if watch is Skater else watch.global_position
 	var to: Vector3 = global_transform.affine_inverse() * at
 	var yaw: float = clampf(atan2(to.x, to.z), -1.2, 1.2)
+	var pitch: float = 0.35 if down else 0.0                  # (about +X: the face, toward +Z, tips down)
 	for pair in [["neck_01", 0.35], ["head", 0.65]]:
 		var i: int = _b[pair[0]]
 		var p: int = skel.get_bone_parent(i)
-		var want: Basis = Basis(Vector3.UP, yaw * float(pair[1])) * _rest_g[i].basis
+		var want: Basis = Basis(Vector3.UP, yaw * float(pair[1])) * Basis(Vector3.RIGHT, pitch * float(pair[1])) * _rest_g[i].basis
 		var parent_b: Basis = _rest_g[p].basis if pair[0] == "neck_01" else Basis(Vector3.UP, yaw * 0.35) * _rest_g[p].basis
 		skel.set_bone_pose_rotation(i, (parent_b.inverse() * want).get_rotation_quaternion())
