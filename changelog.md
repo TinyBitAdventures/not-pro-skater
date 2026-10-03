@@ -1,6 +1,36 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 (2026-10-03)
+
+A bigger game to play and an easier one to learn: Learn to Skate, medals, tighter combos, more grinds, an Options screen, and riders that move like people.
+
+### New
+- Learn to Skate: ten steps in Neighborhood Park with no clock, from your first push to a wallride, with the keys for each step on screen. A first launch starts there.
+- Medals: bronze, silver and gold for every event, and the results take you straight on to the next event.
+- An Options screen on the title and the pause menu: fullscreen (Alt+Enter or F11), vsync, a quality preset for older computers, master, music and effects volume, stance, steering, jump and combo rules.
+- Rider stats and style: ten stats per rider, a point for every event goal to spend on them, and each rider's own stance, push, terrain and signature tricks. Goofy stance too.
+- Wallrides, with a goal for them in three events, and a wallride wall in the park.
+
+### Skating
+- Tighter combos: half a second on the ground keeps a combo going, so manuals link your lines. A sketchy landing, an unfinished flip or a grab held as you land costs one off the multiplier. Options, Combo rules, Relaxed keeps the old rules.
+- Five more grinds picked with the stick: 5-0, nosegrind, crooked, smith and feeble.
+- Grind by riding up to a ledge, a bench or a rail (no jump needed), and 65 more ledges to grind across the levels.
+- A revert pressed just before you land counts, and a WRONG WAY warning shows before the edge of a level puts you back. Walls and fences are the edge now.
+
+### Riders
+- A real ollie, flips that turn under the knees, grinds with their own shapes, manuals on two wheels, landings with weight and carves that lean into the turn.
+- Crashes go down the way the mistake sends them: slip-outs onto your backside, sideways off a rail, a roll on the big ones. The rider braces, gets up facing the board and walks round things to it. Press jump to hurry it.
+- Faces with depth, hair that looks like hair, and clothes that stay in their layers.
+
+### The world
+- Every event has its own soundtrack. You hear each push, the wind at speed, grinds that sound like steel, concrete or wood, and the city, the warehouse district and the film lot each sound like themselves.
+- Kids, guests, fans and crew wince at a crash, clap for a trick and cheer a big combo.
+- No more flickering surfaces (the school's court and spots on four other levels) and no more spawning inside things after a crash.
+
+### Downloads
+- macOS (universal; the first time, right-click the app and choose Open), Windows and Linux. The Windows and Linux builds aren't launch-tested on real machines: tell us if something's wrong.
+
+## v0.3.0 in detail
 
 - **Calmer arms on foot:** running out a crooked landing threw the arms up to shoulder height and then swung them like a rag doll into the walk back (one arm reached straight out in front for a few frames); walking back to the board after any crash swung them like a jogger's. The run-out's arms now go out at chest height with soft elbows and settle quickly, the walk swings them about half as far, and the hands ease from one to the other instead of snapping (their speed against the chest is about half what it was).
 - **Five more grinds, picked with the stick** as you lock on: a **5-0** (back truck, nose up), a **nosegrind** (front truck, tail up), a **crooked grind** (a nosegrind turned off the line), a **smith grind** (back truck, the nose dipped below the rail) and a **feeble grind** (back truck, the front over the rail). Forward and back are still the nose and tail slides; the controls card lists every direction.
