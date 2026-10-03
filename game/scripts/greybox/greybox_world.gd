@@ -154,6 +154,7 @@ func _process(delta: float) -> void:
 	hud.set_speed(skater.velocity.length())
 	hud.set_charge(skater.charge_frac())
 	hud.set_balance(skater.balance_value(), skater.balancing())
+	hud.set_edge_warning(skater.edge_warn)
 	hud.set_combo(score.mult, score.names, score.pending, score.live)
 	# a crashed board rolling away on its own wheels still sounds like rolling
 	var roll_v: float = skater.velocity.length()

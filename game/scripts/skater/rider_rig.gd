@@ -185,6 +185,10 @@ var _fidget: String = ""                 # a fidget in progress ("tail" tap, "lo
 var _fidget_t: float = 0.0               # the next one comes
 var _fidget_next: float = 4.5
 var _look_back: float = 0.0
+const REVERT_TIME: float = 0.28          # s: a revert pivots the drawn board and rider round, not in one frame
+var _reverts_seen: int = -1
+var _pivot_dir: float = 0.0              # +1 / -1 while a revert's pivot plays (0: none)
+var _pivot_t: float = 0.0
 
 
 func setup(_look: Dictionary = {}) -> void:
@@ -436,6 +440,18 @@ func _sync_riding(sk: Skater, dt: float) -> void:
 	fwd = (fwd - vis_n * fwd.dot(vis_n)).normalized()
 	if fwd.length() < 0.5:
 		fwd = Vector3(0, 0, -1)
+	# a revert flips the stance at once: draw it as a quick 180 pivot on the wheels, the way it's leaning
+	if _reverts_seen != sk.reverts:
+		if _reverts_seen >= 0:
+			_pivot_dir = -signf(sk.lean) if absf(sk.lean) > 0.05 else 1.0
+			_pivot_t = 0.0
+		_reverts_seen = sk.reverts
+	if _pivot_dir != 0.0:
+		_pivot_t += dt
+		var k: float = clampf(_pivot_t / REVERT_TIME, 0.0, 1.0)
+		fwd = fwd.rotated(vis_n, _pivot_dir * PI * (1.0 - k * k * (3.0 - 2.0 * k)))
+		if k >= 1.0 or sk.state != Skater.State.GROUND:
+			_pivot_dir = 0.0
 	var pos: Vector3 = sk.render_position() + Vector3.UP * (Skater.CAPSULE_R + CAPSULE_TO_CONTACT) - n * Skater.CAPSULE_R
 	global_transform = Transform3D(Basis(fwd.cross(vis_n), vis_n, -fwd), pos)
 	_ground_fit(sk, dt)

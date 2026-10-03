@@ -74,6 +74,10 @@ func _run() -> void:
 	hud.combo_banked(7400)
 	await _wait(0.25)
 	await _shot("banked")
+	hud.set_edge_warning(0.7)                # riding out of the level
+	await _wait(0.5)
+	await _shot("wrong_way")
+	hud.set_edge_warning(0.0)
 	# letters: two in, the R flying home from mid-screen
 	var word: String = runner.letters_word()
 	var cols: Array = []

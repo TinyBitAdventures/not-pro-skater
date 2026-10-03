@@ -2,8 +2,9 @@ class_name Hud
 extends CanvasLayer
 ## In-game HUD, sports-broadcast style: score top left with the event's goal checklist under it, the clock top
 ## right, the trick string bottom centre (tricks + points x multiplier, which banks green or bails red), meters
-## for pop and manual balance, title cards for announcements, and the pause and results screens. An event with
-## letters to collect (P-A-R-T-Y) shows them as balloon badges top centre.
+## for pop and manual balance, title cards for announcements, the "wrong way" warning near an open edge of the
+## level, and the pause and results screens. An event with letters to collect (P-A-R-T-Y) shows them as balloon
+## badges top centre.
 
 const ACCENT: Color = UiKit.ACCENT
 const GOOD: Color = UiKit.GOOD
@@ -54,6 +55,10 @@ var card_label: Label
 var card_rule: ColorRect
 var card_sub: Label
 var hint_box: Control
+var edge_box: VBoxContainer                  # WRONG WAY: riding out of the level, before it puts you back
+var edge_label: Label
+var _edge_k: float = 0.0
+var _edge_clock: float = 0.0
 var pause_layer: Control
 var pause_items: Array[Label] = []
 var pause_sel: int = 0
@@ -88,6 +93,7 @@ func _ready() -> void:
 	_build_meters()
 	_build_letters()
 	_build_card()
+	_build_edge_warning()
 	_build_pointer()
 	_build_hints()
 	_build_pause()
@@ -330,6 +336,28 @@ func _build_card() -> void:
 	card.modulate.a = 0.0
 
 
+func _build_edge_warning() -> void:
+	edge_box = VBoxContainer.new()
+	edge_box.anchor_left = 0.5
+	edge_box.anchor_right = 0.5
+	edge_box.anchor_top = 0.3                # above the rider's head (a title card, rarely at the same time, sits at 0.26)
+	edge_box.anchor_bottom = 0.3
+	edge_box.offset_left = -CARD_HALF
+	edge_box.offset_right = CARD_HALF
+	edge_box.add_theme_constant_override("separation", 2)
+	edge_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(edge_box)
+	edge_label = UiKit.label("WRONG WAY", 60, BAD, "display")
+	_outline(edge_label, 12)
+	edge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	edge_box.add_child(edge_label)
+	var sub: Label = UiKit.label("TURN BACK", 28, PAPER, "bold")
+	_outline(sub, 8)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	edge_box.add_child(sub)
+	edge_box.modulate.a = 0.0
+
+
 static func _outline(l: Label, px: int) -> void:
 	l.add_theme_constant_override("outline_size", px)
 	l.add_theme_color_override("font_outline_color", Color(UiKit.INK, 0.75))
@@ -439,6 +467,12 @@ func _process(delta: float) -> void:
 		_place_card()                          # the goal panel can appear (or the window change) under a card
 		card.modulate.a = clampf(_card_t / 0.45, 0.0, 1.0) * minf(1.0, card.modulate.a + delta * 8.0)
 		card_rule.custom_minimum_size.x = lerpf(card_rule.custom_minimum_size.x, 160.0, 1.0 - exp(-8.0 * delta))
+	# wrong way: in quickly, a pulse that quickens as the edge nears, out when turned round
+	_edge_clock += delta * lerpf(5.0, 12.0, _edge_k)
+	var edge_a: float = 0.0
+	if _edge_k > 0.0:
+		edge_a = lerpf(0.75, 1.0, 0.5 + 0.5 * sin(_edge_clock))
+	edge_box.modulate.a = move_toward(edge_box.modulate.a, edge_a, delta * (6.0 if edge_a > edge_box.modulate.a else 3.0))
 	# trick string: a bank shows green, a bail red, then it fades
 	match _trick_state:
 		"live":
@@ -639,6 +673,11 @@ func _bounce(c: Control, delay: float, peak: float) -> void:
 	tw.tween_interval(delay)
 	tw.tween_property(c, "scale", Vector2(peak, peak), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(c, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## Heading for an open edge of the level (Skater.edge_warn, 0..1): "wrong way" until turned round (0 hides it).
+func set_edge_warning(k: float) -> void:
+	_edge_k = k
 
 
 ## A quick cut to black that fades back in: covers the skater being warped back from the level's edge.

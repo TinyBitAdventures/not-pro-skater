@@ -30,6 +30,7 @@ const CAPSULE_H: float = 1.35
 const SNAP_EASE: float = 0.045            # seconds: how fast the drawn rider catches up after a snap
 const EDGE_MARGIN: float = 2.0            # this close to the level's edge the skater is warped back inside
 const SAFE_INSET: float = 6.0             # warp-back spots are remembered at least this far inside the edge
+const EDGE_WARN: float = 16.0             # m (or 2 s away, if further) from an open edge, heading out: turn back
 const AUTO_POP_MAX: float = 1.3           # m: grind pressed on the ground pops onto a ledge or rail up to this high
 const HARD_LANDING: float = 11.5          # m/s into the floor: a heavy landing (a tapped ollie lands on the flat at
                                           # about 9, a full pop 11.4, a vert air on the transition about 2)
@@ -117,6 +118,8 @@ var _vert_plane: float = 0.0
 var _vert_turn_left: float = 0.0         # automatic turn still to do in vert air (signed radians)
 var _vert_turn_rate: float = 0.0
 var _revert_t: float = 0.0               # time left to revert after landing on a transition
+var _revert_early: float = 0.0           # manual pressed in the air this recently: a ramp landing reverts at once
+var reverts: int = 0                     # how many reverts (the rig pivots the drawn rider on a new one)
 var _prev_manual: bool = false
 var _magnet_t: float = 0.0               # seconds the air is being steered onto a rail
 var surface: String = "asphalt"
@@ -124,6 +127,7 @@ var crouch: float = 0.0
 var lean: float = 0.0
 var push_phase: float = 0.0
 var pushing: bool = false
+var edge_warn: float = 0.0                # 0..1 heading for an open edge of the level (1 = about to be put back)
 var pumping: bool = false                # pushing on a ramp: pumps it (the visual compresses and extends, no foot down)
 var _ramp_t: float = 9.0                 # seconds since the board was last on a ramp
 var braking: bool = false
@@ -281,6 +285,7 @@ func place_at(xf: Transform3D) -> void:
 	_plant_hold = 0.0
 	_plant_v = Vector3.ZERO
 	_revert_t = 0.0
+	_revert_early = 0.0
 	_land_jump = 0.0
 	_clear_jump_input()
 	if score != null:
@@ -325,6 +330,29 @@ func _off_edge() -> bool:
 	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, from + out * (e + 1.0), 1)
 	q.exclude = [get_rid()]
 	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+## How close the skater is to being put back (0..1, for the HUD's "wrong way"): riding out toward an open edge, from
+## EDGE_WARN away (or 2 s, at speed) to EDGE_MARGIN. Each side it's heading for counts (near a corner the nearest
+## side may not be the one ahead). Along an edge, stopped, or with a wall or a fence ahead (that's the edge itself,
+## ridden into like any other): 0.
+func _edge_warning() -> float:
+	var p: Vector3 = global_position
+	var flat: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	var gaps: Array[float] = [p.x - bounds.position.x, bounds.end.x - p.x, p.z - bounds.position.y, bounds.end.y - p.z]
+	var outs: Array[Vector3] = [Vector3.LEFT, Vector3.RIGHT, Vector3.FORWARD, Vector3.BACK]
+	var k: float = 0.0
+	for i in 4:
+		var v_out: float = flat.dot(outs[i])
+		var warn: float = maxf(EDGE_WARN, v_out * 2.0)
+		if gaps[i] >= warn or v_out < 1.0 or v_out < 0.3 * flat.length():
+			continue
+		var from: Vector3 = p + Vector3.UP * 0.6
+		var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, from + outs[i] * (maxf(gaps[i], 0.0) + 1.0), 1)
+		q.exclude = [get_rid()]
+		if get_world_3d().direct_space_state.intersect_ray(q).is_empty():
+			k = maxf(k, clampf(1.0 - (gaps[i] - EDGE_MARGIN) / (warn - EDGE_MARGIN), 0.05, 1.0))
+	return k
 
 
 ## Toward the inside from the nearest edge of the bounds.
@@ -505,6 +533,7 @@ func _step(delta: float) -> void:
 	_grind_cd = maxf(0.0, _grind_cd - delta)
 	_coyote = maxf(0.0, _coyote - delta)
 	_revert_t = maxf(0.0, _revert_t - delta)
+	_revert_early = maxf(0.0, _revert_early - delta)
 	_magnet_t = maxf(0.0, _magnet_t - delta)
 	_land_jump = maxf(0.0, _land_jump - delta)
 	_manual_req_t = maxf(0.0, _manual_req_t - delta)
@@ -528,6 +557,7 @@ func _step(delta: float) -> void:
 		elif state == State.AIR:
 			_manual_req = "manual"
 			_manual_req_t = tune.manual_request
+			_revert_early = tune.revert_window         # (just before a ramp landing: the revert, pressed a bit early)
 	if inp.ollie_pressed:
 		_ollie_buf = tune.buffer
 	# One release must give exactly one pop. Detect it from the held state ourselves; the engine's
@@ -572,6 +602,7 @@ func _step(delta: float) -> void:
 			_safe_timer = 0.0
 			_last_safe = global_position
 	var loose: bool = state != State.BAIL or run_state == "run"     # a ragdoll stays where it fell
+	edge_warn = _edge_warning() if loose and bounds.has_area() else 0.0
 	if global_position.y < -8.0 or (loose and bounds.has_area() and _off_edge()):
 		_warp_back()
 	if scripted:
@@ -1318,7 +1349,10 @@ func _land() -> void:
 	crouch = 1.0
 	charge = 0.0
 	_reset_air()
-	if _manual_req != "" and _manual_req_t > 0.0 and state == State.GROUND:
+	if _revert_early > 0.0 and _revert_t > 0.0 and state == State.GROUND:
+		_manual_req = ""
+		_revert()
+	elif _manual_req != "" and _manual_req_t > 0.0 and state == State.GROUND:
 		_start_manual(_manual_req)
 		_manual_req = ""
 	if _land_jump > 0.0:
@@ -1442,9 +1476,12 @@ func _balance_manual(dt: float) -> void:
 		_start_bail("manual")
 
 
-## Manual right after landing on a ramp: spin the board 180 and keep the combo going (Tony Hawk's revert).
+## Manual right after landing on a ramp (or just before): spin the board 180 and keep the combo going (Tony Hawk's
+## revert).
 func _revert() -> void:
 	_revert_t = 0.0
+	_revert_early = 0.0
+	reverts += 1
 	stance = "regular" if stance == "fakie" else "fakie"
 	if score != null and score.live:
 		score.add_trick("Revert", _styled(100, "vert"))

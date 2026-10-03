@@ -9,7 +9,7 @@ const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert"
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
 	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
 	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate", "lip_stall", "lip_arm",
-	"grind_hold", "grind_drop", "grind_lean", "edge_warp", "wallride", "wallie", "wallride_headon", "grind_ground"]
+	"grind_hold", "grind_drop", "grind_lean", "edge_warp", "wallride", "wallie", "wallride_headon", "grind_ground", "revert", "revert_early"]
 
 var level: Level
 var sk: Skater
@@ -245,6 +245,49 @@ func _t_transfer() -> void:
 			on_deck = true
 			break
 	_result("transfer", on_deck and bails.is_empty(), "pop + transfer button at the lip reaches the deck: %s, bails=%s" % [on_deck, bails])
+
+
+## Straight up the vert wall, the manual button right after landing back on it: a revert (the stance it came down in
+## flips: a straight-up vert air turns round in the wall's plane and lands forward, so the revert rolls away fakie).
+func _t_revert() -> void:
+	await _revert_run(false)
+
+
+## The same, the button pressed a moment before touching down (a revert pressed a bit early still counts).
+func _t_revert_early() -> void:
+	await _revert_run(true)
+
+
+func _revert_run(early: bool) -> void:
+	await _spawn("vert", 15.0)
+	_coast()
+	var pressed: bool = false
+	var landed_as: String = ""
+	var falling: float = 0.0
+	for i in 900:
+		var was: int = sk.state
+		if sk.state == Skater.State.AIR and sk.velocity.y < 0.0:
+			falling += DT
+		if early and not pressed and falling > 0.4:          # (this wall's airs come down for ~0.52 s)
+			sk.inp.manual = true
+			pressed = true
+		await _tick()
+		sk.inp.manual = false
+		if was == Skater.State.AIR and sk.state == Skater.State.GROUND:
+			landed_as = sk.stance
+			if not early:
+				await _tick(6)
+				sk.inp.manual = true
+				await _tick()
+				sk.inp.manual = false
+			await _tick(30)
+			break
+	var name: String = "revert_early" if early else "revert"
+	# (pressed early, the revert comes with the landing itself: the stance seen landing is already the reverted one)
+	var flipped: bool = sk.stance == landed_as if early else sk.stance != landed_as
+	_result(name, landings.count("revert") == 1 and landed_as != "" and flipped and not sk.manual_on and bails.is_empty(),
+		"vert landing (%s), manual %s: landings %s, rolling %s, manual %s, bails=%s" % [landed_as,
+		"just before touching down" if early else "just after", landings, sk.stance, sk.manual_on, bails])
 
 
 # ------------------------------------------------------------------ rails
