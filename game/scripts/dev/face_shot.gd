@@ -1,7 +1,8 @@
 extends Node
 ## Close-ups of the riders' faces in the title's light (the neighborhood park, late sun):
 ##   godot --path . res://scenes/dev_faces.tscn --resolution 1200x900 --audio-driver Dummy --position -3000,-3000
-## -> ../shots/face_<rider>.png (front three-quarter, head and shoulders) and face_<rider>_side.png (profile).
+## -> ../shots/face_<rider>.png (front three-quarter, head and shoulders), face_<rider>_side.png (profile) and
+## face_<rider>_back.png (from behind: the hair).
 ## RIDERS=dev,dad picks some; FACE_DIST=<m> backs the camera off (0.75 = head and shoulders).
 
 func _ready() -> void:
@@ -32,7 +33,7 @@ func _run() -> void:
 		var face_dir: Vector3 = _face_dir(skel)
 		var at: Vector3 = head + Vector3.UP * float(OS.get_environment("FACE_UP") if OS.get_environment("FACE_UP") != "" else "0.08") \
 			+ face_dir * (0.08 if dist < 0.5 else 0.0)        # (close in: the eyes, in front of the head bone)
-		for view in [["", 0.5], ["_side", 1.45]]:
+		for view in [["", 0.5], ["_side", 1.45], ["_back", 3.4]]:
 			var d: Vector3 = face_dir.rotated(Vector3.UP, float(view[1]) - 0.5)
 			var pos: Vector3 = at + d * dist + Vector3.UP * 0.03
 			cam.global_transform = Transform3D(Basis.looking_at(at - pos, Vector3.UP), pos)
