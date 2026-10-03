@@ -137,12 +137,13 @@ def ramp_details(root, W, R, H, D, yt):
     steel = M("Steel")
     side = M("SidePaint")
     edge = M("Timber")
-    # the foot plate: 30 cm of 5 mm steel over the first bit of transition
+    # the foot plate: 30 cm of steel over the first bit of transition (8 mm proud: at 4 mm its depth tied with the
+    # ramp's at a distance and the two flickered)
     n = 6
     pts = []
     for i in range(n + 1):
         y = 0.3 * i / n
-        pts.append((y, profile_z(R, H, y) + 0.004))
+        pts.append((y, profile_z(R, H, y) + 0.008))
     for i in range(n):
         (y0, z0), (y1, z1) = pts[i], pts[i + 1]
         quad(uname("Metal_FootPlate"), (-W / 2 + 0.02, y0, z0), (W / 2 - 0.02, y0, z0), (W / 2 - 0.02, y1, z1),
