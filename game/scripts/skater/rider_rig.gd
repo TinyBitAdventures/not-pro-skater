@@ -332,6 +332,11 @@ static func prepare_character(ch: Node, cull_margin: float) -> void:
 		if eyes:
 			for s in m.mesh.get_surface_count():
 				_eye(m.mesh.surface_get_material(s) as BaseMaterial3D)
+		if nm == "Hair":
+			for s in m.mesh.get_surface_count():
+				var hm: Material = hair_material(m.mesh.surface_get_material(s) as BaseMaterial3D)
+				if hm != null:
+					m.set_surface_override_material(s, hm)
 		if not (nm.contains("eyebrow") or nm.contains("eyelash")):     # brows and lashes stay soft
 			for s in m.mesh.get_surface_count():
 				_cutout(m.mesh.surface_get_material(s) as BaseMaterial3D)
@@ -353,6 +358,26 @@ static func _skin(mat: BaseMaterial3D) -> void:
 	mat.rim_tint = 0.65
 	mat.backlight_enabled = true
 	mat.backlight = Color(0.32, 0.12, 0.08)
+
+
+const HAIR_SHADER: Shader = preload("res://assets/shaders/hair.gdshader")
+static var _hair_mats: Dictionary = {}       # imported hair material -> its hair shader material (shared)
+
+
+## The hair shader (assets/shaders/hair.gdshader: strand highlights, the baked AO, alpha to coverage) on the
+## imported hair material's texture and colour.
+static func hair_material(src: BaseMaterial3D) -> Material:
+	if src == null or src.albedo_texture == null:
+		return null
+	var key: int = src.get_instance_id()
+	if _hair_mats.has(key):
+		return _hair_mats[key]
+	var m: ShaderMaterial = ShaderMaterial.new()
+	m.shader = HAIR_SHADER
+	m.set_shader_parameter("albedo_tex", src.albedo_texture)
+	m.set_shader_parameter("albedo_color", src.albedo_color)
+	_hair_mats[key] = m
+	return m
 
 
 ## Eyes are wet: a tight, bright highlight (the sun and the sky's glint) instead of the skin's matte sheen, so

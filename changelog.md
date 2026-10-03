@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Hair looks like hair:** every character's hair has a new material: ambient occlusion baked into it (dark between the layers, under the crown and at the nape, so it has depth instead of reading as one flat shell), light that wraps softly round the head, and a fine highlight broken up strand by strand. The Actor's chunky sculpted hair is now a realistic slicked-back cut, and the Dad's jet-black crew cut is a dark brown.
 - Between Takes' New York street start (TAB to cycle starts) no longer opens with the O balloon filling the screen: it hung where the camera sits behind the rider. The start moved 6 m up the street, and the event test now checks every start of every event for anything to collect between the camera and the rider.
 - **No more crossed legs:** the pop shove-it and the hardflip crossed the rider's legs as they caught the board: the board had turned end for end, and each foot went back to its own mark on it, which was now at the other end. The feet now land on whichever end is under them, and the board no longer spins back 180 degrees the other way after the trick. A boardslide approached from the other side of the rail, rolling fakie or riding goofy turned the body the opposite way to the board (legs crossed for the whole slide); the body now turns with the board, for nose and tail slides too.
 - A pop shove-it's feet clear the spinning board by 10 cm (at 5 cm the tail swung up into the back foot's toes).

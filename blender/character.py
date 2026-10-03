@@ -82,7 +82,8 @@ ARCHETYPES = {
         "eyelashes": "eyelashes01",
         "hair": "short01",                      # a neat crew cut (short03's fringe hid an eye)
         "clothes": ["namuhekam_male_polo_shirt", "toigo_wool_pants", "shoes02"],
-        "tint": {"namuhekam_male_polo_shirt": "#4d7a52", "toigo_wool_pants": "#a8946c"},      # polo and khakis
+        "tint": {"namuhekam_male_polo_shirt": "#4d7a52", "toigo_wool_pants": "#a8946c",       # polo and khakis
+                 "Hair": "#4a3a2e"},                                                         # dark brown, not jet black
     },
     # the birthday party's kids (they watch your tricks; not playable)
     "kid_maya": {
@@ -247,7 +248,7 @@ ARCHETYPES = {
         "eyes": "brown",
         "eyebrows": "eyebrow004",
         "eyelashes": "eyelashes01",
-        "hair": "culturalibre_hair_05",                      # CC0 (culturalibre_hair_02's file said AGPL3)
+        "hair": "short04",                      # slicked back, CC0 (culturalibre_hair_05 was a chunky sculpt next to real faces)
         "clothes": ["male_casualsuit03", "shoes03"],
         "tint": {"culturalibre_hair_05": "#2b2521"},        # near black, as before
     },
@@ -313,7 +314,9 @@ def build(key):
         pass
     for kind, folder, name in (("Eyebrows", "eyebrows", spec["eyebrows"]), ("Eyelashes", "eyelashes", spec["eyelashes"]),
                                ("Hair", "hair", spec["hair"])):
-        hs.add_mhclo_asset(_asset(folder, name, "mhclo"), basemesh, asset_type=kind, subdiv_levels=0, material_type="MAKESKIN")
+        ob = hs.add_mhclo_asset(_asset(folder, name, "mhclo"), basemesh, asset_type=kind, subdiv_levels=0, material_type="MAKESKIN")
+        if kind == "Hair" and ob is not None:
+            ob.name = "Hair"                           # (RiderRig gives it the hair shader; "short" also matched shorts)
     for name in spec["clothes"]:
         hs.add_mhclo_asset(_asset("clothes", name, "mhclo"), basemesh, asset_type="Clothes", subdiv_levels=0,
                            material_type="MAKESKIN")
@@ -324,6 +327,7 @@ def build(key):
     _drop_cornea(rig)
     _fix_materials(rig)
     _bake_ao(rig, basemesh)
+    _bake_hair_ao(rig)
     _shrink_textures(rig, npc=spec.get("npc", False))
     _tint(rig, spec.get("tint", {}))
     _eyes(rig, spec.get("eyes", "brown"))
@@ -341,7 +345,8 @@ def build(key):
         ob.select_set(True)
     bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", use_selection=True, export_apply=False,
                               export_skins=True, export_morph=False, export_animations=False, export_yup=True,
-                              export_image_format="AUTO", export_texcoords=True, export_normals=True)
+                              export_image_format="AUTO", export_texcoords=True, export_normals=True,
+                              **_vertex_color_args())
     print(f"[character] exported {out}")
 
 
@@ -383,6 +388,53 @@ def _drop_cornea(rig):
         return
 
 
+def _cycles():
+    sc = bpy.context.scene
+    sc.render.engine = "CYCLES"
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    try:
+        prefs.compute_device_type = "METAL"
+        prefs.get_devices()
+        for d in prefs.devices:
+            d.use = True
+        sc.cycles.device = "GPU"
+    except Exception:
+        sc.cycles.device = "CPU"
+    if sc.world is None:
+        sc.world = bpy.data.worlds.new("AOWorld")
+    sc.world.light_settings.distance = AO_DISTANCE
+    return sc
+
+
+def _bake_hair_ao(rig):
+    """Ambient occlusion in the hair's vertex colour (Godot's hair shader multiplies it in): the hair texture is a
+    strand atlas many cards share, so a texture bake would smear every card's shade together. Dark between the
+    layers, under the crown and at the nape, where the head and the hair over it block the sky."""
+    hair = next((ob for ob in rig.children_recursive if ob.type == "MESH" and ob.name == "Hair"), None)
+    if hair is None:
+        return
+    sc = _cycles()
+    sc.cycles.samples = 128
+    col = hair.data.color_attributes.new("AO", "BYTE_COLOR", "POINT")
+    hair.data.color_attributes.active_color = col
+    bpy.ops.object.select_all(action="DESELECT")
+    hair.select_set(True)
+    bpy.context.view_layer.objects.active = hair
+    bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
+    vals = [c.color[0] for c in col.data]
+    print(f"[character] hair AO baked: mean {sum(vals) / max(len(vals), 1):.3f}, darkest {min(vals) if vals else 1.0:.3f}")
+
+
+def _vertex_color_args():
+    """glTF exporter options that write the active colour attribute (the hair's AO) as COLOR_0."""
+    props = bpy.ops.export_scene.gltf.get_rna_type().properties.keys()
+    if "export_vertex_color" in props:
+        return {"export_vertex_color": "ACTIVE"}
+    if "export_colors" in props:
+        return {"export_colors": True}
+    return {}
+
+
 def _bake_ao(rig, body):
     """Ambient occlusion baked into the skin texture. The game's renderer has none, so the face was flat: no shade
     in the eye sockets, under the nose, between the lips, in the ears, under the hairline or the collar. Cycles
@@ -395,21 +447,8 @@ def _bake_ao(rig, body):
     if skin is None:
         print("[character] no skin texture: AO not baked")
         return
-    sc = bpy.context.scene
-    sc.render.engine = "CYCLES"
-    prefs = bpy.context.preferences.addons["cycles"].preferences
-    try:
-        prefs.compute_device_type = "METAL"
-        prefs.get_devices()
-        for d in prefs.devices:
-            d.use = True
-        sc.cycles.device = "GPU"
-    except Exception:
-        sc.cycles.device = "CPU"
+    sc = _cycles()
     sc.cycles.samples = 256
-    if sc.world is None:
-        sc.world = bpy.data.worlds.new("AOWorld")
-    sc.world.light_settings.distance = AO_DISTANCE
     hidden = []
     for ob in rig.children_recursive:
         if ob.type == "MESH" and "eyebrow" in ob.name.lower() and not ob.hide_render:
