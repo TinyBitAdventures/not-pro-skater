@@ -1322,16 +1322,27 @@ func _spawn_loose(sk: Skater) -> void:
 	var kick: Vector3 = along * signf(sk.bail_velocity.dot(along)) * 1.5
 	var travel: Vector3 = Vector3(sk.bail_velocity.x, 0.0, sk.bail_velocity.z)
 	var dir: Vector3 = sk.bail_dir
+	var v: Vector3 = sk.bail_velocity * 1.05 + kick
 	if dir != Vector3.ZERO and travel.length() > 1.0:
-		var with_travel: float = dir.dot(travel.normalized())
-		if with_travel < -0.3:
-			# a slip-out: the board shoots out ahead from under the feet, nose flipping up
-			kick = travel.normalized() * 1.5
-			spin += travel.normalized().cross(Vector3.UP) * -4.0
+		var t: Vector3 = travel.normalized()
+		var with_travel: float = dir.dot(t)
+		if sk.bail_tip == "nose":
+			# a manual lost over the front: the leading end slams down and digs in, so the board stops and its tail
+			# kicks up over it while the body carries on past (it used to fly on ahead faster than the rider).
+			# A nose manual's nose dives hardest; a manual's front wheels slap down and it rolls on, slower
+			var dive: bool = sk.bail_tip_kind == "nose"
+			v = travel * (0.08 if dive else 0.35) + Vector3.UP * (1.6 if dive else 0.6)
+			spin = Vector3.UP.cross(t) * (9.0 if dive else 4.0)      # (leading end down, tail up and over)
+		elif with_travel < -0.3:
+			# a slip-out: the board shoots out ahead from under the feet, its leading end flipping up (it spun the
+			# other way: leading end down)
+			v = sk.bail_velocity * 1.05 + t * 1.5
+			spin += t.cross(Vector3.UP) * 2.0                         # (enough to pop the nose up, not to flip it)
 		elif absf(with_travel) < 0.85:
 			# off to the side: it flips over sideways as it goes
 			spin += along.normalized() * randf_range(4.0, 7.0) * signf(right.dot(dir) + 0.001)
-	loose.setup(from, sk.bail_velocity * 1.05 + kick, spin)
+			v = sk.bail_velocity * 1.05 + kick
+	loose.setup(from, v, spin)
 	var board_ref: LooseBoard = loose
 	loose.knocked.connect(func(strength: float) -> void:
 		if is_instance_valid(board_ref) and _sk != null:
@@ -1357,10 +1368,18 @@ func _start_ragdoll(sk: Skater) -> void:
 	var w: Vector3 = Vector3.UP * sk.spin_vel * 0.4 + tip * (1.0 + sev * 3.0)
 	var v: Vector3 = sk.bail_velocity * 0.9
 	var travel: Vector3 = Vector3(v.x, 0.0, v.z)
+	ragdoll.sit = false
 	if travel.length() > 1.0 and d.dot(travel.normalized()) < -0.3:
-		# a slip-out: the board took the feet out ahead, the body goes down backwards, hips first
+		# a slip-out: the board took the feet out ahead, the body goes down backwards, hips first. The legs go up in
+		# front and the hips turn toward where the board went, to sit down facing it (holding the riding stance
+		# through the fall dropped the hips between the feet, in the splits)
 		v += Vector3.UP * 1.0
 		w = Vector3.UP * sk.spin_vel * 0.4 + tip * (3.0 + 1.5 * sev)
+		ragdoll.sit = true
+		var chest: Vector3 = global_transform.basis.x * (-1.0 if goofy else 1.0)
+		chest.y = 0.0
+		if chest.length() > 0.1:
+			w += Vector3.UP * clampf(chest.normalized().signed_angle_to(travel.normalized(), Vector3.UP), -PI, PI) / 0.5
 	if sk.bail_kind == "tumble":
 		w += d * (4.0 + 3.0 * sev) * (1.0 if randf() < 0.5 else -1.0)   # a roll, over the shoulder
 	ragdoll.fall_dir = d

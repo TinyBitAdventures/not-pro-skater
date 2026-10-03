@@ -44,6 +44,10 @@ const LEG_EASE: float = 0.5           # how far the legs go from the riding crou
 # the lying pose (_lying): degrees of hip and knee bend, for the straighter leg and the one drawn up
 const LIE_HIP: Vector2 = Vector2(20.0, 50.0)
 const LIE_KNEE: Vector2 = Vector2(30.0, 75.0)
+# a slip-out (the board shot out from under a manual): both legs up in front, knees bent, sitting down (the riding
+# stance held through the fall put the hips down between the feet, in the splits)
+const SIT_HIP: float = 80.0
+const SIT_KNEE: float = 70.0
 const MAX_KICK: float = 3.0           # rad/s a muscle may add in one tick (keeps a bad frame from exploding)
 static var limp: bool = OS.get_environment("LIMP") != ""     # LIMP=1: no muscles (the old doll, for comparison)
 
@@ -55,6 +59,8 @@ var reach: float = 0.0              # 0..1: arms reach out toward the fall inste
 var settle: float = 0.0             # 0..1: lying still, the back and legs ease toward the lying pose, the arms go limp
 var fall_dir: Vector3 = Vector3.ZERO   # horizontal: the way the body is going down (the arms react to it); 0 = its velocity
 var drawn_up: int = 0               # which leg the lying pose draws up (0 left, 1 right)
+var sit: bool = false               # a slip-out: the legs go for _sit instead of the lying pose (set before start())
+var _sit: Dictionary = {}           # bone -> relative rotation sitting down, both legs bent up in front
 var _parent: Dictionary = {}        # bone -> the physical bone it hangs from
 var _hold: Dictionary = {}          # bone -> its rotation relative to that parent when the fall began
 var _rest: Dictionary = {}          # bone -> the same at rest (standing straight)
@@ -141,32 +147,41 @@ func build(skeleton: Skeleton3D) -> void:
 ## The lying poses: the hips bend the thighs forward and the knees bend the shins back (the skeleton's own front,
 ## from the toes), more on the drawn-up leg. Everything else as at rest.
 func _build_lying() -> void:
+	for up in 2:
+		var p: Variant = _leg_pose([LIE_HIP.y if up == 0 else LIE_HIP.x, LIE_HIP.y if up == 1 else LIE_HIP.x],
+			[LIE_KNEE.y if up == 0 else LIE_KNEE.x, LIE_KNEE.y if up == 1 else LIE_KNEE.x])
+		if p == null:
+			return
+		_lying[up] = p
+	_sit = _leg_pose([SIT_HIP, SIT_HIP], [SIT_KNEE, SIT_KNEE])
+
+
+## The rest pose with each leg bent: `hip` and `knee` degrees for the left and right leg (the hip forward, the
+## knee back). Null without the foot bones.
+func _leg_pose(hip: Array, knee: Array) -> Variant:
 	var foot: int = skel.find_bone("foot_l")
 	var ball: int = skel.find_bone("ball_l")
 	if foot < 0 or ball < 0:
-		return
+		return null
 	var front: Vector3 = skel.get_bone_global_rest(ball).origin - skel.get_bone_global_rest(foot).origin
 	front.y = 0.0
 	front = front.normalized()
-	for up in 2:
-		var pose: Dictionary = {}
-		for bone in _rest:
-			pose[bone] = _rest[bone]
-		for i in 2:
-			var side: String = "l" if i == 0 else "r"
-			var more: bool = i == up
-			for pair in [["thigh_" + side, "calf_" + side, front, LIE_HIP], ["calf_" + side, "foot_" + side, -front, LIE_KNEE]]:
-				var bone: String = pair[0]
-				if not pose.has(bone) or not _parent.has(bone):
-					continue
-				var b: int = skel.find_bone(bone)
-				var c: int = skel.find_bone(String(pair[1]))
-				var dir: Vector3 = (skel.get_bone_global_rest(c).origin - skel.get_bone_global_rest(b).origin).normalized()
-				var axis: Vector3 = dir.cross(pair[2] as Vector3).normalized()
-				var pb: Basis = skel.get_bone_global_rest(skel.find_bone(_parent[bone])).basis.orthonormalized()
-				var bend: Vector2 = pair[3]
-				pose[bone] = Quaternion((pb.inverse() * axis).normalized(), deg_to_rad(bend.y if more else bend.x)) * (_rest[bone] as Quaternion)
-		_lying[up] = pose
+	var pose: Dictionary = {}
+	for bone in _rest:
+		pose[bone] = _rest[bone]
+	for i in 2:
+		var side: String = "l" if i == 0 else "r"
+		for pair in [["thigh_" + side, "calf_" + side, front, float(hip[i])], ["calf_" + side, "foot_" + side, -front, float(knee[i])]]:
+			var bone: String = pair[0]
+			if not pose.has(bone) or not _parent.has(bone):
+				continue
+			var b: int = skel.find_bone(bone)
+			var c: int = skel.find_bone(String(pair[1]))
+			var dir: Vector3 = (skel.get_bone_global_rest(c).origin - skel.get_bone_global_rest(b).origin).normalized()
+			var axis: Vector3 = dir.cross(pair[2] as Vector3).normalized()
+			var pb: Basis = skel.get_bone_global_rest(skel.find_bone(_parent[bone])).basis.orthonormalized()
+			pose[bone] = Quaternion((pb.inverse() * axis).normalized(), deg_to_rad(float(pair[3]))) * (_rest[bone] as Quaternion)
+	return pose
 
 
 ## Take over the skeleton from its current pose, moving with velocity `v` (and a spin `w` about the pelvis).
@@ -215,8 +230,12 @@ func drive(dt: float) -> void:
 		# target made every slam a plank)
 		var leg: bool = bone.begins_with("thigh") or bone.begins_with("calf") or bone.begins_with("foot")
 		var ease: float = maxf(settle, LEG_EASE) if leg else settle
+		var target: Dictionary = _lying[drawn_up]
+		if sit and leg and not _sit.is_empty():
+			target = _sit                                  # a slip-out: up in front and sitting, not lying flat
+			ease = maxf(ease, 0.9)
 		if ease > 0.0 and not arm:
-			rel = rel.slerp((_lying[drawn_up] as Dictionary).get(bone, _rest[bone]), ease)
+			rel = rel.slerp(target.get(bone, _rest[bone]), ease)
 		var err: Vector3 = _turn(cur, pa.global_transform.basis.orthonormalized() * Basis(rel))
 		if reach > 0.0 and arm:
 			var side: float = 1.0 if bone.ends_with("_r") else -1.0

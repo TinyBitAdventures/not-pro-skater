@@ -86,6 +86,7 @@ func _film(label: String) -> void:
 	var t_bail0: float = sk.bail_time
 	var board_far: float = 0.0
 	var board_up: float = 1.0
+	var ahead: float = INF
 	while k < n:
 		await get_tree().process_frame
 		t += get_process_delta_time()
@@ -114,13 +115,19 @@ func _film(label: String) -> void:
 				rig.ragdoll.simulating(), counts["mod"], counts["upd"], Engine.get_physics_frames()])
 			counts["mod"] = 0
 			counts["upd"] = 0
+		if t >= 1.0 and ahead == INF and walker.loose != null and is_instance_valid(walker.loose):
+			# where the board is against the body a second in, along the way they were going (+ ahead, - behind)
+			var way: Vector3 = Vector3(sk.bail_velocity.x, 0.0, sk.bail_velocity.z).normalized()
+			var body: Vector3 = walker.ragdoll.pelvis_position() if walker.ragdoll.simulating() else sk.rider_position()
+			ahead = (walker.loose.global_position - body).dot(way)
 		if t >= next:
 			next += every
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(dir.path_join("film_%s_%02d.png" % [label, k]))
 			k += 1
-	print("[film] %s: %s, came to rest %s, the board went %.1f m (%s), %d body thuds (hardest %.1f m/s), %d board clacks" % [
+	print("[film] %s: %s, came to rest %s, the board went %.1f m (%s), %s, %d body thuds (hardest %.1f m/s), %d board clacks" % [
 		label, ", ".join(timeline), walker.rest_facing, board_far,
+		("at 1 s the board was %.1f m %s the body" % [absf(ahead), "ahead of" if ahead > 0.0 else "behind"]) if ahead != INF else "-",
 		"wheels down" if board_up > 0.5 else ("upside down" if board_up < -0.5 else "on its side"), thuds["body"],
 		thuds["hardest"], thuds["board"]])
 
@@ -156,16 +163,18 @@ func _run() -> void:
 				await _spawn("wall", Vector3(0, 0, -2.0), Vector3(0, 0, -11.0), 0.0)
 				sk.inp.world_dir = Vector3(0, 0, -1)
 				sk.inp.move = Vector2(0, -1)
-			"slipout", "nosecatch":   # a manual lost over the tail (the board shoots out) or over the nose, at 9 m/s
+			"slipout", "nosecatch", "noseslip", "nosedive":
+				# a manual lost over the tail (the board shoots out ahead) or over the front (its nose slams down), a
+				# nose manual lost with the tail dropping (shoots out) or over the nose (it digs in), at 9 m/s
 				await _spawn("flat", Vector3.ZERO, Vector3(0, 0, -9.0), 0.0)
 				for i in 20:
 					sk.velocity = sk.hdg * 9.0
 					await get_tree().physics_frame
-				sk._start_manual("manual")
+				sk._start_manual("nose" if name.begins_with("nose") and name != "nosecatch" else "manual")
 				for i in 30:
 					if sk.state == Skater.State.BAIL:
 						break
-					sk.manual_balance = 1.02 if name == "slipout" else -1.02
+					sk.manual_balance = 1.02 if name in ["slipout", "nosedive"] else -1.02
 					await get_tree().physics_frame
 			"drop":         # off something high, landing crooked: a tumble
 				await _spawn("flat", Vector3(0, 3.2, 0), Vector3(0, 0.5, -7.0), 70.0)

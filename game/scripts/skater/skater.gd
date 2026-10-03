@@ -71,6 +71,10 @@ var bail_dir: Vector3 = Vector3.ZERO     # horizontal: the way the body tips as 
                                          # with the travel, back off a manual that tipped over the tail, off a rail's side
 var _tip: float = 0.0                    # a lost manual's balance as it went (+ nose too high), and its kind
 var _tip_kind: String = ""
+# a lost manual, for the loose board (RiderRig._spawn_loose): "tail" (lost over the tail: it shoots out ahead) or "nose"
+# (over the front: it digs in and stops), and which manual it was ("manual" / "nose"); "" for any other crash
+var bail_tip: String = ""
+var bail_tip_kind: String = ""
 var _tip_side: Vector3 = Vector3.ZERO    # the side a lost grind fell off
 var bail_duration: float = BAIL_TIME
 var bail_severity: float = 0.0
@@ -1962,6 +1966,8 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 	var travel: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
 	var on: Vector3 = travel.normalized() if travel.length() > 0.5 else Vector3(hdg.x, 0.0, hdg.z).normalized()
 	bail_dir = on                             # a wall, a crooked landing: the body carries on, the board stops
+	bail_tip = ""
+	bail_tip_kind = ""
 	match reason:
 		"manual":
 			# over the tail (a manual's nose too high, a nose manual's tail dropped) the board shoots out ahead and
@@ -1969,6 +1975,8 @@ func _start_bail(reason: String, err: float = 0.0) -> void:
 			var over_tail: bool = _tip < 0.0 if _tip_kind == "nose" else _tip > 0.0
 			if over_tail:
 				bail_dir = -on
+			bail_tip = "tail" if over_tail else "nose"
+			bail_tip_kind = _tip_kind
 		"grind":
 			if _tip_side != Vector3.ZERO:
 				bail_dir = (_tip_side + on * 0.4).normalized()   # off the side it leaned to
