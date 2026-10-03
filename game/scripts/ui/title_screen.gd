@@ -353,7 +353,7 @@ func _refresh() -> void:
 		"free":
 			lines[0] = "%s    NO CLOCK, NO GOALS: JUST SKATE" % level_name.to_upper()
 		"learn":
-			lines[0] = "TEN STEPS IN THE PARK, NO CLOCK: PUSH, OLLIE, FLIP, GRAB, GRIND, MANUAL, A COMBO, REVERT, LIP TRICK, WALLRIDE"
+			lines[0] = "TEN STEPS IN THE PARK, NO CLOCK: FROM A FIRST PUSH TO A WALLRIDE"
 		"practice":
 			lines[0] = "THE GREY TEST LEVEL: EVERY RAMP AND RAIL IN ROWS"
 		"options":

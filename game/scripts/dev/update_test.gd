@@ -51,14 +51,14 @@ func _run() -> void:
 		await get_tree().process_frame
 	var items: Array = title.get("items")
 	_check("no NEW VERSION row without an update", not items.has("update"))
-	title.set("selected", items.find("music"))
+	title.set("selected", items.find("options"))
 	Game.apply_release({"tag_name": "v9.9.9", "html_url": url}, "0.1.0")
 	await get_tree().process_frame
 	items = title.get("items")
 	var rows: Array = title.get("rows")
 	_check("the row appears above Quit", items.has("update") and items.find("update") == items.find("quit") - 1)
 	_check("one row per item after the rebuild", rows.size() == items.size())
-	_check("the same row stays selected", items[int(title.get("selected"))] == "music")
+	_check("the same row stays selected", items[int(title.get("selected"))] == "options")
 	title.set("selected", items.find("update"))
 	title.call("_refresh")
 	var footer: String = (title.get("progress_label") as Label).text
