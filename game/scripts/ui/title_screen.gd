@@ -5,7 +5,7 @@ extends Node3D
 
 const PRACTICE_SCENE: String = "res://scenes/greybox.tscn"
 const SPOT: Vector3 = Vector3(-18.0, 0.02, 4.0)      # where the rider stands: by the mini ramp, in the late sun
-const ITEMS: Array[String] = ["event", "free", "practice", "rider", "stats", "stance", "steer", "jump", "music", "controls"]
+const ITEMS: Array[String] = ["event", "free", "practice", "rider", "stats", "options", "controls"]
 const PLAY_ITEMS: int = 3                # the big entries (things to play) before the settings
 
 var items: Array[String] = []         # ITEMS, plus Quit on desktop
@@ -19,6 +19,7 @@ var row_values: Array[Label] = []
 var selected: int = 0
 var controls_layer: Control
 var stats_screen: StatsScreen
+var options_screen: OptionsScreen
 var progress_label: Label
 var rider_name: Label
 var rider_blurb: Label
@@ -55,6 +56,8 @@ func _ready() -> void:
 	_fit_layout()
 	Game.update_found.connect(_on_update_found)
 	Sound.play_music("title")
+	if DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE         # (hidden while skating)
 	Sound.play_ambience("park_ambience", -16.0)
 
 
@@ -229,6 +232,12 @@ func _build_ui() -> void:
 	stats_screen = StatsScreen.new()
 	stats_screen.closed.connect(_refresh)
 	root.add_child(stats_screen)
+	options_screen = OptionsScreen.new()
+	options_screen.closed.connect(_refresh)
+	options_screen.changed.connect(func(key: String) -> void:
+		if key == "stance":
+			_spawn_rider())                 # (the rider turns to keep the chest to the sun)
+	root.add_child(options_screen)
 	_refresh()
 
 
@@ -262,6 +271,7 @@ func _on_update_found(_tag: String) -> void:
 		selected += 1
 	var showing_controls: bool = controls_layer.visible
 	var showing_stats: bool = stats_screen.visible
+	var showing_options: bool = options_screen.visible
 	ui.queue_free()
 	rows.clear()
 	row_labels.clear()
@@ -272,6 +282,8 @@ func _on_update_found(_tag: String) -> void:
 	controls_layer.visible = showing_controls
 	if showing_stats:
 		stats_screen.open(Game.rider)
+	if showing_options:
+		options_screen.open()
 
 
 func _build_hints() -> void:
@@ -290,17 +302,13 @@ func _refresh() -> void:
 	var ev: Dictionary = Events.get_event(Game.event_choice)
 	var level_name: String = String(_level()["name"])
 	var names: Dictionary = {"event": String(ev["title"]), "free": "Free Skate", "practice": "Practice",
-		"rider": "Rider", "stats": "Stats", "stance": "Stance", "steer": "Steering", "jump": "Jump", "music": "Music", "controls": "Controls",
+		"rider": "Rider", "stats": "Stats", "options": "Options", "controls": "Controls",
 		"update": "New version", "quit": "Quit"}
 	var values: Dictionary = {
 		"event": "%d / %d" % [Events.ALL.find(Game.event_choice) + 1, Events.ALL.size()],
 		"free": level_name,
 		"rider": Game.rider_name(Game.rider),
 		"stats": ("%d to spend" % Game.stat_points_free(Game.rider)) if Game.stat_points_free(Game.rider) > 0 else "",
-		"stance": {"own": "Rider's own", "regular": "Regular", "goofy": "Goofy"}[Game.stance],
-		"steer": "Skater" if Game.steer_mode == "tank" else "Screen",
-		"jump": "Hold, release" if Game.jump_mode == "hold" else "Tap",
-		"music": {"cruise": "Themes", "hype": "Hype", "off": "Off"}[Game.music_choice],
 		"update": Game.update_tag,
 	}
 	for i in items.size():
@@ -333,10 +341,8 @@ func _refresh() -> void:
 			lines[0] = "%s    NO CLOCK, NO GOALS: JUST SKATE" % level_name.to_upper()
 		"practice":
 			lines[0] = "THE GREY TEST LEVEL: EVERY RAMP AND RAIL IN ROWS"
-		"stance":
-			var g: bool = Game.rider_goofy(Game.rider)
-			lines[0] = ("%s RIDES %s" % [Game.rider_name(Game.rider).to_upper(), "GOOFY" if g else "REGULAR"]) \
-				if Game.stance == "own" else ("EVERY RIDER " + ("GOOFY: RIGHT FOOT FORWARD" if g else "REGULAR: LEFT FOOT FORWARD"))
+		"options":
+			lines[0] = "DISPLAY, SOUND, STANCE, STEERING, JUMP, COMBO RULES"
 		"stats":
 			var free: int = Game.stat_points_free(Game.rider)
 			lines[0] = "%d POINT%s TO SPEND: ONE FOR EVERY EVENT GOAL DONE" % [free, "" if free == 1 else "S"]
@@ -376,6 +382,10 @@ func _click(event: InputEvent, i: int) -> void:
 func _input(event: InputEvent) -> void:
 	if stats_screen.visible:
 		if stats_screen.handle(event):
+			get_viewport().set_input_as_handled()
+		return
+	if options_screen.visible:
+		if options_screen.handle(event):
 			get_viewport().set_input_as_handled()
 		return
 	if controls_layer.visible:
@@ -430,19 +440,6 @@ func _change(step: int) -> void:
 			Game.rider = Game.RIDERS[posmod(i + step, Game.RIDERS.size())]
 			Game.save()
 			_spawn_rider()
-		"stance":
-			var order: Array[String] = ["own", "regular", "goofy"]
-			Game.stance = order[posmod(order.find(Game.stance) + step, order.size())]
-			Game.save()
-			_spawn_rider()
-		"steer":
-			Game.steer_mode = "tank" if Game.steer_mode == "screen" else "screen"
-			Game.save()
-		"jump":
-			Game.jump_mode = "tap" if Game.jump_mode == "hold" else "hold"
-			Game.save()
-		"music":
-			Sound.cycle_music_choice()
 		_:
 			return
 	Sound.play("ui_ok", -4.0, 1.1)
@@ -462,6 +459,8 @@ func _activate(step: int) -> void:
 			controls_layer.visible = true
 		"stats":
 			stats_screen.open(Game.rider)
+		"options":
+			options_screen.open()
 		"update":
 			OS.shell_open(Game.update_url)
 		"quit":

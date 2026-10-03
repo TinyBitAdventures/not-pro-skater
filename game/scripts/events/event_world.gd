@@ -52,6 +52,10 @@ func _ready() -> void:
 	_refresh_goals()
 
 
+func _music_theme() -> String:
+	return String(ev.get("music", ""))
+
+
 func _refresh_goals() -> void:
 	hud.set_goals(runner.goal_list())
 
@@ -113,7 +117,12 @@ func _finish() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if finished:
 		return                    # the results screen handles its own keys
-	# only P (swap rider) from the free-skate keys: warping (1-9, 0, TAB) would carry an item or skip checkpoints
+	# only P (swap rider) from the free-skate keys, and only before the clock starts: warping (1-9, 0, TAB) would
+	# carry an item or skip checkpoints, a swap mid-session would bring another rider's stats in
 	var k: InputEventKey = event as InputEventKey
-	if k != null and k.physical_keycode == KEY_P:
+	if k != null and k.physical_keycode == KEY_P and not running:
 		super._unhandled_input(event)
+
+
+func _session_over() -> bool:
+	return finished

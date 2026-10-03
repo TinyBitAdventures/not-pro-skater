@@ -98,7 +98,26 @@ func _run() -> void:
 	await _wait(0.2)
 	_check("ESC again resumes", not get_tree().paused)
 	await _press("pause")
-	for i in 3:
+	for i in Hud.PAUSE_ITEMS.find("OPTIONS"):
+		await _press("ui_down")
+	await _press("ui_accept")                 # Options, over the pause menu
+	await _wait(0.2)
+	var ph: Hud = get_tree().current_scene.get("hud")
+	_check("pause > options opens, still paused", ph.options_screen.visible and get_tree().paused)
+	var shake: bool = Game.camera_shake
+	while ph.options_screen._row_key() != "shake":
+		await _press("ui_down")
+	await _press("ui_right")
+	_check("options: right changes the row (camera shake %s -> %s)" % [shake, Game.camera_shake], Game.camera_shake != shake)
+	await _press("ui_right")
+	await _press("ui_cancel")
+	await _wait(0.2)
+	_check("options: back to the pause menu, still paused", not ph.options_screen.visible and ph.pause_menu.visible
+		and get_tree().paused)
+	await _press("pause")
+	await _wait(0.2)
+	await _press("pause")
+	for i in Hud.PAUSE_ITEMS.find("QUIT TO TITLE"):
 		await _press("ui_down")
 	await _press("ui_accept")                 # Quit to title
 	await _wait(1.5)

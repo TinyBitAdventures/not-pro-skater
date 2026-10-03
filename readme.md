@@ -15,7 +15,7 @@ cd game
 godot --path .
 ```
 
-Two steering styles (pick one in the title menu; saved):
+Two steering styles (pick one in **Options**; saved):
 
 - **Skater steering** (default): W pushes, S brakes, A / D turn relative to the skater, like a classic skate game.
 - **Screen steering**: the stick points where you want to go on screen.
@@ -34,7 +34,7 @@ Two steering styles (pick one in the title menu; saved):
 | R | Reset to the start |
 | Esc | Pause (resume, restart, controls, quit to title) |
 
-Stance (**Rider's own**, or every rider **Regular**, left foot forward, or **Goofy**, right foot forward), steering, jump style (hold-release or instant tap) and music are in the title menu.
+**Options** (on the title and the pause menu): window or fullscreen (**Alt+Enter** or **F11** switch any time), vsync, a quality preset (High, Medium, Low: anti-aliasing and shadow detail for older computers), master, music and effects volume, the music (**Themes**, **Hype** or **Off**), stance (**Rider's own**, or every rider **Regular**, left foot forward, or **Goofy**, right foot forward), steering, jump style (hold-release or instant tap), combo rules (**Standard** or **Relaxed**), camera shake and the daily update check. Everything is saved and applies at once. The mouse pointer hides while you skate, and the game pauses itself when its window loses focus or a controller is unplugged.
 
 **Riders have stats and a style.** Ten stats from 1 to 10 (Ollie, Air, Hang time, Speed, Spin, Flip, Landing, Rail, Lip and Manual balance; 5 is the game's own feel, and no rider is so weak that a goal goes out of reach), and each rider starts with their own strengths. Every event goal done for the first time gives every rider a stat point, spent on the title's **Stats** screen (right raises a stat, left takes a point back). Each rider also has a stance, a push (regular, or mongo: the front foot pushes), a terrain (street or vert tricks pay 20% more; an all-rounder gets 8% on everything) and three signature tricks that pay 50% more. The rider card shows them all. Profiles live in `scripts/skater/rider_profiles.gd`; `scenes/dev_stats.tscn` checks them, the points and that the stats really move the physics. Music **Themes** plays each place's own soundtrack (Launch Day's lo-fi synthwave, Record Release's hip-hop funk, Rush Hour's upbeat electronic, Between Takes' orchestral score; the cruise theme in the park and at the school), **Hype** plays the harder track everywhere, **Off** is off.
 
@@ -122,7 +122,7 @@ cd game
 godot --path . res://scenes/greybox.tscn
 ```
 
-Keys **1-9 / 0** warp to a lane, **Tab / Shift+Tab** step through them, **P** swaps the rider (The Dev, Musician, Vlogger, Dad, Actor), **R** resets to the lane start. **F3** opens live sliders for every skating value (`SkateTuning`, `game/scripts/skater/skate_tuning.gd`); **Save** writes `game/tuning/default.tres`. Headless experiments can override values with `TUNE="coast_drag=0.05,air_gravity_up=20"`.
+Keys **1-9 / 0** warp to a lane, **Tab / Shift+Tab** step through them, **P** swaps the rider (The Dev, Musician, Vlogger, Dad, Actor), **R** resets to the lane start. **F3** (runs from the editor binary only: released builds play as tuned, so a best score is always set on the same physics) opens live sliders for every skating value (`SkateTuning`, `game/scripts/skater/skate_tuning.gd`); **Save** writes `game/tuning/default.tres`. Headless experiments can override values with `TUNE="coast_drag=0.05,air_gravity_up=20"`.
 
 ## Realistic look
 
@@ -204,7 +204,7 @@ godot --headless --export-release "Windows Desktop" ../build/NotProSkater-Window
 godot --headless --export-release "Linux" ../build/NotProSkater-Linux/NotProSkater.x86_64
 ```
 
-Desktop builds check for a newer release once a day: they ask GitHub's API for the latest release of `TinyBitAdventures/not-pro-skater` (sending nothing but a `User-Agent: NotProSkater/<version>` header) and, when its tag is newer than `application/config/version`, the title menu gets a NEW VERSION row that opens the release page. Any failure is quiet and the next launch tries again; the answer is kept in the save, so the row shows offline too until the game is updated. To turn it off, set `check=false` under `[update]` in the save file. The web build never checks (it's always the latest), and runs from the editor binary only check with `godot --path . -- --check-updates`. Bump `application/config/version` in `project.godot` (and the export presets) with each release.
+Desktop builds check for a newer release once a day: they ask GitHub's API for the latest release of `TinyBitAdventures/not-pro-skater` (sending nothing but a `User-Agent: NotProSkater/<version>` header) and, when its tag is newer than `application/config/version`, the title menu gets a NEW VERSION row that opens the release page. Any failure is quiet and the next launch tries again; the answer is kept in the save, so the row shows offline too until the game is updated. To turn it off: **Options > Check for updates**. The web build never checks (it's always the latest), and runs from the editor binary only check with `godot --path . -- --check-updates`. Set the version with `python3 tools/set_version.py 0.3.0`: it writes `config/version` in `project.godot` and the macOS and Windows versions in the export presets (the Windows exe carries its icon, product name and version: `application/modify_resources`).
 
 Desktop builds carry every level in one package. The macOS app is not notarized: the first time, right-click it and choose Open. Like the web build's `?scene=`, a desktop build opens an event or level straight away with `-- --scene=<id>` (`NotProSkater.x86_64 -- --scene=rushhour`); add `--verbose` to log each level as it loads.
 

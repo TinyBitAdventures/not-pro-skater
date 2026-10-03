@@ -239,15 +239,10 @@ func gameplay_track(theme: String = "") -> String:
 	return "cruise"
 
 
-## cruise (each place's theme) -> hype -> off -> cruise. Returns the new choice.
-func cycle_music_choice() -> String:
-	match Game.music_choice:
-		"cruise":
-			Game.music_choice = "hype"
-		"hype":
-			Game.music_choice = "off"
-		_:
-			Game.music_choice = "cruise"
+## cruise (each place's theme) -> hype -> off -> cruise (step -1: the other way). Returns the new choice.
+func cycle_music_choice(step: int = 1) -> String:
+	var order: Array[String] = ["cruise", "hype", "off"]
+	Game.music_choice = order[posmod(order.find(Game.music_choice) + step, order.size())]
 	Game.save()
 	music_on = Game.music_choice != "off"
 	apply_settings()

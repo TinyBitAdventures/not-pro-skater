@@ -2,7 +2,7 @@ extends Node3D
 ## The greybox: a plain test level with every kind of obstacle, for tuning how skating feels.
 ##   godot --path . res://scenes/greybox.tscn
 ## Keys: 1-9 / 0 warp to a lane start, TAB / SHIFT+TAB next / previous start, P next rider, R back to the start,
-##       F3 tuning sliders, plus the normal skating keys.
+##       F3 tuning sliders (debug builds: the editor binary, not a released game), plus the normal skating keys.
 ## Screenshot mode (for checking visuals from the command line):
 ##   SHOT=name SHOT_START=vert SHOT_AT=2.5 PUSH=1 TUNING_OPEN=1 godot --path . res://scenes/greybox.tscn
 ## writes ../shots/<name>.png and quits. SHOT_EYE / SHOT_LOOK ("x,y,z") / SHOT_FOV frame a fixed camera instead.
@@ -50,12 +50,17 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.show_speed(look == "grey")
-	hud.set_hints([["1-9", "warp"], ["TAB", "next spot"], ["P", "rider"], ["R", "reset", "BACK"], ["F3", "tuning"],
-		["ESC", "pause", "START"]])
+	var hints: Array = [["1-9", "warp"], ["TAB", "next spot"], ["P", "rider"], ["R", "reset", "BACK"]]
+	if OS.is_debug_build():
+		hints.append(["F3", "tuning"])
+	hints.append(["ESC", "pause", "START"])
+	hud.set_hints(hints)
 	hud.restart_requested.connect(func() -> void: Game.go(""))
+	hud.options_changed.connect(_on_option)
 	hud.quit_requested.connect(func() -> void: Game.go("res://scenes/title.tscn"))
-	tuning = TuningPanel.new()
-	add_child(tuning)
+	if OS.is_debug_build():
+		tuning = TuningPanel.new()               # a released game plays as tuned: bests can't be set on other physics
+		add_child(tuning)
 	score.changed.connect(func() -> void: hud.set_score(score.score))
 	score.banked.connect(func(p: int, _n: int) -> void:
 		hud.set_score(score.score)
@@ -74,7 +79,7 @@ func _ready() -> void:
 		(cam as ChaseCamera).snap_behind()
 		hud.blink())
 	Sound.play_ambience("park_ambience" if look == "real" else "")
-	Sound.play_music(Sound.gameplay_track(Events.music_for_level(level_path)))
+	Sound.play_music(Sound.gameplay_track(_music_theme()))
 
 	var first: String = OS.get_environment("SHOT_START")
 	warp(start_names.find(first) if first != "" and start_names.has(first) else 0)
@@ -97,8 +102,56 @@ func _ready() -> void:
 			Vector3(at[0], at[1], at[2]), Vector3.UP)
 	if OS.get_environment("BAKE_ENERGY") != "":
 		RealLook.set_bake_energy(float(OS.get_environment("BAKE_ENERGY")))
-	if OS.get_environment("TUNING_OPEN") != "":
+	if OS.get_environment("TUNING_OPEN") != "" and tuning != null:
 		tuning.get_child(0).visible = true
+	_hide_cursor(true)
+	Input.joy_connection_changed.connect(func(_device: int, connected: bool) -> void:
+		if not connected:
+			_auto_pause())
+
+
+## A setting changed in the pause menu's Options: apply what can't wait for the next session.
+func _on_option(key: String) -> void:
+	match key:
+		"stance":
+			if skater.state != Skater.State.BAIL:
+				var carried: Node3D = skater.visual.get("carry_item") if skater.visual != null else null
+				skater.set_rider(skater.rider)              # the visual is mirrored (or not) when it's made
+				if carried != null and skater.visual != null:
+					skater.visual.set("carry_item", carried)
+		"combo":
+			score.relaxed = Game.combo_rules == "relaxed"
+		"music":
+			Sound.play_music(Sound.gameplay_track(_music_theme()))
+
+
+## This place's own soundtrack (an event's, or the level's in Free Skate).
+func _music_theme() -> String:
+	return Events.music_for_level(level_path)
+
+
+## The mouse pointer stays out of the way while skating (the menus bring it back).
+func _hide_cursor(v: bool) -> void:
+	if DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if v else Input.MOUSE_MODE_VISIBLE
+
+
+## Pause by itself: the window lost focus or a controller was unplugged. (Not in dev and test runs: their windows
+## sit off-screen without focus.)
+func _auto_pause() -> void:
+	if Game.is_dev_run() or hud.is_paused() or _session_over():
+		return
+	hud.open_pause()
+
+
+## The session is over (an event's results are up): nothing to pause.
+func _session_over() -> bool:
+	return false
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_inside_tree() and hud != null:
+		_auto_pause()
 
 
 func _make_camera(_sun: DirectionalLight3D) -> Camera3D:

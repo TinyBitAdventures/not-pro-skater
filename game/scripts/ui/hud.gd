@@ -20,6 +20,7 @@ const LETTER_GAP: int = 10
 signal resume_requested
 signal restart_requested
 signal quit_requested
+signal options_changed(key: String)
 
 var root: Control
 var score_value: Label
@@ -65,6 +66,7 @@ var pause_layer: Control
 var pause_items: Array[Label] = []
 var pause_sel: int = 0
 var controls_card: PanelContainer
+var options_screen: OptionsScreen
 var pause_menu: VBoxContainer
 var results_layer: Control
 var results_box: VBoxContainer
@@ -377,6 +379,9 @@ func _build_hints() -> void:
 	root.add_child(hint_box)
 
 
+const PAUSE_ITEMS: Array[String] = ["RESUME", "RESTART", "OPTIONS", "CONTROLS", "QUIT TO TITLE"]
+
+
 func _build_pause() -> void:
 	pause_layer = _dim_layer()
 	var c: CenterContainer = CenterContainer.new()
@@ -398,8 +403,8 @@ func _build_pause() -> void:
 	var gap: Control = Control.new()
 	gap.custom_minimum_size = Vector2(0, 18)
 	v.add_child(gap)
-	for i in 4:
-		var l: Label = UiKit.label(["RESUME", "RESTART", "CONTROLS", "QUIT TO TITLE"][i], 36, PAPER, "bold")
+	for i in PAUSE_ITEMS.size():
+		var l: Label = UiKit.label(PAUSE_ITEMS[i], 36, PAPER, "bold")
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.mouse_filter = Control.MOUSE_FILTER_STOP
 		l.mouse_entered.connect(func() -> void: _pause_select(i))
@@ -421,6 +426,10 @@ func _build_pause() -> void:
 	controls_card.visible = false
 	c.add_child(controls_card)
 	pause_layer.visible = false
+	options_screen = OptionsScreen.new()
+	options_screen.changed.connect(func(key: String) -> void: options_changed.emit(key))
+	options_screen.closed.connect(func() -> void: pause_menu.visible = true)
+	pause_layer.add_child(options_screen)
 
 
 func _controls_card() -> PanelContainer:
@@ -846,7 +855,10 @@ func open_pause() -> void:
 		pause_goals.add_child(list)
 		_fill_goals(list, _last_goals, 440.0)
 	_show_controls(false)
+	options_screen.visible = false
+	pause_menu.visible = true
 	_pause_select(0)
+	_cursor(true)
 	get_tree().paused = true
 	Sound.set_paused(true)
 
@@ -858,6 +870,13 @@ func close_pause() -> void:
 	pause_layer.visible = false
 	get_tree().paused = false
 	Sound.set_paused(false)
+	_cursor(false)
+
+
+## The mouse pointer: shown over the menus, hidden while skating.
+func _cursor(v: bool) -> void:
+	if DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if v else Input.MOUSE_MODE_HIDDEN
 
 
 func _show_controls(v: bool) -> void:
@@ -876,16 +895,19 @@ func _pause_select(i: int) -> void:
 
 
 func _pause_activate() -> void:
-	match pause_sel:
-		0:
+	match PAUSE_ITEMS[pause_sel]:
+		"RESUME":
 			close_pause()
 			resume_requested.emit()
-		1:
+		"RESTART":
 			close_pause()
 			restart_requested.emit()
-		2:
+		"OPTIONS":
+			pause_menu.visible = false
+			options_screen.open()
+		"CONTROLS":
 			_show_controls(true)
-		3:
+		"QUIT TO TITLE":
 			close_pause()
 			quit_requested.emit()
 
@@ -900,6 +922,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel"):
 			get_viewport().set_input_as_handled()
 			quit_requested.emit()
+		return
+	if options_screen.visible:
+		if options_screen.handle(event):
+			get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("pause"):
 		get_viewport().set_input_as_handled()
@@ -972,6 +998,7 @@ func show_results(r: Dictionary) -> void:
 	results_box.add_child(UiKit.hints([["ENTER", "skate again", "A"], ["ESC", "title", "B"]]))
 	_set_hud_visible(false)
 	results_layer.visible = true
+	_cursor(true)
 	_results_at = Time.get_ticks_msec()
 	results_layer.modulate.a = 0.0
 	create_tween().tween_property(results_layer, "modulate:a", 1.0, 0.5)
