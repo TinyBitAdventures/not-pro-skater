@@ -37,7 +37,17 @@ const HARD_LANDING: float = 11.5          # m/s into the floor: a heavy landing 
                                           # about 9, a full pop 11.4, a vert air on the transition about 2)
 ## How quickly each grind tips off balance (x SkateTuning.grind_wobble): a 50-50 sits on both trucks, a nose or
 ## tail slide balances on one end of the board.
-const GRIND_TIP: Dictionary = {"50-50": 0.85, "Lip Slide": 0.9, "Boardslide": 1.0, "Noseslide": 1.3, "Tailslide": 1.3}
+const GRIND_TIP: Dictionary = {"50-50": 0.85, "Lip Slide": 0.9, "Boardslide": 1.0, "Noseslide": 1.3, "Tailslide": 1.3,
+	"5-0": 1.15, "Nosegrind": 1.2, "Crooked Grind": 1.25, "Smith Grind": 1.3, "Feeble Grind": 1.3}
+## Grinds by the stick as the board locks on (relative to the way along the rail; Tricks.direction8), and their
+## points: [name, points, the board's turn off the line in radians]. Square across the rail is a boardslide
+## whatever the stick, on coping a lip slide.
+const GRINDS: Dictionary = {
+	"none": ["50-50", 300, 0.0], "forward": ["Noseslide", 400, PI * 0.45], "back": ["Tailslide", 400, PI * 0.45],
+	"left": ["Smith Grind", 450, 0.21], "right": ["Feeble Grind", 450, -0.35],
+	"forward_left": ["Crooked Grind", 450, 0.28], "forward_right": ["Nosegrind", 400, 0.0],
+	"back_left": ["5-0", 350, 0.0], "back_right": ["5-0", 350, 0.0],
+}
 
 var state: int = State.GROUND
 var tune: SkateTuning = SkateTuning.shared()
@@ -1581,20 +1591,18 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 	grind_dir = 1.0 if along >= 0.0 else -1.0
 	grind_speed = maxf(absf(along), tune.grind_entry_speed)
 	var ang: float = acos(clampf(absf(along) / maxf(velocity.length(), 0.01), 0.0, 1.0))
-	var word: String = Tricks.direction_word(inp.world_dir, d * grind_dir)
-	grind_board_turn = 0.0
-	var gname: String = "50-50"
-	if line.kind == "coping":
+	var word: String = Tricks.direction8(inp.world_dir, d * grind_dir)
+	var pick: Array = GRINDS[word]
+	var gname: String = String(pick[0])
+	var base: int = int(pick[1])
+	grind_board_turn = float(pick[2])
+	if line.kind == "coping" and word == "none":
 		gname = "Lip Slide"
+		base = 250
 	if ang > 0.8:
 		gname = "Boardslide"
+		base = 350
 		grind_board_turn = PI * 0.5
-	elif word == "forward":
-		gname = "Noseslide"
-		grind_board_turn = PI * 0.45
-	elif word == "back":
-		gname = "Tailslide"
-		grind_board_turn = PI * 0.45
 	grind_kind = gname
 	grind_sound = _grind_material(line, c.get("point", global_position))
 	# the balance starts near the middle; coming in across the rail leans it the way the body was going
@@ -1615,13 +1623,6 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 	stats["grinds"] += 1
 	if score != null:
 		score.release_hold("grab")
-		var base: int = 300
-		if gname == "Noseslide" or gname == "Tailslide":
-			base = 400
-		elif gname == "Boardslide":
-			base = 350
-		elif gname == "Lip Slide":
-			base = 250
 		score.add_trick(gname, _styled(base, "vert" if line.kind == "coping" else "street", gname))
 	sfx.emit("grind_start")
 	_snap_to(line.point_at(grind_dist) + Vector3.UP * GRIND_ORIGIN_DY)

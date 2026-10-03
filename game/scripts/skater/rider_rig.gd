@@ -729,6 +729,40 @@ func _pose(sk: Skater, dt: float) -> void:
 						roll_t = 0.0
 						hip_t = 0.62
 						lean_t = 14.0
+				"5-0", "Nosegrind", "Crooked Grind":
+					# on one truck with the other end up (a manual on the rail); a crooked grind is a nosegrind turned
+					# a little off the line, the front truck still on it
+					var front: bool = sk.grind_kind != "5-0"
+					glift_t = ON_RAIL - HANGER_BOTTOM
+					pitch_t = -(MANUAL_PITCH + 3.0) if front else MANUAL_PITCH + 3.0
+					piv_t = Vector2(AXLE.x, -AXLE.y) if front else AXLE
+					ff_t = FEET_NOSE[0] if front else FEET_MANUAL[0]
+					fb_t = FEET_NOSE[1] if front else FEET_MANUAL[1]
+					pz_t = -0.07 if front else 0.07
+					lean_t = 20.0 if front else -4.0
+					roll_t = 0.0
+					hip_t = 0.62
+					if sk.grind_kind == "Crooked Grind":
+						var ct: float = sk.grind_board_turn * gs
+						shift_t = Vector2(AXLE.y * sin(ct), 0.0)
+						by_t = rad_to_deg(ct) * 0.6
+						roll_t = 8.0 * signf(ct)
+				"Smith Grind", "Feeble Grind":
+					# on the back truck with the nose turned off the line: a smith dips it below the rail on one side,
+					# a feeble lays the front truck over the other
+					var off: float = sk.grind_board_turn * gs
+					var smith: bool = sk.grind_kind == "Smith Grind"
+					glift_t = ON_RAIL - HANGER_BOTTOM
+					piv_t = AXLE
+					pitch_t = -12.0 if smith else -4.0
+					roll_t = (16.0 if smith else 8.0) * signf(off)
+					shift_t = Vector2(-AXLE.y * sin(off), 0.0)
+					by_t = rad_to_deg(off) * 0.5
+					ff_t = FEET_MANUAL[0]
+					fb_t = FEET_MANUAL[1]
+					pz_t = 0.06
+					lean_t = 12.0
+					hip_t = 0.6
 				"Noseslide", "Tailslide":
 					# the board turned across the rail with its nose (tail) on it: weight over that end, the shoulders
 					# opened toward the way it's going

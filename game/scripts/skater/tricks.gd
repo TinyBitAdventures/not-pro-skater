@@ -36,6 +36,19 @@ static func spin_points(units: int) -> int:
 	return 1100 + (units - 4) * 500
 
 
+## Like direction_word, with the diagonals: "forward_left", "forward_right", "back_left", "back_right" when the
+## stick is between two directions (neither within about 22 degrees).
+static func direction8(stick: Vector3, heading: Vector3) -> String:
+	if stick.length() < 0.5:
+		return "none"
+	var f: float = stick.dot(heading)
+	var s: float = stick.dot(heading.cross(Vector3.UP))
+	var m: float = maxf(absf(f), absf(s))
+	if minf(absf(f), absf(s)) > 0.42 * m:
+		return ("forward_" if f > 0.0 else "back_") + ("right" if s > 0.0 else "left")
+	return direction_word(stick, heading)
+
+
 static func direction_word(stick: Vector3, heading: Vector3) -> String:
 	if stick.length() < 0.5:
 		return "none"

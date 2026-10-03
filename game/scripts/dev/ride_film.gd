@@ -160,7 +160,7 @@ func _shot() -> void:
 	var t: float = (ticks - film_tick) * DT
 	var m: Dictionary = metrics(sk)
 	var st: String = ["GROUND", "AIR", "GRIND", "BAIL"][sk.state]
-	var line: String = "[ride] %s %02d t=%.2f %-6s" % [clip["name"], shots, t, st]
+	var line: String = "[ride] %s %02d t=%.2f %-6s" % [clip["name"], shots, t, st + ((" " + sk.grind_kind) if sk.state == Skater.State.GRIND else "")]
 	if OS.get_environment("LEAN_DBG") != "":
 		var rgd: RiderRig = sk.visual as RiderRig
 		var spine: Vector3 = rgd.global_transform * rgd._glob[rgd._b["head"]].origin - rgd.global_transform * rgd._glob[rgd._b["pelvis"]].origin
@@ -470,7 +470,9 @@ func _clips() -> Dictionary:
 			"begin": func() -> bool: return sk.lip_kind != ""}
 	# (_other: the board turned the other way across the rail; _fakie: rolling tail first)
 	for g in [["5050", "none"], ["noseslide", "forward"], ["tailslide", "back"], ["boardslide", "board"],
-			["boardslide_other", "board"], ["boardslide_fakie", "board"], ["noseslide_fakie", "forward"]]:
+			["boardslide_other", "board"], ["boardslide_fakie", "board"], ["noseslide_fakie", "forward"],
+			["fiveo", "back_left"], ["nosegrind", "forward_right"], ["crooked", "forward_left"], ["smith", "left"],
+			["feeble", "right"]]:
 		var gname: String = g[0]
 		var stick: String = g[1]
 		var turn: float = -PI * 0.5 if gname.ends_with("_other") else PI * 0.5
@@ -486,7 +488,16 @@ func _clips() -> Dictionary:
 						d["phase"] = 1
 				elif sk.state == Skater.State.AIR:
 					sk.inp.grind_pressed = true
-					sk.inp.world_dir = sk.hdg if stick == "forward" else (-sk.hdg if stick == "back" else Vector3.ZERO)
+					# (against the way along the rail: a sideways stick spins the board in the air, so the heading
+					# drifts off it before the lock)
+					if not d.has("along"):
+						d["along"] = sk.hdg
+					var fw: Vector3 = d["along"]
+					var right: Vector3 = fw.cross(Vector3.UP)
+					var dirs: Dictionary = {"forward": fw, "back": -fw, "left": -right, "right": right,
+						"forward_left": (fw - right).normalized(), "forward_right": (fw + right).normalized(),
+						"back_left": (-fw - right).normalized()}
+					sk.inp.world_dir = dirs.get(stick, Vector3.ZERO)
 				elif sk.state == Skater.State.GRIND:
 					if stick == "board" and sk.grind_kind != "Boardslide":
 						sk.grind_kind = "Boardslide"           # (coming in square across the rail is hard to script)

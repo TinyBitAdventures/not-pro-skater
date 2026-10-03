@@ -125,6 +125,7 @@ const CONTROLS: Array = [
 	["J", "X", "flip trick (hold a direction for variations)"],
 	["K", "B", "hold to grab (hold a direction for variations)"],
 	["L", "Y", "grind: press near or toward a rail, ledge or coping"],
+	["L + stick", "Y + STICK", "grind by direction: forward / back nose / tail slide, left smith, right feeble, diagonals crooked, nosegrind, 5-0"],
 	["L + stick", "Y + STICK", "at the top of a quarter / half pipe: lip trick (stall; left / right balance, jump to drop in)"],
 	["W, S", "UP, DOWN", "quick taps: manual"],
 	["S, W", "DOWN, UP", "quick taps: nose manual"],
