@@ -1402,6 +1402,7 @@ func _begin_getup(sk: Skater) -> void:
 	if not hit.is_empty():
 		var short: float = need - from.distance_to(hit["position"]) + 0.05
 		_walk_pos = _ground_under(_walk_pos - _walk_dir * short + Vector3.UP * 0.5)
+	_walk_pos = sk.clear_spot(_walk_pos)          # (a body that slid into a box or under a bench stands up clear of it)
 	_place_walker()
 	var inv: Transform3D = model.global_transform.affine_inverse()
 	_blend_from.clear()

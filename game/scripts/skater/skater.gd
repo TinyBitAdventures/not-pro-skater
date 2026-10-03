@@ -30,6 +30,7 @@ const CAPSULE_H: float = 1.35
 const SNAP_EASE: float = 0.045            # seconds: how fast the drawn rider catches up after a snap
 const EDGE_MARGIN: float = 2.0            # this close to the level's edge the skater is warped back inside
 const SAFE_INSET: float = 6.0             # warp-back spots are remembered at least this far inside the edge
+const AUTO_POP_MAX: float = 1.3           # m: grind pressed on the ground pops onto a ledge or rail up to this high
 const HARD_LANDING: float = 11.5          # m/s into the floor: a heavy landing (a tapped ollie lands on the flat at
                                           # about 9, a full pop 11.4, a vert air on the transition about 2)
 ## How quickly each grind tips off balance (x SkateTuning.grind_wobble): a 50-50 sits on both trucks, a nose or
@@ -305,13 +306,80 @@ func _edge_distance() -> float:
 ## Riding off the edge of the world would show the ground end and a long fall: instead, just before the edge,
 ## the skater is put back on the last safe spot, stopped and facing away from that edge (the world blinks the
 ## screen over the cut). A combo in progress is lost, as after a reset.
+## Heading off the level: past its bounds, or near the edge going out with nothing in the way. A wall or a fence
+## there is the level's edge, to ride into like any other (it used to warp 2 m before reaching it).
+func _off_edge() -> bool:
+	var e: float = _edge_distance()
+	if e < 0.0:
+		return true
+	if e >= EDGE_MARGIN:
+		return false
+	var out: Vector3 = -_edge_inward()
+	if Vector3(velocity.x, 0.0, velocity.z).dot(out) < 0.5:
+		return false
+	var from: Vector3 = global_position + Vector3.UP * 0.6
+	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, from + out * (e + 1.0), 1)
+	q.exclude = [get_rid()]
+	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+## Toward the inside from the nearest edge of the bounds.
+func _edge_inward() -> Vector3:
+	var p: Vector3 = global_position
+	var gaps: Array[float] = [p.x - bounds.position.x, bounds.end.x - p.x, p.z - bounds.position.y, bounds.end.y - p.z]
+	var normals: Array[Vector3] = [Vector3.RIGHT, Vector3.LEFT, Vector3.BACK, Vector3.FORWARD]
+	return normals[gaps.find(gaps.min())]
+
+
+## Somewhere to stand the rider near `p` (where a crash ended, where the board lies): ground under it, nothing over
+## it (a board can come to rest inside a hollow box or under a bench) and room for the body. If `p` won't do, the
+## nearest spot that will on rings out to 4 m at about the same height; failing that, the last safe spot.
+func clear_spot(p: Vector3) -> Vector3:
+	var g: Variant = _stand_at(p)
+	if g != null:
+		return g
+	for r in [0.4, 0.8, 1.2, 1.7, 2.3, 3.0, 4.0]:
+		for k in 16:
+			var a: float = TAU * k / 16.0
+			var q: Vector3 = p + Vector3(cos(a), 0.0, sin(a)) * r
+			var hit: Dictionary = _ray(q + Vector3.UP * 1.2, q + Vector3.DOWN * 1.5)
+			if hit.is_empty() or absf((hit["position"] as Vector3).y - p.y) > 0.6:
+				continue
+			g = _stand_at(hit["position"])
+			if g != null:
+				return g
+	return _last_safe
+
+
+func _spot_ok(p: Vector3) -> bool:
+	return _stand_at(p) != null
+
+
+## The ground to stand on at `p`, or null: the first thing straight down from well above (6 m, so a ray never
+## starts inside a tall block) is ground within 0.3 m of p's height, not the top of a box p is in or a bench or a
+## roof over it, and the body fits there (a slimmer capsule than the real one: brushing a wall is fine, physics
+## pushes that out; standing in it is not).
+func _stand_at(p: Vector3) -> Variant:
+	var down: Dictionary = _ray(p + Vector3.UP * 6.0, p + Vector3.DOWN * 0.6)
+	if down.is_empty() or (down["position"] as Vector3).y > p.y + 0.3 or (down["normal"] as Vector3).y < 0.7:
+		return null
+	var g: Vector3 = down["position"]
+	var shape: CapsuleShape3D = CapsuleShape3D.new()
+	shape.radius = 0.2
+	shape.height = CAPSULE_H
+	var q: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+	q.shape = shape
+	q.transform = Transform3D(Basis.IDENTITY, g + Vector3.UP * (CAPSULE_H * 0.5 + 0.06))
+	q.collision_mask = 1
+	q.exclude = [get_rid()]
+	return g if get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty() else null
+
+
 func _warp_back() -> void:
 	var p: Vector3 = global_position
 	var inward: Vector3 = Vector3(-hdg.x, 0.0, -hdg.z)
 	if bounds.has_area():
-		var gaps: Array[float] = [p.x - bounds.position.x, bounds.end.x - p.x, p.z - bounds.position.y, bounds.end.y - p.z]
-		var normals: Array[Vector3] = [Vector3.RIGHT, Vector3.LEFT, Vector3.BACK, Vector3.FORWARD]
-		inward = normals[gaps.find(gaps.min())]
+		inward = _edge_inward()
 	var keep: Transform3D = _spawn
 	place_at(Transform3D(Basis.looking_at(inward.normalized(), Vector3.UP), _last_safe + Vector3.UP * 0.05))
 	_spawn = keep                              # R still goes back to the start, not here
@@ -500,7 +568,7 @@ func _step(delta: float) -> void:
 			_safe_timer = 0.0
 			_last_safe = global_position
 	var loose: bool = state != State.BAIL or run_state == "run"     # a ragdoll stays where it fell
-	if global_position.y < -8.0 or (loose and bounds.has_area() and _edge_distance() < EDGE_MARGIN):
+	if global_position.y < -8.0 or (loose and bounds.has_area() and _off_edge()):
 		_warp_back()
 	if scripted:
 		inp.clear_edges()
@@ -614,6 +682,8 @@ func _ground(dt: float) -> void:
 		if _try_lip():
 			return
 	if _grind_buf > 0.0 and _try_grind():
+		return
+	if _grind_buf > 0.0 and _auto_pop_grind(n):
 		return
 	if charge_mode:
 		# crouch while Space is held, pop when it is released: hold longer for more height
@@ -1291,7 +1361,7 @@ func _run_out(dt: float) -> void:
 ## The rider has walked back to the loose board and stepped on: carry on from there.
 func finish_physical_bail(stand: Transform3D) -> void:
 	_clear_jump_input()
-	global_position = stand.origin + Vector3.UP * 0.03
+	global_position = clear_spot(stand.origin) + Vector3.UP * 0.03     # (never inside a wall or a box)
 	var f: Vector3 = -stand.basis.z
 	f.y = 0.0
 	hdg = f.normalized() if f.length() > 0.1 else hdg
@@ -1380,6 +1450,40 @@ func _revert() -> void:
 
 
 # ------------------------------------------------------------------ grind
+
+## Grind pressed rolling up to a ledge or rail too high to step onto (a ledge, a bench back, a handrail): an ollie
+## just high enough to clear it, the grind kept armed through the hop so it locks on. Low ones (curbs, low ledges)
+## the ground search takes as they are.
+func _auto_pop_grind(n: Vector3) -> bool:
+	if _grind_cd > 0.0 or grind_lines.is_empty() or manual_on:
+		return false
+	var spd: float = velocity.length()
+	if spd < 2.0:
+		return false
+	var p: Vector3 = global_position
+	var rise_best: float = INF
+	for line in grind_lines:
+		var c: Dictionary = line.closest(p + Vector3.UP * 0.1)
+		var cp: Vector3 = c["point"]
+		var rise: float = cp.y - p.y
+		if rise < -tune.grind_min_dy or rise > AUTO_POP_MAX:
+			continue
+		var gap: Vector3 = Vector3(cp.x - p.x, 0.0, cp.z - p.z)
+		if gap.length() > tune.grind_snap_h + 0.6:
+			continue
+		var d: Vector3 = line.dir_at(c["dist"])
+		if acos(clampf(absf(velocity.dot(d)) / spd, 0.0, 1.0)) > 1.31:   # 75 degrees, like a grind from the air
+			continue
+		if gap.length() > tune.grind_snap_h and velocity.dot(gap.normalized()) < -0.5:
+			continue                                   # (riding away from it)
+		rise_best = minf(rise_best, rise)
+	if rise_best == INF:
+		return false
+	_ollie(n, sqrt(2.0 * tune.air_gravity_up * (rise_best + 0.25)))
+	_grind_buf = 0.7
+	_magnet_t = maxf(_magnet_t, 0.5)
+	return true
+
 
 func _try_grind() -> bool:
 	if _grind_cd > 0.0 or grind_lines.is_empty():

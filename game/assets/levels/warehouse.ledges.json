@@ -1,0 +1,292 @@
+{
+  "rails": [
+    {
+      "id": "auto_concrete_sidewalkn_1",
+      "kind": "curb",
+      "points": [
+        [
+          -59.7,
+          0.07,
+          32.47
+        ],
+        [
+          59.7,
+          0.07,
+          32.47
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sidewalks_2",
+      "kind": "curb",
+      "points": [
+        [
+          -59.7,
+          0.07,
+          40.53
+        ],
+        [
+          59.7,
+          0.07,
+          40.53
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sheddock_3",
+      "kind": "ledge",
+      "points": [
+        [
+          14.3,
+          1.27,
+          -15.97
+        ],
+        [
+          45.7,
+          1.27,
+          -15.97
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_foundrydock_4",
+      "kind": "ledge",
+      "points": [
+        [
+          -37.7,
+          1.27,
+          -9.97
+        ],
+        [
+          -8.3,
+          1.27,
+          -9.97
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_stage_5",
+      "kind": "ledge",
+      "points": [
+        [
+          47.97,
+          1.17,
+          -1.7
+        ],
+        [
+          47.97,
+          1.17,
+          9.7
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_stage_6",
+      "kind": "ledge",
+      "points": [
+        [
+          38.8,
+          1.17,
+          -1.97
+        ],
+        [
+          47.7,
+          1.17,
+          -1.97
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_stage_7",
+      "kind": "ledge",
+      "points": [
+        [
+          38.8,
+          1.17,
+          9.97
+        ],
+        [
+          47.7,
+          1.17,
+          9.97
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_foundrydock_8",
+      "kind": "ledge",
+      "points": [
+        [
+          -37.97,
+          1.27,
+          -9.7
+        ],
+        [
+          -37.97,
+          1.27,
+          -4.8
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sheddock_9",
+      "kind": "ledge",
+      "points": [
+        [
+          45.97,
+          1.27,
+          -15.7
+        ],
+        [
+          45.97,
+          1.27,
+          -11.8
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sidelanding_10",
+      "kind": "curb",
+      "points": [
+        [
+          1.57,
+          0.61,
+          -25.0
+        ],
+        [
+          1.57,
+          0.61,
+          -23.0
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sidelanding_11",
+      "kind": "ledge",
+      "points": [
+        [
+          0.03,
+          0.61,
+          -25.0
+        ],
+        [
+          0.03,
+          0.61,
+          -23.0
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_drumriser_01_12",
+      "kind": "ledge",
+      "points": [
+        [
+          44.23,
+          1.57,
+          3.1
+        ],
+        [
+          44.23,
+          1.57,
+          4.9
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_drumriser_01_13",
+      "kind": "ledge",
+      "points": [
+        [
+          46.57,
+          1.57,
+          3.1
+        ],
+        [
+          46.57,
+          1.57,
+          4.9
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_drumriser_01_14",
+      "kind": "ledge",
+      "points": [
+        [
+          44.5,
+          1.57,
+          5.17
+        ],
+        [
+          46.3,
+          1.57,
+          5.17
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_drumriser_01_15",
+      "kind": "ledge",
+      "points": [
+        [
+          44.5,
+          1.57,
+          2.83
+        ],
+        [
+          46.3,
+          1.57,
+          2.83
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_median_16",
+      "kind": "curb",
+      "points": [
+        [
+          10.97,
+          0.23,
+          12.975
+        ],
+        [
+          10.97,
+          0.23,
+          14.025
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_median_17",
+      "kind": "curb",
+      "points": [
+        [
+          -34.97,
+          0.23,
+          12.975
+        ],
+        [
+          -34.97,
+          0.23,
+          14.025
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sidelanding_18",
+      "kind": "ledge",
+      "points": [
+        [
+          0.3,
+          0.61,
+          -25.27
+        ],
+        [
+          1.3,
+          0.61,
+          -25.27
+        ]
+      ]
+    }
+  ]
+}

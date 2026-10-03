@@ -1,0 +1,148 @@
+{
+  "rails": [
+    {
+      "id": "auto_concrete_sidewalks_1",
+      "kind": "curb",
+      "points": [
+        [
+          -59.7,
+          0.07,
+          40.53
+        ],
+        [
+          59.7,
+          0.07,
+          40.53
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sidewalkn_2",
+      "kind": "curb",
+      "points": [
+        [
+          -59.7,
+          0.07,
+          32.47
+        ],
+        [
+          59.7,
+          0.07,
+          32.47
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_dock_3",
+      "kind": "ledge",
+      "points": [
+        [
+          25.03,
+          1.17,
+          -22.7
+        ],
+        [
+          25.03,
+          1.17,
+          -12.3
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_signcap_4",
+      "kind": "ledge",
+      "points": [
+        [
+          -23.85,
+          0.94,
+          25.22
+        ],
+        [
+          -14.15,
+          0.94,
+          25.22
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_fundeck_01_5",
+      "kind": "curb",
+      "points": [
+        [
+          30.17,
+          0.87,
+          10.1
+        ],
+        [
+          30.17,
+          0.87,
+          13.382
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_fundeck_01_6",
+      "kind": "curb",
+      "points": [
+        [
+          25.83,
+          0.87,
+          10.1
+        ],
+        [
+          25.83,
+          0.87,
+          13.382
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_dock_7",
+      "kind": "ledge",
+      "points": [
+        [
+          25.3,
+          1.17,
+          -22.97
+        ],
+        [
+          28.2,
+          1.17,
+          -22.97
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_islandcurb_8",
+      "kind": "curb",
+      "points": [
+        [
+          -33.03,
+          0.22,
+          10.3
+        ],
+        [
+          -33.03,
+          0.22,
+          11.7
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_islandcurb_9",
+      "kind": "curb",
+      "points": [
+        [
+          -54.97,
+          0.22,
+          10.3
+        ],
+        [
+          -54.97,
+          0.22,
+          11.7
+        ]
+      ]
+    }
+  ]
+}

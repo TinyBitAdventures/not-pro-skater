@@ -56,6 +56,7 @@ func load_glb(path: String, look: String = "real") -> void:
 
 	bounds = _ground_bounds(bodies)
 	_load_rails(path.get_basename() + ".rails.json")
+	_load_rails(path.get_basename() + ".ledges.json")     # every other ledge (scripts/dev/ledge_audit.gd WRITE=1)
 	link_rails()
 
 	if look == "grey":

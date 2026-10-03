@@ -1,0 +1,212 @@
+{
+  "rails": [
+    {
+      "id": "auto_concrete_sidewalks_1",
+      "kind": "curb",
+      "points": [
+        [
+          -59.7,
+          0.07,
+          40.53
+        ],
+        [
+          59.7,
+          0.07,
+          40.53
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sidewalkn_2",
+      "kind": "curb",
+      "points": [
+        [
+          -59.7,
+          0.07,
+          32.47
+        ],
+        [
+          59.7,
+          0.07,
+          32.47
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_campussigncap_3",
+      "kind": "ledge",
+      "points": [
+        [
+          -25.8,
+          1.17,
+          26.02
+        ],
+        [
+          -14.2,
+          1.17,
+          26.02
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_campussigncap_4",
+      "kind": "ledge",
+      "points": [
+        [
+          -25.8,
+          1.17,
+          24.98
+        ],
+        [
+          -14.2,
+          1.17,
+          24.98
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_stage_5",
+      "kind": "ledge",
+      "points": [
+        [
+          34.8,
+          0.62,
+          19.17
+        ],
+        [
+          41.2,
+          0.62,
+          19.17
+        ]
+      ]
+    },
+    {
+      "id": "auto_metal_bikerack_61_6",
+      "kind": "ledge",
+      "points": [
+        [
+          -13.15,
+          0.87,
+          12.62
+        ],
+        [
+          -8.35,
+          0.87,
+          12.62
+        ]
+      ]
+    },
+    {
+      "id": "auto_metal_bikerack_61_7",
+      "kind": "ledge",
+      "points": [
+        [
+          -13.15,
+          0.87,
+          11.78
+        ],
+        [
+          -8.35,
+          0.87,
+          11.78
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_stage_8",
+      "kind": "curb",
+      "points": [
+        [
+          41.47,
+          0.62,
+          16.414
+        ],
+        [
+          41.47,
+          0.62,
+          18.9
+        ]
+      ]
+    },
+    {
+      "id": "auto_wood_stage_9",
+      "kind": "curb",
+      "points": [
+        [
+          34.53,
+          0.62,
+          16.414
+        ],
+        [
+          34.53,
+          0.62,
+          18.9
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_servicestep_10",
+      "kind": "curb",
+      "points": [
+        [
+          -30.7,
+          0.25,
+          -44.03
+        ],
+        [
+          -29.3,
+          0.25,
+          -44.03
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_servicestep_11",
+      "kind": "curb",
+      "points": [
+        [
+          -30.7,
+          0.25,
+          -45.17
+        ],
+        [
+          -29.3,
+          0.25,
+          -45.17
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sculpturebase_12",
+      "kind": "ledge",
+      "points": [
+        [
+          23.5,
+          0.42,
+          -6.53
+        ],
+        [
+          24.5,
+          0.42,
+          -6.53
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_sculpturebase_13",
+      "kind": "ledge",
+      "points": [
+        [
+          23.5,
+          0.42,
+          -7.47
+        ],
+        [
+          24.5,
+          0.42,
+          -7.47
+        ]
+      ]
+    }
+  ]
+}

@@ -51,6 +51,10 @@ func _run() -> void:
 				await _frames(2)
 				sk.finish_physical_bail(Transform3D(Basis.IDENTITY, (lv.markers[String(g["from"])] as Transform3D).origin))
 				await _frames(3)
+				# back on the board somewhere clear (Skater.clear_spot: the pickup spot is in the van, 1 m up), so go
+				# back for the dropped item, then bring it
+				_put(sk, (lv.markers[String(g["from"])] as Transform3D).origin)
+				await _frames(3)
 				_put(sk, (lv.markers[String(g["to"])] as Transform3D).origin)
 				await _frames(3)
 				report.append("%s (deliver): carried=%s dropped_on_bail=%s delivered=%s" % [gid, carried, dropped, r.done.has(gid)])

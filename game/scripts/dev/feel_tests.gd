@@ -9,7 +9,7 @@ const ALL: Array[String] = ["momentum", "seam", "curb", "step", "qp_air", "vert"
 	"land_0", "land_20", "land_34", "land_45", "land_65", "land_180", "rail_magnet", "early_tap", "early_hold",
 	"vert_frame", "bail_small", "bail_big", "manual_combo", "nose_combo", "push_no_combo", "manual_hold",
 	"manual_drop", "manual_air", "wallplant", "bail_no_snap", "camera_wall", "push_finish", "mini_angle", "mini_pop", "spin_rate", "lip_stall", "lip_arm",
-	"grind_hold", "grind_drop", "grind_lean", "edge_warp", "wallride", "wallie", "wallride_headon"]
+	"grind_hold", "grind_drop", "grind_lean", "edge_warp", "wallride", "wallie", "wallride_headon", "grind_ground"]
 
 var level: Level
 var sk: Skater
@@ -303,6 +303,27 @@ func _t_kink() -> void:
 
 
 ## Rail 1.1 m to the side of the air path, grind pressed ~0.25 s before the rail: magnetism should lock on.
+## Grind pressed on the ground, rolling up beside a rail too high to step onto (0.67 m): an automatic pop onto it.
+func _t_grind_ground() -> void:
+	await _spawn("rail_side", 7.0)
+	var pressed: bool = false
+	var aired: bool = false
+	var grind_t: float = 0.0
+	for i in 360:
+		if sk.state == Skater.State.GROUND and not pressed:
+			_push()
+		if not pressed and sk.state == Skater.State.GROUND and sk.global_position.z < -3.6:
+			_coast()
+			sk.inp.grind_pressed = true
+			pressed = true
+		await _tick()
+		aired = aired or sk.state == Skater.State.AIR
+		if sk.state == Skater.State.GRIND:
+			grind_t += DT
+	_result("grind_ground", pressed and aired and grind_t > 0.4, "grind pressed on the ground 1.1 m beside a 0.67 m rail: popped %s, grind %.2f s (want > 0.4), bails=%s" % [
+		aired, grind_t, bails])
+
+
 func _t_rail_magnet() -> void:
 	await _spawn("rail_side", 7.0)
 	var ollied: bool = false

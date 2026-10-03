@@ -234,14 +234,18 @@ def industrial(seed=9):
             return False                              # the street carrying on east and west
         return not any(x0 < b[1] + gap and x1 > b[0] - gap and y0 < b[3] + gap and y1 > b[2] - gap for b in taken)
 
-    # the fence: corrugated sheets 2.4 m high round the square, open where the street runs through
+    # the fence: corrugated sheets 2.4 m high round the square, open where the street runs through. It stands just
+    # inside the playable ground with a collider, so it is the level's edge to ride into (it stood 1.5 m past the
+    # ground's end, scenery only, and the edge warp put riders back before they ever reached it)
     fence = pal["blue_grey"]
-    off = EDGE + 1.5
+    off = EDGE - 0.4
     runs = [((-off, off), (off, off)), ((off, -off), (-off, -off)),
             ((off, off), (off, -28.5)), ((off, -44.5), (off, -off)),
             ((-off, -off), (-off, -44.5)), ((-off, -28.5), (-off, off))]
     for a, b in runs:
         _corrugated(lib.uname("Far_Fence"), a, b, 2.4, fence)
+        lib.col_box(lib.uname("FenceCol"), (max(abs(b[0] - a[0]), 0.3), max(abs(b[1] - a[1]), 0.3), 2.6),
+                    ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, LAWN_Z + 1.3))
         length = math.hypot(b[0] - a[0], b[1] - a[1])
         n = max(1, round(length / 2.4))
         ux, uy = (b[0] - a[0]) / length, (b[1] - a[1]) / length

@@ -1,0 +1,180 @@
+{
+  "rails": [
+    {
+      "id": "auto_concrete_avesidewalks_1",
+      "kind": "curb",
+      "points": [
+        [
+          -61.7,
+          0.22,
+          40.53
+        ],
+        [
+          61.7,
+          0.22,
+          40.53
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_avesidewalkn_2",
+      "kind": "curb",
+      "points": [
+        [
+          -61.7,
+          0.22,
+          32.47
+        ],
+        [
+          61.7,
+          0.22,
+          32.47
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_block_04_3",
+      "kind": "curb",
+      "points": [
+        [
+          8.3,
+          0.22,
+          -25.03
+        ],
+        [
+          61.7,
+          0.22,
+          -25.03
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_block_03_4",
+      "kind": "curb",
+      "points": [
+        [
+          -61.7,
+          0.22,
+          -25.03
+        ],
+        [
+          -8.3,
+          0.22,
+          -25.03
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_block_02_5",
+      "kind": "curb",
+      "points": [
+        [
+          8.3,
+          0.22,
+          -18.97
+        ],
+        [
+          61.7,
+          0.22,
+          -18.97
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_block_01_6",
+      "kind": "curb",
+      "points": [
+        [
+          -61.7,
+          0.22,
+          -18.97
+        ],
+        [
+          -8.3,
+          0.22,
+          -18.97
+        ]
+      ]
+    },
+    {
+      "id": "auto_plaza_civic_7",
+      "kind": "ledge",
+      "points": [
+        [
+          12.03,
+          1.57,
+          -49.7
+        ],
+        [
+          12.03,
+          1.57,
+          -36.55
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_cornerplanter_02_8",
+      "kind": "ledge",
+      "points": [
+        [
+          16.8,
+          0.72,
+          -13.07
+        ],
+        [
+          23.2,
+          0.72,
+          -13.07
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_cornerplanter_01_9",
+      "kind": "ledge",
+      "points": [
+        [
+          16.8,
+          0.72,
+          -8.57
+        ],
+        [
+          23.2,
+          0.72,
+          -8.57
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_plazaplanter_02_10",
+      "kind": "ledge",
+      "points": [
+        [
+          29.3,
+          2.07,
+          -44.67
+        ],
+        [
+          34.7,
+          2.07,
+          -44.67
+        ]
+      ]
+    },
+    {
+      "id": "auto_concrete_plazaplanter_01_11",
+      "kind": "ledge",
+      "points": [
+        [
+          17.3,
+          2.07,
+          -44.67
+        ],
+        [
+          22.7,
+          2.07,
+          -44.67
+        ]
+      ]
+    }
+  ]
+}
