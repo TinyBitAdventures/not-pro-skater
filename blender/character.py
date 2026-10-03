@@ -24,7 +24,11 @@ MPFB = "bl_ext.blender_org.mpfb"
 # characters, not likenesses. Assets are named by MPFB folder (skins/<skin>, hair/<hair>, clothes/<name>, ...).
 STYLIZE = {"head-scale-vert-incr": 0.35, "head-scale-horiz-incr": 0.3, "head-scale-depth-incr": 0.25,
            "l-hand-scale-incr": 0.35, "r-hand-scale-incr": 0.35}
-TEXTURE_MAX = 1024        # the web build cannot afford MakeHuman's 2K / 4K maps
+TEXTURE_MAX = 2048        # riders' skin at MakeHuman's full 2K (desktop only: the web build is gone)
+AO_DISTANCE = 0.12        # m: how far the baked ambient occlusion looks (eye sockets, nostrils, lips, ears)
+AO_STRENGTH = 0.7         # how much of it darkens the skin texture
+AO_LIFT = 0.6             # (1 - ao) ** this: a face is mostly convex, so its creases only occlude a little; this
+                          # brings the eye sockets, the sides of the nose and the lip line up to be seen
 ARCHETYPES = {
     "dev": {
         "title": "The Dev",
@@ -295,8 +299,10 @@ def build(key):
     ts.bake_targets(basemesh)
     hs.set_character_skin(_asset("skins", spec["skin"], "mhmat"), basemesh, skin_type="GAMEENGINE")
     hs.add_builtin_rig(basemesh, "game_engine")
-    eyes = hs.add_mhclo_asset(_data("eyes/low-poly/low-poly.mhclo"), basemesh, asset_type="Eyes",
+    # the high-poly eyeballs (1k faces, round in close-ups; the low-poly ones were 86, visibly faceted)
+    eyes = hs.add_mhclo_asset(_data("eyes/high-poly/high-poly.mhclo"), basemesh, asset_type="Eyes",
                               subdiv_levels=0, material_type="MAKESKIN")
+    eyes.name = "Eyes"
     try:
         eye_mat = _data(f"eyes/materials/{spec['eyes']}.mhmat")
     except FileNotFoundError:
@@ -315,7 +321,9 @@ def build(key):
     # bake shape keys and the "hidden under clothes" masks into real geometry, drop helper geometry
     es.bake_modifiers_remove_helpers(basemesh, bake_masks=True, bake_subdiv=False, remove_helpers=True)
     rig = basemesh.parent
+    _drop_cornea(rig)
     _fix_materials(rig)
+    _bake_ao(rig, basemesh)
     _shrink_textures(rig, npc=spec.get("npc", False))
     _tint(rig, spec.get("tint", {}))
     _eyes(rig, spec.get("eyes", "brown"))
@@ -338,6 +346,105 @@ def build(key):
 
 
 CUTOUT = ("eyebrow", "eyelash", "hair", "short", "long", "bob", "ponytail", "afro", "braid")
+
+
+def _drop_cornea(rig):
+    """The high-poly eyes have a clear cornea over the iris, mapped to the eye texture's transparent texels; made
+    opaque (as every eye material is) it covered the iris in grey and the riders looked blind. Delete those faces:
+    the eyeball's glossy material gives the wet highlight instead (RiderRig._eye)."""
+    import bmesh
+    import numpy as np
+    for ob in rig.children_recursive:
+        if ob.type != "MESH" or ob.name != "Eyes":
+            continue
+        m = next((m for m in ob.data.materials if m is not None and m.use_nodes), None)
+        bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None) if m else None
+        img = _upstream_image(bsdf.inputs["Base Color"]) if bsdf else None
+        if img is None or img.channels < 4:
+            return
+        w, h = img.size
+        px = np.empty(w * h * 4, dtype=np.float32)
+        img.pixels.foreach_get(px)
+        alpha = px.reshape(h, w, 4)[:, :, 3]
+        bm = bmesh.new()
+        bm.from_mesh(ob.data)
+        uv = bm.loops.layers.uv.active
+        clear = []
+        for f in bm.faces:
+            c = sum((l[uv].uv for l in f.loops), f.loops[0][uv].uv * 0.0) / len(f.loops)
+            x = min(w - 1, max(0, int(c.x % 1.0 * w)))
+            y = min(h - 1, max(0, int(c.y % 1.0 * h)))
+            if alpha[y, x] < 0.5:
+                clear.append(f)
+        bmesh.ops.delete(bm, geom=clear, context="FACES")
+        bm.to_mesh(ob.data)
+        bm.free()
+        print(f"[character] dropped {len(clear)} cornea faces from the eyes")
+        return
+
+
+def _bake_ao(rig, body):
+    """Ambient occlusion baked into the skin texture. The game's renderer has none, so the face was flat: no shade
+    in the eye sockets, under the nose, between the lips, in the ears, under the hairline or the collar. Cycles
+    bakes it over the body's UVs with the hair, eyes, lashes and clothes as occluders (not the brows: their flat
+    cards darkened a band of skin), then it is multiplied into the diffuse (AO_STRENGTH)."""
+    import numpy as np
+    mat = next((m for m in body.data.materials if m is not None and m.use_nodes), None)
+    bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None) if mat else None
+    skin = _upstream_image(bsdf.inputs["Base Color"]) if bsdf else None
+    if skin is None:
+        print("[character] no skin texture: AO not baked")
+        return
+    sc = bpy.context.scene
+    sc.render.engine = "CYCLES"
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    try:
+        prefs.compute_device_type = "METAL"
+        prefs.get_devices()
+        for d in prefs.devices:
+            d.use = True
+        sc.cycles.device = "GPU"
+    except Exception:
+        sc.cycles.device = "CPU"
+    sc.cycles.samples = 256
+    if sc.world is None:
+        sc.world = bpy.data.worlds.new("AOWorld")
+    sc.world.light_settings.distance = AO_DISTANCE
+    hidden = []
+    for ob in rig.children_recursive:
+        if ob.type == "MESH" and "eyebrow" in ob.name.lower() and not ob.hide_render:
+            ob.hide_render = True
+            hidden.append(ob)
+    w, h = skin.size
+    ao = bpy.data.images.new("ao_bake", w, h, alpha=False)
+    ao.colorspace_settings.name = "Non-Color"
+    ao.generated_color = (1.0, 1.0, 1.0, 1.0)
+    node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+    node.image = ao
+    mat.node_tree.nodes.active = node
+    bpy.ops.object.select_all(action="DESELECT")
+    body.select_set(True)
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.bake(type="AO", margin=8, use_clear=False, target="IMAGE_TEXTURES")
+    mat.node_tree.nodes.remove(node)
+    for ob in hidden:
+        ob.hide_render = False
+    a = np.empty(w * h * 4, dtype=np.float32)
+    ao.pixels.foreach_get(a)
+    occ = a.reshape(-1, 4)[:, 0]
+    px = np.empty(w * h * skin.channels, dtype=np.float32)
+    skin.pixels.foreach_get(px)
+    px = px.reshape(-1, skin.channels)
+    k = 1.0 - AO_STRENGTH * (1.0 - np.clip(occ, 0.0, 1.0)) ** AO_LIFT
+    px[:, :3] *= k[:, None]
+    skin.pixels.foreach_set(px.ravel())
+    skin.update()
+    if os.environ.get("AO_SAVE"):                   # AO_SAVE=<dir>: keep the bake to look at
+        ao.filepath_raw = os.path.join(os.environ["AO_SAVE"], f"ao_{body.parent.name}_{skin.name}.png")
+        ao.file_format = "PNG"
+        ao.save()
+    bpy.data.images.remove(ao)
+    print(f"[character] AO baked into {skin.name}: mean {float(occ.mean()):.3f}, darkest {float(occ.min()):.3f}")
 
 
 def _fix_materials(rig):
@@ -404,14 +511,14 @@ def _shrink_textures(rig, npc=False):
                     continue
                 done.add(img.name)
                 w, h = img.size
-                # faces need the skin at 1K; clothes, hair and normal maps read fine at 512 at play distance;
-                # bystanders (npc) are 512 throughout. Eyes, eyebrows and eyelashes are a few pixels on screen even
-                # on the title's close-up: 256 (at 512 they were 10 MB of the web build across the cast)
-                cap = 512
+                # riders: the skin at its full 2K (the face is a small part of the body's map), clothes, hair and
+                # normal maps at 1K, eyes, brows and lashes at 1K (close-ups on the title and the rider card).
+                # Bystanders (npc) stay at 512, their eyes, brows and lashes 256: they're seen across a level
+                cap = 512 if npc else 1024
                 if "skin" in img.name.lower() and not npc:
                     cap = TEXTURE_MAX
-                if any(k in ob.name.lower() for k in ("eyebrow", "eyelash", "low-poly")):
-                    cap = 256
+                if any(k in ob.name.lower() for k in ("eyebrow", "eyelash", "eyes", "low-poly")):
+                    cap = 256 if npc else 1024
                 if max(w, h) > cap:
                     k = cap / max(w, h)
                     img.scale(max(1, int(w * k)), max(1, int(h * k)))
@@ -428,7 +535,7 @@ def _eyes(rig, eye):
     import numpy as np
     target = np.array(EYE_COLORS.get(eye, EYE_COLORS["brown"]), dtype=np.float32)
     for ob in rig.children_recursive:
-        if ob.type != "MESH" or "low-poly" not in ob.name.lower():
+        if ob.type != "MESH" or not any(k in ob.name.lower() for k in ("eyes", "low-poly", "high-poly")):
             continue
         for m in ob.data.materials:
             if m is None or not m.use_nodes:

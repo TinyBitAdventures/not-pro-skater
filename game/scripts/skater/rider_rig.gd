@@ -326,8 +326,12 @@ static func prepare_character(ch: Node, cull_margin: float) -> void:
 		var m: MeshInstance3D = mi
 		m.extra_cull_margin = cull_margin
 		var nm: String = String(m.name)
-		if nm.contains("eyebrow") or nm.contains("eyelash") or nm.contains("low-poly"):
+		var eyes: bool = nm == "Eyes" or nm.contains("low-poly")
+		if nm.contains("eyebrow") or nm.contains("eyelash") or eyes:
 			m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if eyes:
+			for s in m.mesh.get_surface_count():
+				_eye(m.mesh.surface_get_material(s) as BaseMaterial3D)
 		if not (nm.contains("eyebrow") or nm.contains("eyelash")):     # brows and lashes stay soft
 			for s in m.mesh.get_surface_count():
 				_cutout(m.mesh.surface_get_material(s) as BaseMaterial3D)
@@ -349,6 +353,15 @@ static func _skin(mat: BaseMaterial3D) -> void:
 	mat.rim_tint = 0.65
 	mat.backlight_enabled = true
 	mat.backlight = Color(0.32, 0.12, 0.08)
+
+
+## Eyes are wet: a tight, bright highlight (the sun and the sky's glint) instead of the skin's matte sheen, so
+## they catch the light and read as alive at a distance.
+static func _eye(mat: BaseMaterial3D) -> void:
+	if mat == null or mat.roughness <= 0.1:
+		return
+	mat.roughness = 0.08
+	mat.metallic_specular = 0.75
 
 
 ## Hair arrives alpha-blended (Blender 5 dropped the material setting that exported it as a cutout), which
