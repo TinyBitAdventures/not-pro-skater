@@ -3,7 +3,7 @@ extends Node
 
 const SFX_NAMES: PackedStringArray = [
 	"ollie", "land", "land_hard", "crack", "flip", "grab", "trick", "bail", "bank", "bank_big", "combo_lost", "grind_start",
-	"pickup", "skate_done", "go", "time_up", "ui_ok", "manual",
+	"pickup", "skate_done", "go", "time_up", "ui_ok", "manual", "push",
 ]
 ## Per-sound gain in dB from the Wavelength SFX set (audio/wavelength/levels.json): the files are peak-normalised,
 ## so this equalises how loud each one feels. The SFX bus sits 4.5 dB down to leave room for the boosts.
@@ -30,8 +30,18 @@ const LEVEL_DB: Dictionary = {
 	"roll_grass_loop": -14.0,
 	"roll_wood_loop": -14.5,
 	"grind_loop": -13.0,
+	"push": -7.0,                 # (it comes every stride)
+	"grind_metal_loop": -14.0,    # the surface grinds: RMS-matched to grind_loop, metal measures ~1 dB louder,
+	"grind_concrete_loop": -13.0, # wood ~2 dB softer
+	"grind_wood_loop": -11.0,
+	"wind_loop": -15.0,
 }
-const LOOP_NAMES: PackedStringArray = ["roll_loop", "roll_grass_loop", "roll_wood_loop", "grind_loop"]
+const LOOP_NAMES: PackedStringArray = ["roll_loop", "roll_grass_loop", "roll_wood_loop", "grind_loop",
+	"grind_metal_loop", "grind_concrete_loop", "grind_wood_loop", "wind_loop"]
+const GRIND_LOOPS: Dictionary = {"metal": "grind_metal_loop", "concrete": "grind_concrete_loop", "wood": "grind_wood_loop"}
+## Each level's background sound (Free Skate and its event): the park's birds and breeze unless it's the city,
+## the industrial district or the film lot.
+const AMBIENCE: Dictionary = {"downtown": "city_ambience", "warehouse": "industrial_ambience", "backlot": "studio_ambience"}
 
 var music_on: bool = true
 var _pool: Array[AudioStreamPlayer] = []
@@ -197,11 +207,33 @@ func set_rolling(speed: float, surface: String, on_ground: bool, dt: float) -> v
 		p.pitch_scale = 0.7 + clampf(speed, 0.0, 14.0) * 0.045
 
 
-func set_grinding(active: bool, speed: float, dt: float) -> void:
-	var p: AudioStreamPlayer = _loops["grind_loop"]
-	var want_db: float = float(LEVEL_DB.get("grind_loop", 0.0)) + lerpf(-8.0, 0.0, clampf(speed / 10.0, 0.0, 1.0)) if active else -60.0
-	p.volume_db = lerpf(p.volume_db, want_db, 1.0 - exp(-20.0 * dt))
-	p.pitch_scale = 0.85 + clampf(speed, 0.0, 14.0) * 0.03
+## The grind loop for what's being ground (`material`: metal, concrete, wood; anything else the generic one).
+func set_grinding(active: bool, speed: float, dt: float, material: String = "") -> void:
+	var on: String = String(GRIND_LOOPS.get(material, "grind_loop"))
+	for k in ["grind_loop", "grind_metal_loop", "grind_concrete_loop", "grind_wood_loop"]:
+		var p: AudioStreamPlayer = _loops[k]
+		var want_db: float = -60.0
+		if active and k == on:
+			want_db = float(LEVEL_DB.get(k, 0.0)) + lerpf(-8.0, 0.0, clampf(speed / 10.0, 0.0, 1.0))
+		p.volume_db = lerpf(p.volume_db, want_db, 1.0 - exp(-20.0 * dt))
+		p.pitch_scale = 0.85 + clampf(speed, 0.0, 14.0) * 0.03
+
+
+## Air rushing past: nothing at a cruise, rising from about 6 m/s, a little more in the air.
+func set_wind(speed: float, airborne: bool, dt: float) -> void:
+	var p: AudioStreamPlayer = _loops["wind_loop"]
+	var k: float = clampf((speed - 6.0) / 10.0, 0.0, 1.0) + (0.12 if airborne and speed > 4.0 else 0.0)
+	var want_db: float = -60.0 if k < 0.02 else float(LEVEL_DB["wind_loop"]) + lerpf(-16.0, 0.0, minf(k, 1.0))
+	p.volume_db = lerpf(p.volume_db, want_db, 1.0 - exp(-4.0 * dt))
+	p.pitch_scale = 0.9 + minf(k, 1.0) * 0.25
+
+
+## The ambience for a level (its glTF path).
+static func ambience_for(level_path: String) -> String:
+	for key in AMBIENCE:
+		if level_path.contains(String(key)):
+			return AMBIENCE[key]
+	return "park_ambience"
 
 
 ## Fade the looping theme out (the results jingle takes over).

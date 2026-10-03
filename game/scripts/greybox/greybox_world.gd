@@ -78,7 +78,7 @@ func _ready() -> void:
 	skater.warped.connect(func() -> void:
 		(cam as ChaseCamera).snap_behind()
 		hud.blink())
-	Sound.play_ambience("park_ambience" if look == "real" else "")
+	Sound.play_ambience(Sound.ambience_for(level_path) if look == "real" else "")
 	Sound.play_music(Sound.gameplay_track(_music_theme()))
 
 	var first: String = OS.get_environment("SHOT_START")
@@ -221,7 +221,9 @@ func _process(delta: float) -> void:
 		roll_v = rg.loose.linear_velocity.length()
 		rolling = rg.loose.wheels_down
 	Sound.set_rolling(roll_v, skater.surface, rolling, delta)
-	Sound.set_grinding(skater.state == Skater.State.GRIND and not skater.wallriding, skater.grind_speed, delta)
+	Sound.set_grinding(skater.state == Skater.State.GRIND and not skater.wallriding and skater.lip_kind == "",
+		skater.grind_speed, delta, skater.grind_sound)
+	Sound.set_wind(skater.velocity.length() if skater.state != Skater.State.BAIL else 0.0, skater.state == Skater.State.AIR, delta)
 	if _shot_t >= 0.0:
 		if skater.scripted:
 			if OS.get_environment("FAKIE") != "" and skater.state == Skater.State.GROUND:
@@ -295,6 +297,8 @@ func _on_sfx(kind: String) -> void:
 	match kind:
 		"ollie", "flip", "trick", "grab", "manual", "grind_start":
 			Sound.play(kind)
+		"push":
+			Sound.play(kind, -6.0 if skater.surface == "grass" else 0.0, randf_range(0.94, 1.06))
 		"bail":
 			Sound.play(kind, 0.0, randf_range(0.92, 1.08))
 		"wallride":

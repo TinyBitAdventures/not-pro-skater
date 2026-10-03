@@ -30,6 +30,7 @@ const CAPSULE_H: float = 1.35
 const SNAP_EASE: float = 0.045            # seconds: how fast the drawn rider catches up after a snap
 const EDGE_MARGIN: float = 2.0            # this close to the level's edge the skater is warped back inside
 const SAFE_INSET: float = 6.0             # warp-back spots are remembered at least this far inside the edge
+const PUSH_PLANT: float = 0.18            # stride phase where the pushing foot meets the ground (its sound)
 const EDGE_WARN: float = 16.0             # m (or 2 s away, if further) from an open edge, heading out: turn back
 const AUTO_POP_MAX: float = 1.3           # m: grind pressed on the ground pops onto a ledge or rail up to this high
 const HARD_LANDING: float = 11.5          # m/s into the floor: a heavy landing (a tapped ollie lands on the flat at
@@ -123,6 +124,7 @@ var reverts: int = 0                     # how many reverts (the rig pivots the 
 var _prev_manual: bool = false
 var _magnet_t: float = 0.0               # seconds the air is being steered onto a rail
 var surface: String = "asphalt"
+var grind_sound: String = ""             # what the grind is on, for its sound: "metal", "concrete" or "wood"
 var crouch: float = 0.0
 var lean: float = 0.0
 var push_phase: float = 0.0
@@ -702,6 +704,9 @@ func _ground(dt: float) -> void:
 		var before: float = push_phase
 		push_phase += dt * (tune.push_rate + spd * tune.push_rate_speed)
 		push_anim = fposmod(push_phase, 1.0)
+		# the foot plants about a fifth of the way into a stride (RiderRig._push_stride): the scuff off the ground
+		if striding and fposmod(before, 1.0) < PUSH_PLANT and push_anim >= PUSH_PLANT and floorf(push_phase) == floorf(before):
+			sfx.emit("push")
 		if not striding and floorf(push_phase) > floorf(before):
 			push_anim = -1.0
 			push_phase = floorf(push_phase)
@@ -1591,6 +1596,7 @@ func _start_grind(line: GrindLine, c: Dictionary) -> void:
 		gname = "Tailslide"
 		grind_board_turn = PI * 0.45
 	grind_kind = gname
+	grind_sound = _grind_material(line, c.get("point", global_position))
 	# the balance starts near the middle; coming in across the rail leans it the way the body was going
 	var across: Vector3 = _grind_across(d * grind_dir)
 	var tip: float = clampf(velocity.dot(across) / 5.0, -1.0, 1.0) * tune.grind_entry_tip
@@ -1747,6 +1753,19 @@ func _try_lip() -> bool:
 		_start_lip(line, c, out)
 		return true
 	return false
+
+
+## What a grind sounds like: steel (rails, coping), wood (a bench, a wooden ledge) or concrete (ledges, curbs),
+## from what's under the line.
+func _grind_material(line: GrindLine, at: Vector3) -> String:
+	var hit: Dictionary = _ray(at + Vector3.UP * 0.1, at + Vector3.DOWN * 0.4)
+	var col: Object = hit.get("collider") if not hit.is_empty() else null
+	var sname: String = String(col.get_meta("surface", "")) if col != null else ""
+	if sname == "wood":
+		return "wood"
+	if sname == "metal" or line.kind == "rail" or line.kind == "coping":
+		return "metal"
+	return "concrete"
 
 
 func _start_lip(line: GrindLine, c: Dictionary, out: Vector3) -> void:
