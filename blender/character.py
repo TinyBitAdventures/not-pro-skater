@@ -250,7 +250,7 @@ ARCHETYPES = {
         "eyelashes": "eyelashes01",
         "hair": "short04",                      # slicked back, CC0 (culturalibre_hair_05 was a chunky sculpt next to real faces)
         "clothes": ["male_casualsuit03", "shoes03"],
-        "tint": {"culturalibre_hair_05": "#2b2521"},        # near black, as before
+        "tint": {"Hair": "#2b2521"},                         # near black, as before
     },
 }
 
@@ -324,6 +324,7 @@ def build(key):
     # bake shape keys and the "hidden under clothes" masks into real geometry, drop helper geometry
     es.bake_modifiers_remove_helpers(basemesh, bake_masks=True, bake_subdiv=False, remove_helpers=True)
     rig = basemesh.parent
+    _layer_clothes(rig)
     _drop_cornea(rig)
     _fix_materials(rig)
     _bake_ao(rig, basemesh)
@@ -351,6 +352,148 @@ def build(key):
 
 
 CUTOUT = ("eyebrow", "eyelash", "hair", "short", "long", "bob", "ponytail", "afro", "braid")
+TOPS = ("shirt", "sweater")
+BOTTOMS = ("pants", "jeans", "shorts")
+LAYER_GAP = 0.015         # m: how far the covered part of a garment sits under the one over it
+LAYER_BLEND = 0.05        # m under the edge (a hem, a waistband) over which it takes on the outer one's weights
+
+
+def _layer_clothes(rig):
+    """Where one garment covers another (a shirt over trousers, or tucked into them) the covered part goes ~1 cm
+    under the outer one and takes the outer one's skin weights. MPFB fits each garment on its own, with weights
+    from the nearest body vertices: the Dad's khakis came through his polo at the small of the back even standing
+    (12 mm) and by several cm with the hips bent in the riding crouch. Same weights, same bend: they stay under."""
+    from mathutils.bvhtree import BVHTree
+    meshes = [ob for ob in rig.children_recursive if ob.type == "MESH"]
+    tops = [ob for ob in meshes if any(k in ob.name for k in TOPS)]
+    bottoms = [ob for ob in meshes if any(k in ob.name for k in BOTTOMS)]
+    for top in tops:
+        for bottom in bottoms:
+            hem = _edge_loop(top, lowest=True)
+            bt = BVHTree.FromPolygons([bottom.matrix_world @ v.co for v in bottom.data.vertices],
+                                      [tuple(p.vertices) for p in bottom.data.polygons])
+            out, near = 0, 0
+            for p in hem:
+                q, n, _, _ = bt.find_nearest(p, 0.08)
+                if q is not None:
+                    near += 1
+                    out += 1 if (p - q).dot(n) > 0.0 else -1
+            if near == 0:
+                continue                                # they don't meet (a crop top over low shorts)
+            # a shirt worn out has its hem outside the trousers (they're covered above it); a tucked one has it
+            # inside them (and is covered below their waistband)
+            outer, inner, edge, above = (top, bottom, hem, True) if out >= 0 else \
+                (bottom, top, _edge_loop(bottom, lowest=False), False)
+            _tuck(outer, inner, edge, above)
+
+
+def _edge_loop(ob, lowest):
+    """Where a garment ends round the body, as world points: its lowest point (a hem) or highest (a waistband) in each
+    of 32 directions from its middle, the torso only (not the sleeves), each the lowest (highest) of its own and its
+    neighbours' (one may hold no hem vertex). Not its open edges: the polo's hem is turned up inside, so its open edge
+    runs 2 cm above the crease that shows (the khakis between them came through)."""
+    import math
+    pts = [ob.matrix_world @ v.co for v in ob.data.vertices]
+    cx = sum(p.x for p in pts) / len(pts)
+    cy = sum(p.y for p in pts) / len(pts)
+    bins = 32
+    best = {}
+    for p in pts:
+        if math.hypot(p.x - cx, p.y - cy) > 0.3:
+            continue
+        k = int((math.atan2(p.y - cy, p.x - cx) + math.pi) / math.tau * bins) % bins
+        if k not in best or (p.z < best[k].z if lowest else p.z > best[k].z):
+            best[k] = p
+    pick = min if lowest else max
+    out = []
+    for k, p in best.items():
+        z = pick(best[j].z for j in ((k - 1) % bins, k, (k + 1) % bins) if j in best)
+        out.append(p.copy())
+        out[-1].z = z
+    return out
+
+
+def _tuck(outer, inner, edge, above):
+    """`inner`'s vertices covered by `outer` (past its `edge`: above a hem, below a waistband) move to at least
+    LAYER_GAP under it, and over the overlap both garments share one set of weights: the inner one's at the edge (a
+    polo's hem rides out over the seat of the trousers as the hips bend) easing to the outer one's LAYER_BLEND in,
+    the covered vertices taking exactly the outer garment's over them (four influences each, chosen alike)."""
+    import math
+    import numpy as np
+    from mathutils.bvhtree import BVHTree
+    cx = sum(p.x for p in edge) / len(edge)
+    cy = sum(p.y for p in edge) / len(edge)
+    ring = sorted((math.atan2(p.y - cy, p.x - cx), p.z) for p in edge)
+    az = np.array([a for a, _ in ring])
+    ez = np.array([z for _, z in ring])
+
+    def depth(w):                               # how far past the edge, on the covered side
+        z = float(np.interp(math.atan2(w.y - cy, w.x - cx), az, ez, period=math.tau))
+        return (w.z - z) * (1.0 if above else -1.0)
+
+    def ease(d):
+        k = min(max(d / LAYER_BLEND, 0.0), 1.0)
+        return k * k * (3.0 - 2.0 * k)
+
+    def surface(ob):
+        pts = [ob.matrix_world @ v.co for v in ob.data.vertices]
+        polys = [tuple(p.vertices) for p in ob.data.polygons]
+        names = [g.name for g in ob.vertex_groups]
+        weights = [{names[g.group]: g.weight for g in v.groups if g.weight > 0.0} for v in ob.data.vertices]
+        return pts, polys, weights, BVHTree.FromPolygons(pts, polys)
+
+    def weights_at(srf, q, fi):                 # a garment's weights at a point on its face fi (by nearness)
+        pts, polys, weights, _ = srf
+        near = [1.0 / ((pts[c] - q).length + 1e-4) for c in polys[fi]]
+        tot = sum(near)
+        mix = {}
+        for c, f in zip(polys[fi], near):
+            for nm, gw in weights[c].items():
+                mix[nm] = mix.get(nm, 0.0) + gw * f / tot
+        return mix
+
+    def blend(a, b, k):
+        new = {nm: a.get(nm, 0.0) * (1.0 - k) + b.get(nm, 0.0) * k for nm in set(a) | set(b)}
+        return top4(new)
+
+    def top4(w):                                # glTF keeps 4 influences: choose them here, the same way for both
+        keep = sorted(w.items(), key=lambda kv: -kv[1])[:4]
+        tot = sum(x for _, x in keep) or 1.0
+        return {nm: x / tot for nm, x in keep if x > 0.0}
+
+    def write(ob, i, new):
+        v = ob.data.vertices[i]
+        own = {ob.vertex_groups[g.group].name for g in v.groups}
+        for nm in own - set(new):
+            ob.vertex_groups[nm].remove([i])
+        for nm, gw in new.items():
+            (ob.vertex_groups.get(nm) or ob.vertex_groups.new(name=nm)).add([i], gw, "REPLACE")
+
+    so, si = surface(outer), surface(inner)
+    # the outer garment's edge first: the inner one's weights at the edge, its own LAYER_BLEND in
+    edge_n = 0
+    for i, w in enumerate(so[0]):
+        q, _, fi, _ = si[3].find_nearest(w, 0.06)
+        d = depth(w) if q is not None else -1.0
+        if d < 0.0 or d >= LAYER_BLEND:
+            continue
+        so[2][i] = blend(weights_at(si, q, fi), so[2][i], ease(d))
+        write(outer, i, so[2][i])
+        edge_n += 1
+    # then what it covers: exactly its weights where it lies over it, and tucked LAYER_GAP under it (less at the edge)
+    moved = 0
+    for i, w in enumerate(si[0]):
+        q, n, fi, _ = so[3].find_nearest(w, 0.06)
+        d = depth(w) if q is not None else 0.0
+        if d <= 0.0:
+            continue
+        gap = LAYER_GAP * (0.35 + 0.65 * ease(d))
+        s = (w - q).dot(n)
+        if s > -gap:
+            inner.data.vertices[i].co = inner.matrix_world.inverted() @ (w - n * (s + gap))
+            moved += 1
+        write(inner, i, top4(weights_at(so, q, fi)))
+    print(f"[character] {inner.name} under {outer.name}: {moved} verts tucked in, {edge_n} of its edge reweighted")
 
 
 def _drop_cornea(rig):
